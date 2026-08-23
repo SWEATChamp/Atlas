@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
+import { daysUntilDate } from '@/lib/date'
 import type { Subject, UserSubject, Chapter, UserChapter } from '@/types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -74,12 +75,6 @@ function computeReadiness(
   return Math.round(notesScore * 0.35 + paperAccuracy * 0.4 + confidenceScore * 0.25)
 }
 
-function daysUntil(dateStr: string | null): number | null {
-  if (!dateStr) return null
-  const diff = new Date(dateStr).getTime() - Date.now()
-  return Math.ceil(diff / (1000 * 60 * 60 * 24))
-}
-
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
 /**
@@ -93,12 +88,22 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
   if (!user) return []
 
   // 1. Enrolled subjects
-  const { data: enrollments } = await supabase
-    .from('user_subjects')
-    .select('*, subjects(*)')
-    .eq('user_id', user.id)
-    .eq('is_archived', false)
-    .order('priority')
+  const [enrollmentsResult, profileResult] = await Promise.all([
+    supabase
+      .from('user_subjects')
+      .select('*, subjects(*)')
+      .eq('user_id', user.id)
+      .eq('is_archived', false)
+      .order('priority'),
+    supabase
+      .from('profiles')
+      .select('timezone')
+      .eq('id', user.id)
+      .single(),
+  ])
+
+  const enrollments = enrollmentsResult.data
+  const timeZone = profileResult.data?.timezone ?? 'UTC'
 
   if (!enrollments?.length) return []
 
@@ -183,7 +188,7 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
       avgConfidence,
       paperAccuracy,
       readiness,
-      daysUntilExam: daysUntil(enrollment.exam_date),
+      daysUntilExam: daysUntilDate(enrollment.exam_date, timeZone),
     }
   })
 }
@@ -200,22 +205,31 @@ export async function getSubjectDetail(
   } = await supabase.auth.getUser()
   if (!user) return null
 
-  // Subject info
-  const { data: subject } = await supabase
-    .from('subjects')
-    .select('*')
-    .eq('id', subjectId)
-    .single()
+  const [subjectResult, enrollmentResult, profileResult] = await Promise.all([
+    supabase
+      .from('subjects')
+      .select('*')
+      .eq('id', subjectId)
+      .single(),
+    supabase
+      .from('user_subjects')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('subject_id', subjectId)
+      .single(),
+    supabase
+      .from('profiles')
+      .select('timezone')
+      .eq('id', user.id)
+      .single(),
+  ])
+
+  const subject = subjectResult.data
   if (!subject) return null
 
-  // Enrollment
-  const { data: enrollment } = await supabase
-    .from('user_subjects')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('subject_id', subjectId)
-    .single()
+  const enrollment = enrollmentResult.data
   if (!enrollment) return null
+  const timeZone = profileResult.data?.timezone ?? 'UTC'
 
   // All chapters for this subject
   const { data: chapters } = await supabase
@@ -234,7 +248,7 @@ export async function getSubjectDetail(
       inProgressChapters: 0,
       avgConfidence: null,
       readiness: 0,
-      daysUntilExam: daysUntil(enrollment.exam_date),
+      daysUntilExam: daysUntilDate(enrollment.exam_date, timeZone),
     }
   }
 
@@ -319,7 +333,7 @@ export async function getSubjectDetail(
     inProgressChapters,
     avgConfidence,
     readiness,
-    daysUntilExam: daysUntil(enrollment.exam_date),
+    daysUntilExam: daysUntilDate(enrollment.exam_date, timeZone),
   }
 }
 

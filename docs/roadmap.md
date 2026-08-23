@@ -8,8 +8,10 @@
 | Authentication and onboarding | Built; verification passed |
 | Subjects and chapters | Built; basic verification passed |
 | Past papers | Built; logging verification passed |
-| Mission engine | Built but blocked by a date-calculation error |
-| Gamification | Partly built |
+| Mission engine | Built; generation and completion verified |
+| Gamification | Built; XP, streak, and achievement award flow verified |
+| Timezone handling | Complete; application and database verification passed |
+| Core safety tests | Complete; all three tests passed |
 | Google Docs integration | Not started |
 
 ## Phase 0: Foundation (Complete)
@@ -47,10 +49,11 @@
 - Progress vs. Target data visualization
 
 ## Phase 4: Mission Engine & Dashboard
-- Implement `generate_daily_missions` algorithm
-- Mission Control dashboard view
-- Daily task execution flow
-- Fix the exam-date calculation error found during mission-generation verification
+- [x] Implement `generate_daily_missions` algorithm
+- [x] Mission Control dashboard view
+- [x] Daily task execution flow
+- [x] Fix the exam-date calculation error found during mission-generation verification
+- [x] Use each user's local day for missions, streaks, achievements, countdowns, and exam archiving
 
 ## Phase 5: Gamification
 - XP awards, Levelling system

@@ -17,11 +17,13 @@ export default async function PastPapersPage(props: {
   const activeSubjectId = sp.subject || null
 
   // ── Parallel fetch — all three run at the same time ──────────────────────
-  const [userSubjectsData, papers, chapterAccuracy] = await Promise.all([
+  const [userSubjectsData, papers, chapterAccuracy, profileResult] = await Promise.all([
     supabase.from('user_subjects').select('subjects(id, name, color_hex)').eq('user_id', user.id),
     activeSubjectId ? getPapersForSubject(activeSubjectId) : getAllPapersWithSubjects(),
     activeSubjectId ? getChapterAccuracy(activeSubjectId) : Promise.resolve([]),
+    supabase.from('profiles').select('timezone').eq('id', user.id).single(),
   ])
+  const timeZone = profileResult.data?.timezone ?? 'UTC'
 
   const subjects = (userSubjectsData.data || [])
     .map((d: any) => d.subjects)
@@ -45,7 +47,7 @@ export default async function PastPapersPage(props: {
             Track your paper attempts and spot weak chapters
           </p>
         </div>
-        <LogPaperButton />
+        <LogPaperButton timeZone={timeZone} />
       </div>
 
       {/* Subject filter tabs */}
@@ -88,7 +90,7 @@ export default async function PastPapersPage(props: {
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
             <h3 className="text-heading-3" style={{ margin: 0 }}>Attempts</h3>
-            {papers.map(p => <PaperCard key={p.id} paper={p} />)}
+            {papers.map(p => <PaperCard key={p.id} paper={p} timeZone={timeZone} />)}
             {papers.length === 0 && (
               <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--text-muted)' }}>
                 No papers logged for this subject yet.
@@ -118,7 +120,7 @@ export default async function PastPapersPage(props: {
           )}
           <h3 className="text-heading-3" style={{ margin: '0 0 var(--space-4) 0' }}>All Attempts</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-            {papers.map(p => <PaperCard key={p.id} paper={p} />)}
+            {papers.map(p => <PaperCard key={p.id} paper={p} timeZone={timeZone} />)}
             {papers.length === 0 && (
               <div className="card" style={{ padding: 'var(--space-12)', textAlign: 'center', color: 'var(--text-muted)' }}>
                 <div style={{ fontSize: '2rem', marginBottom: 8 }}>📄</div>

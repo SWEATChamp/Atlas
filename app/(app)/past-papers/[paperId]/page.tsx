@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Clock, Calendar, BookOpen, Target, FileText } from 'lucide-react'
 import { getPaperDetail } from '@/lib/actions/papers'
+import { formatDateOnly } from '@/lib/date'
 
 export default async function PaperDetailPage(props: {
   params: Promise<{ paperId: string }>
@@ -17,8 +18,11 @@ export default async function PaperDetailPage(props: {
     a.question_number.localeCompare(b.question_number, undefined, { numeric: true })
   )
 
-  const date = new Date(paper.attempted_at + 'T00:00:00')
-    .toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  const date = formatDateOnly(paper.attempted_at, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
 
   // Group questions by chapter component for the sidebar stats
   const componentMap = new Map<string, { obtained: number; available: number }>()

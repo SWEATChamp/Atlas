@@ -23,6 +23,13 @@ All tables use Row Level Security (RLS). The fundamental rule is: users can only
 ## Functions & Triggers
 Business logic is implemented as PostgreSQL functions (`complete_mission`, `award_xp`, `generate_daily_missions`, `compute_readiness_score`) operating with `SECURITY DEFINER` context. Triggers automate denormalization (`sync_xp_after_event`), updated timestamps (`set_updated_at`), and new user profile generation (`handle_new_user`).
 
+## Timezone Rules
+
+- `profiles.timezone` stores a browser-detected IANA timezone such as `Asia/Singapore`.
+- Missing or invalid timezones fall back to `UTC`.
+- `get_user_local_date(user_id)` is the shared date source for missions, streaks, daily achievements, dashboard data, and automatic exam archiving.
+- Calendar-only values such as exam dates and paper attempt dates remain PostgreSQL `DATE` values and are not shifted between timezones.
+
 ## Future Expansion
 Stubs for future features are included, such as: `friendships`, `pvp_challenges`, `study_pets`, `ai_coach_conversations`, `user_currencies`, and `shop_items`.
 

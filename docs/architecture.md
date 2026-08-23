@@ -18,6 +18,10 @@ Atlas is a production-grade web application built to serve as a Revision Operati
 The data flow follows a robust modern architecture:
 Client (React Components) → React Query / Next.js Server Actions → Supabase Client → PostgreSQL (Row Level Security protected).
 
+## Timezone Handling
+
+The app detects the browser's IANA timezone during onboarding and when a signed-in user opens the app. PostgreSQL uses that saved timezone to decide the user's current calendar date. Daily missions, streaks, daily achievements, exam countdowns, and automatic exam archiving therefore change at the user's midnight rather than the database server's midnight. Invalid or missing values fall back to UTC.
+
 ## Authentication Flow
 Atlas utilizes Supabase Auth combined with Google OAuth. This dual approach allows standard email login and provides the necessary SSO integration for the Google Docs synchronization feature.
 

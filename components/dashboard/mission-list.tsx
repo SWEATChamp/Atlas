@@ -42,6 +42,11 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
       levelTitle: result.level_title,
     }])
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toastId)), 2800)
+
+    // Refresh the Server Components that own the dashboard summary, XP, level,
+    // and streak. The action revalidates /dashboard; this fetches that fresh data
+    // while preserving this component's optimistic mission state and toast.
+    router.refresh()
   }
 
   const handleGenerate = async () => {

@@ -12,6 +12,7 @@ import {
   Label,
 } from 'recharts'
 import type { PaperWithSubject } from '@/types'
+import { formatDateOnly } from '@/lib/date'
 
 interface ScoreTrendChartProps {
   papers: PaperWithSubject[]
@@ -19,7 +20,7 @@ interface ScoreTrendChartProps {
 }
 
 const fmt = (d: string) =>
-  new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })
+  formatDateOnly(d, { day: 'numeric', month: 'short', year: '2-digit' })
 
 export function ScoreTrendChart({ papers, activeSubjectId }: ScoreTrendChartProps) {
   if (!papers || papers.length === 0) {
@@ -30,7 +31,7 @@ export function ScoreTrendChart({ papers, activeSubjectId }: ScoreTrendChartProp
     )
   }
 
-  const sorted = [...papers].sort((a, b) => new Date(a.attempted_at).getTime() - new Date(b.attempted_at).getTime())
+  const sorted = [...papers].sort((a, b) => a.attempted_at.localeCompare(b.attempted_at))
   const avg = sorted.reduce((s, p) => s + Number(p.accuracy_pct), 0) / sorted.length
 
   const CustomTooltip = ({ active, payload }: any) => {

@@ -7,8 +7,9 @@ import { useRouter } from 'next/navigation'
 import type { PaperWithSubject } from '@/types'
 import { deletePaper } from '@/lib/actions/papers'
 import { LogPaperModal } from '@/components/papers/log-paper-modal'
+import { formatDateOnly } from '@/lib/date'
 
-export function PaperCard({ paper }: { paper: PaperWithSubject }) {
+export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZone: string }) {
   const router = useRouter()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isDeleting,    setIsDeleting]    = useState(false)
@@ -31,8 +32,11 @@ export function PaperCard({ paper }: { paper: PaperWithSubject }) {
     await deletePaper(paper.id)
   }
 
-  const date = new Date(paper.attempted_at + 'T00:00:00')
-    .toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })
+  const date = formatDateOnly(paper.attempted_at, {
+    day: 'numeric',
+    month: 'short',
+    year: '2-digit',
+  })
 
   return (
     <>
@@ -130,6 +134,7 @@ export function PaperCard({ paper }: { paper: PaperWithSubject }) {
       <AnimatePresence>
         {editOpen && (
           <LogPaperModal
+            timeZone={timeZone}
             existingPaperId={paper.id}
             existingPaper={{
               subjectId: paper.subject_id,

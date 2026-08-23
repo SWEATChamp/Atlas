@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { signOut } from '@/lib/supabase/actions'
 import NavLink from '@/components/nav-link'
+import TimezoneSync from '@/components/timezone-sync'
 
 const NAV_ITEMS = [
   { href: '/dashboard',   label: 'Dashboard'   },
@@ -28,7 +29,7 @@ export default async function AppLayout({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name, avatar_url, username, onboarding_completed')
+    .select('full_name, avatar_url, username, onboarding_completed, timezone')
     .eq('id', user.id)
     .single()
 
@@ -44,6 +45,8 @@ export default async function AppLayout({
         color: 'var(--text-primary)',
       }}
     >
+      <TimezoneSync initialTimezone={profile.timezone ?? 'UTC'} />
+
       {/* ── Sticky header ──────────────────────────────────────────────── */}
       <header
         style={{

@@ -7,6 +7,7 @@ import {
   SubjectEnrollSchema,
   ExamDateSchema,
 } from '@/lib/validators/onboarding'
+import { isValidTimeZone } from '@/lib/date'
 
 // ─── Step 1: Set Username ─────────────────────────────────────────────────────
 
@@ -127,14 +128,21 @@ export async function setExamDates(
 
 // ─── Complete Onboarding ──────────────────────────────────────────────────────
 
-export async function completeOnboarding(): Promise<void> {
+export async function completeOnboarding(timeZone?: string): Promise<void> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  const profileUpdate: { onboarding_completed: boolean; timezone?: string } = {
+    onboarding_completed: true,
+  }
+  if (isValidTimeZone(timeZone) && timeZone.length <= 100) {
+    profileUpdate.timezone = timeZone
+  }
+
   await supabase
     .from('profiles')
-    .update({ onboarding_completed: true })
+    .update(profileUpdate)
     .eq('id', user.id)
 
   // Also create default user_settings row if not present

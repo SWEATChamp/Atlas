@@ -205,7 +205,8 @@ export default function ExamDatesStep({ subjectIds }: { subjectIds: string[] }) 
       setSubmitting(false)
       return
     }
-    await completeOnboarding() // redirects internally
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    await completeOnboarding(timeZone) // redirects internally
   }
 
   const allSelected = Object.values(entries).every((e) => e.examDate)

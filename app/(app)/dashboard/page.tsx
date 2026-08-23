@@ -3,9 +3,10 @@ import { getDashboardData } from '@/lib/actions/dashboard'
 import MissionList           from '@/components/dashboard/mission-list'
 import XpLevelBar            from '@/components/dashboard/xp-level-bar'
 import SubjectReadinessList  from '@/components/dashboard/subject-readiness-list'
+import { dateInTimeZone, hourInTimeZone } from '@/lib/date'
 
-function greeting(): string {
-  const h = new Date().getUTCHours() + 8 // rough SGT offset
+function greeting(timeZone: string): string {
+  const h = hourInTimeZone(new Date(), timeZone)
   if (h >= 5  && h < 12) return 'Good morning'
   if (h >= 12 && h < 17) return 'Good afternoon'
   if (h >= 17 && h < 21) return 'Good evening'
@@ -35,7 +36,8 @@ export default async function DashboardPage() {
   const firstName = profile.full_name?.split(' ')[0] ?? 'there'
   const completedToday = today_missions.filter(m => m.status === 'completed').length
   const totalMissions  = today_missions.length
-  const streakActive   = streak.last_date === new Date().toISOString().split('T')[0]
+  const localToday     = dateInTimeZone(new Date(), profile.timezone)
+  const streakActive   = streak.active_today ?? streak.last_date === localToday
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 920 }}>
@@ -54,7 +56,7 @@ export default async function DashboardPage() {
       }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.025em', fontFamily: 'var(--font-display)' }}>
-            {greeting()}, {firstName}! 👋
+            {greeting(profile.timezone)}, {firstName}! 👋
           </h1>
           <p style={{ margin: '4px 0 0', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
             {totalMissions > 0

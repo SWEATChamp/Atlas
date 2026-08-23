@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Plus, Trash2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { logPaper, updatePaper, LogPaperInput, QuestionInput } from '@/lib/actions/papers'
+import { dateInTimeZone } from '@/lib/date'
 
 // ── CAIE paper number → component name(s) ─────────────────────────────────
 // Maps subject code → paper number → component names in chapters table.
@@ -42,17 +43,17 @@ const PAPER_COMPONENT_MAP: Record<string, Record<number, string[]>> = {
 //   Feb/Mar → sat Mar, available from month >= 3
 //   May/Jun → sat Jun, available from month >= 6
 //   Oct/Nov → sat Nov, available from month >= 10
-const TODAY = new Date()
-const CURRENT_YEAR = TODAY.getFullYear()
-const CURRENT_MONTH = TODAY.getMonth() + 1 // 1-indexed
-
-function getAvailableSessions(year: number): ('feb_mar' | 'may_jun' | 'oct_nov')[] {
-  if (year < CURRENT_YEAR) return ['feb_mar', 'may_jun', 'oct_nov']
-  if (year > CURRENT_YEAR) return []
+function getAvailableSessions(
+  year: number,
+  currentYear: number,
+  currentMonth: number
+): ('feb_mar' | 'may_jun' | 'oct_nov')[] {
+  if (year < currentYear) return ['feb_mar', 'may_jun', 'oct_nov']
+  if (year > currentYear) return []
   const sessions: ('feb_mar' | 'may_jun' | 'oct_nov')[] = []
-  if (CURRENT_MONTH >= 3)  sessions.push('feb_mar')
-  if (CURRENT_MONTH >= 6)  sessions.push('may_jun')
-  if (CURRENT_MONTH >= 10) sessions.push('oct_nov')
+  if (currentMonth >= 3)  sessions.push('feb_mar')
+  if (currentMonth >= 6)  sessions.push('may_jun')
+  if (currentMonth >= 10) sessions.push('oct_nov')
   return sessions
 }
 
@@ -63,7 +64,13 @@ const SESSION_LABELS: Record<string, string> = {
 }
 
 // ── Trigger button ─────────────────────────────────────────────────────────
-export function LogPaperButton({ onSuccess }: { onSuccess?: () => void }) {
+export function LogPaperButton({
+  onSuccess,
+  timeZone,
+}: {
+  onSuccess?: () => void
+  timeZone: string
+}) {
   const [isOpen, setIsOpen] = useState(false)
   return (
     <>
@@ -71,6 +78,7 @@ export function LogPaperButton({ onSuccess }: { onSuccess?: () => void }) {
       <AnimatePresence>
         {isOpen && (
           <LogPaperModal
+            timeZone={timeZone}
             onSuccess={() => { setIsOpen(false); onSuccess?.() }}
             onClose={() => setIsOpen(false)}
           />
@@ -86,10 +94,12 @@ export function LogPaperModal({
   onClose,
   existingPaperId,
   existingPaper,
+  timeZone,
 }: {
   onSuccess?: () => void
   onClose: () => void
   existingPaperId?: string
+  timeZone: string
   existingPaper?: {
     subjectId: string
     year: number
@@ -103,6 +113,9 @@ export function LogPaperModal({
 }) {
   const isEditing = !!existingPaperId
   const supabase = createClient()
+  const localToday = dateInTimeZone(new Date(), timeZone)
+  const currentYear = Number(localToday.slice(0, 4))
+  const currentMonth = Number(localToday.slice(5, 7))
 
   const [step, setStep]             = useState<1 | 2 | 3>(1)
   const [loading, setLoading]       = useState(false)
@@ -111,16 +124,16 @@ export function LogPaperModal({
   const [chapters, setChapters]     = useState<any[]>([])
 
   const initialSession: 'feb_mar' | 'may_jun' | 'oct_nov' = existingPaper?.session ?? (() => {
-    const avail = getAvailableSessions(CURRENT_YEAR)
+    const avail = getAvailableSessions(currentYear, currentYear, currentMonth)
     return avail[avail.length - 1] ?? 'may_jun'
   })()
 
   const [subjectId,   setSubjectId]   = useState(existingPaper?.subjectId   ?? '')
   const [paperNumber, setPaperNumber] = useState(existingPaper?.paperNumber  ?? 1)
   const [variant,     setVariant]     = useState(existingPaper?.variant      ?? 1)
-  const [year,        setYear]        = useState(existingPaper?.year         ?? CURRENT_YEAR)
+  const [year,        setYear]        = useState(existingPaper?.year         ?? currentYear)
   const [session,     setSession]     = useState<'feb_mar' | 'may_jun' | 'oct_nov'>(initialSession)
-  const [attemptedAt, setAttemptedAt] = useState(existingPaper?.attemptedAt ?? TODAY.toISOString().split('T')[0])
+  const [attemptedAt, setAttemptedAt] = useState(existingPaper?.attemptedAt ?? localToday)
   const [timeTaken,   setTimeTaken]   = useState(existingPaper?.timeTakenMins ? String(existingPaper.timeTakenMins) : '')
   const [notes,       setNotes]       = useState(existingPaper?.notes ?? '')
   const [questions,       setQuestions]       = useState<QuestionInput[]>(
@@ -196,7 +209,10 @@ export function LogPaperModal({
   }, [chapters, activeSubject, paperNumber])
 
   // Session availability based on year
-  const availableSessions = useMemo(() => getAvailableSessions(year), [year])
+  const availableSessions = useMemo(
+    () => getAvailableSessions(year, currentYear, currentMonth),
+    [year, currentYear, currentMonth]
+  )
 
   // Auto-correct session when year changes to a year that doesn't support current session
   useEffect(() => {
@@ -327,9 +343,9 @@ export function LogPaperModal({
               <div>
                 <label style={{ display: 'block', marginBottom: 6, fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Year</label>
                 <input type="number" className="input" value={year}
-                  min={1990} max={CURRENT_YEAR}
+                  min={1990} max={currentYear}
                   onChange={e => {
-                    const v = Math.min(parseInt(e.target.value) || CURRENT_YEAR, CURRENT_YEAR)
+                    const v = Math.min(parseInt(e.target.value) || currentYear, currentYear)
                     setYear(v)
                   }}
                   style={{ width: '100%' }}
@@ -371,7 +387,7 @@ export function LogPaperModal({
               <div>
                 <label style={{ display: 'block', marginBottom: 6, fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Date Attempted</label>
                 <input type="date" className="input" value={attemptedAt}
-                  max={TODAY.toISOString().split('T')[0]}
+                  max={localToday}
                   onChange={e => setAttemptedAt(e.target.value)} style={{ width: '100%' }} />
               </div>
               <div>

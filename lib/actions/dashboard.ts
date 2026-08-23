@@ -39,11 +39,13 @@ export interface DashboardData {
     total_xp: number
     current_level: number
     level_title: string
+    timezone: string
   }
   streak: {
     current: number
     longest: number
     last_date: string | null
+    active_today: boolean
   }
   overall_readiness: number
   has_exam_dates: boolean
