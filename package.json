@@ -1,0 +1,39 @@
+{
+  "name": "a-level-atlas",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A-Level Atlas is a mission-driven revision dashboard for Cambridge International AS & A Level students, combining syllabus progress, confidence, past-paper performance, daily study missions, readiness, XP, and study streaks in one place.",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.3",
+    "@supabase/supabase-js": "^2.110.9",
+    "@tanstack/react-query": "^5.101.4",
+    "framer-motion": "^12.42.2",
+    "lucide-react": "^1.27.0",
+    "next": "16.2.12",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-hook-form": "^7.83.0",
+    "recharts": "^3.10.1",
+    "zod": "^4.4.3",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.12",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
