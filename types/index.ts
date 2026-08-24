@@ -1,4 +1,7 @@
 export * from './database'
+// Re-export PastPaper under an alias so interfaces below can extend it.
+// (import() expressions are not valid in extends clauses.)
+import type { PastPaper as _PastPaper } from './database'
 
 // App-level types not tied to DB rows
 
@@ -24,22 +27,9 @@ export interface ToastMessage {
   durationMs?: number
 }
 
-export interface PastPaper {
-  id: string
-  user_id: string
-  subject_id: string
-  paper_code: string
-  year: number
-  session: 'feb_mar' | 'may_jun' | 'oct_nov'
-  paper_number: number
-  attempted_at: string
-  score_raw: number
-  score_max: number
-  accuracy_pct: number
-  time_taken_mins: number | null
-  notes: string | null
-  created_at: string
-}
+// PastPaper is re-exported from database.ts via export * above.
+// The canonical definition includes stage: PaperStage | null and
+// paper_number: number | null, matching the actual database schema.
 
 export interface PaperQuestion {
   id: string
@@ -50,11 +40,11 @@ export interface PaperQuestion {
   marks_obtained: number
 }
 
-export interface PaperWithSubject extends PastPaper {
+export interface PaperWithSubject extends _PastPaper {
   subjects: { name: string; color_hex: string; code: string }
 }
 
-export interface PaperWithQuestions extends PastPaper {
+export interface PaperWithQuestions extends _PastPaper {
   subjects: { name: string; color_hex: string; code: string }
   paper_question_attempts: (PaperQuestion & { chapters: { title: string; component: string | null } | null })[]
 }

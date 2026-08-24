@@ -31,16 +31,29 @@
 
 ## Phase 2.5: Study Routes & Readiness Correction
 
-- Add a per-subject route: AS only, staged A Level, or full A Level
-- Tag chapters, components, and papers as AS, A2, or shared
-- Persist each subject's selected paper combination
-- Use the selected route and paper combination in readiness calculations
-- Replace the separate application and database calculations with one shared calculation
-- Show separate AS readiness and A2 readiness
-- Add an overall A-Level projection separate from readiness
-- Ask staged students for expected, forecast, or actual AS scores before the normal A2 transition
-- Keep manual A2 unlocking available with a warning
-- Complete this phase before expanding analytics or relying on Mission Engine recommendations
+### Database Foundation (Prepared, pending application — Migration 020)
+- [x] Add `study_route` column to `user_subjects` (`unconfirmed`, `as_only`, `staged`, `full_level`)
+- [x] Add `current_stage` column to `user_subjects` with route↔stage consistency constraint
+- [x] Add `a2_unlocked_at` and `a2_unlock_method` with pair-consistency and staged-A2 constraints
+- [x] Add `stage` column to `chapters` (`as`, `a2`, `shared`, `route_dependent`); backfill confirmed & route-dependent mappings for Maths/Physics/Chemistry
+- [x] Add `stage` column to `past_papers` (CHECK excludes `'full'`)
+- [x] Create `subject_paper_selections` table (structured, one row per component; no `user_id`)
+- [x] Create `subject_stage_results` table with required series/year, score constraint, carry-forward AS-only constraint, and dedup UNIQUE
+- [x] RLS on both new tables via `user_subjects` join (no `user_id` column in either table)
+- [x] Rollback-only database tests covering positive/negative RLS, stage restrictions, duplicates, score validation, carry-forward rules, and unlock consistency
+- [x] TypeScript types updated in `database.ts` and `index.ts`
+
+### Pending (UI and logic work)
+- [ ] UI: route selection prompt for existing (unconfirmed) and new enrolments
+- [ ] UI: paper combination selector per enrolled subject (reads `subject_paper_selections`)
+- [ ] UI: result entry form for expected, forecast, and actual results
+- [ ] Access filtering: chapters and missions filtered by `current_stage` and `study_route`
+- [ ] Readiness: update `compute_readiness_score` to accept stage and selected paper combination
+- [ ] Readiness: remove application-side readiness calculation; route everything through the DB function
+- [ ] Readiness: show separate AS readiness and A2 readiness in the dashboard
+- [ ] Readiness: add overall A-Level projection separate from per-stage readiness
+- [ ] Staged students: prompt for AS result before the normal A2 transition
+- [ ] Manual A2 unlock: implement with warning; must also set `study_route` to `staged`
 
 ## Phase 3: Past Papers & Analytics
 - Past paper logging UI
