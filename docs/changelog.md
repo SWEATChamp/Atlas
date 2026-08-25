@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Planned separate AS readiness, A2 readiness, and overall A-Level projection.
 - Automatic browser-timezone detection for existing users and during onboarding.
 - Three small safety tests covering mission generation, mission completion, and local-midnight exam countdowns.
+- **AS/A2 Database Foundation (Migration 020):** Applied and verified database migration with `study_route`, `current_stage`, `a2_unlocked_at`, and `a2_unlock_method` columns on `user_subjects` with three consistency constraints; `stage` column on `chapters` (including `route_dependent` for Maths Mechanics & Statistics 1); `stage` column on `past_papers`; new `subject_paper_selections` table (structured paper combination, ownership via `user_subjects`); new `subject_stage_results` table (required series/year, score CHECK, carry-forward AS-only CHECK, dedup UNIQUE, `set_updated_at` trigger); RLS on both new tables via `user_subjects` join; five new enum types; indexes on `chapters.stage`, `subject_paper_selections.stage`, and `subject_stage_results` carry-forward; TypeScript types updated in `database.ts` and `index.ts`; all 23 rollback-only database tests passed.
 
 ### Fixed
 - Dashboard now receives the correct exam-date and chapter-activity checks.

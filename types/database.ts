@@ -7,6 +7,31 @@
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 export type NotesStatus = 'none' | 'in_progress' | 'complete'
+
+// ─── AS/A2 enums (Migration 020) ─────────────────────────────────────────────
+
+/** Per-subject study path. 'unconfirmed' means the student has not yet chosen;
+ *  the UI must prompt before stage-sensitive features activate. */
+export type StudyRoute = 'unconfirmed' | 'as_only' | 'staged' | 'full_level'
+
+/** Active stage for a subject enrolment. NULL is used for 'unconfirmed' rows.
+ *  'full' is only valid on user_subjects — not on per-paper or per-result tables. */
+export type SubjectStage = 'as' | 'a2' | 'full'
+
+/** Stage value accepted by past_papers, subject_paper_selections, and
+ *  subject_stage_results. 'full' is intentionally excluded. */
+export type PaperStage = 'as' | 'a2'
+
+/** Chapter content classification. null means not yet classified (custom/unseeded only).
+ *  route_dependent = effective stage resolved at query time from subject_paper_selections. */
+export type ChapterStage = 'as' | 'a2' | 'shared' | 'route_dependent'
+
+/** Certainty of a stage result. Only 'actual' may be treated as measured performance. */
+export type ResultType = 'expected' | 'forecast' | 'actual'
+
+/** How A2 was unlocked for a staged enrolment.
+ *  'manual' unlock of an as_only subject must also update study_route to 'staged'. */
+export type A2UnlockMethod = 'normal_transition' | 'manual'
 export type MissionType =
   | 'complete_notes'
   | 'review_chapter'
@@ -94,6 +119,11 @@ export interface UserSubject {
   target_grade: TargetGrade | null
   priority: number
   is_archived: boolean
+  // AS/A2 fields (Migration 020)
+  study_route: StudyRoute                   // NOT NULL DEFAULT 'unconfirmed'
+  current_stage: SubjectStage | null        // NULL when study_route = 'unconfirmed'
+  a2_unlocked_at: string | null             // TIMESTAMPTZ — both or neither with a2_unlock_method
+  a2_unlock_method: A2UnlockMethod | null   // NULL until A2 is unlocked
   created_at: string
   updated_at: string
 }
@@ -110,6 +140,7 @@ export interface Chapter {
   component: string | null
   description: string | null
   is_global: boolean
+  stage: ChapterStage | null  // null = not yet classified (Migration 020)
   created_at: string
 }
 
@@ -143,6 +174,7 @@ export interface PastPaper {
   accuracy_pct: number
   time_taken_mins: number | null
   notes: string | null
+  stage: PaperStage | null  // null = not yet tagged (Migration 020)
   created_at: string
 }
 
@@ -297,4 +329,39 @@ export interface LeaderboardEntry {
   level_title: string
   xp_value: number
   streak_days: number
+}
+
+// ─── AS/A2 Tables (Migration 020) ────────────────────────────────────────────
+
+/**
+ * One row per selected paper/component per enrolled subject.
+ * No user_id — ownership is always derived via user_subjects.
+ * Directly queryable by readiness calculations without string parsing.
+ */
+export interface SubjectPaperSelection {
+  id: string
+  user_subject_id: string  // FK → user_subjects.id (no user_id column)
+  component_name: string
+  paper_number: number | null
+  stage: PaperStage        // 'as' | 'a2' — 'full' is not valid
+  created_at: string
+}
+
+/**
+ * AS or A2 result (expected, forecast, or actual) for an enrolled subject.
+ * No user_id — ownership is always derived via user_subjects.
+ * exam_series and exam_year are required (NOT NULL in DB).
+ */
+export interface SubjectStageResult {
+  id: string
+  user_subject_id: string  // FK → user_subjects.id (no user_id column)
+  stage: PaperStage        // 'as' | 'a2' — 'full' is not valid
+  result_type: ResultType
+  score_obtained: number
+  score_maximum: number
+  exam_series: PaperSession  // NOT NULL — required
+  exam_year: number          // NOT NULL — required
+  carry_forward: boolean
+  created_at: string
+  updated_at: string
 }

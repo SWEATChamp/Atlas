@@ -108,10 +108,11 @@ export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZo
         {/* Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
           <button
-            onClick={e => { e.stopPropagation(); setEditOpen(true) }}
+            onClick={e => { e.stopPropagation(); if (paper.paper_number !== null) setEditOpen(true) }}
             className="btn btn-ghost"
-            title="Edit paper"
-            style={{ width: 32, height: 32, padding: 0, color: 'var(--text-muted)' }}
+            title={paper.paper_number === null ? 'Edit unavailable (no paper number recorded)' : 'Edit paper'}
+            disabled={paper.paper_number === null}
+            style={{ width: 32, height: 32, padding: 0, color: paper.paper_number === null ? 'var(--text-disabled, var(--text-muted))' : 'var(--text-muted)', opacity: paper.paper_number === null ? 0.4 : 1 }}
           >
             <Pencil size={13} />
           </button>
@@ -130,9 +131,9 @@ export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZo
         </div>
       </motion.div>
 
-      {/* Edit modal */}
+      {/* Edit modal — only rendered when paper_number is known (non-null) */}
       <AnimatePresence>
-        {editOpen && (
+        {editOpen && paper.paper_number !== null && (
           <LogPaperModal
             timeZone={timeZone}
             existingPaperId={paper.id}

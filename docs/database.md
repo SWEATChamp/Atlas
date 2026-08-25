@@ -33,26 +33,114 @@ Business logic is implemented as PostgreSQL functions (`complete_mission`, `awar
 ## Future Expansion
 Stubs for future features are included, such as: `friendships`, `pvp_challenges`, `study_pets`, `ai_coach_conversations`, `user_currencies`, and `shop_items`.
 
-## Approved AS/A2 Data Changes — Pending Migration
+## AS/A2 Data Foundation — Applied and Verified (Migration 020)
 
-The following changes are approved for design but are not yet implemented:
+The following changes were applied and verified in `20260824000020_as_a2_foundation.sql`. All 23 rollback-only database tests passed. All changes are additive.
 
-- `user_subjects.study_route`: `as_only`, `staged`, or `full_level`.
-- `user_subjects.current_stage`: `as`, `a2`, or `full`.
-- `user_subjects.a2_unlocked_at`: records manual or normal A2 access.
-- `chapters.stage`: `as`, `a2`, or `shared`.
-- `past_papers.stage`: `as` or `a2`.
-- Persist the selected paper combination per enrolled subject. The current Mathematics selection exists only in the browser and does not affect readiness.
+### New Enum Types
 
-A new `subject_stage_results` table will store:
+| Enum | Values |
+|---|---|
+| `study_route_enum` | `unconfirmed`, `as_only`, `staged`, `full_level` |
+| `subject_stage_enum` | `as`, `a2`, `full` |
+| `chapter_stage_enum` | `as`, `a2`, `shared`, `route_dependent` |
+| `result_type_enum` | `expected`, `forecast`, `actual` |
+| `a2_unlock_method_enum` | `normal_transition`, `manual` |
 
-- User and enrolled subject.
-- Result type: expected, forecast, or actual.
-- Score obtained and maximum score.
-- Examination series and year.
-- Carry-forward intent.
-- Creation and update timestamps.
+`past_papers.stage`, `subject_paper_selections.stage`, and `subject_stage_results.stage` use `TEXT CHECK (stage IN ('as', 'a2'))` rather than a new enum. This intentionally excludes `'full'` — a paper or result belongs to exactly one stage.
 
-Only an actual AS result may be treated as measured performance. Expected and forecast results remain estimates. Exact carry-forward and final-grade projections must account for the syllabus, paper combination, examination series, and available score information.
+### `user_subjects` — four new columns
 
-Before these changes launch, `compute_readiness_score` must accept a stage and selected paper combination. The separate application-side readiness calculation must be removed or made to call the same database function.
+| Column | Type | Default | Notes |
+|---|---|---|---|
+| `study_route` | `study_route_enum NOT NULL` | `'unconfirmed'` | Existing rows are `unconfirmed`; UI must prompt before stage-sensitive features activate |
+| `current_stage` | `subject_stage_enum NULL` | `NULL` | NULL when `study_route = 'unconfirmed'` |
+| `a2_unlocked_at` | `TIMESTAMPTZ NULL` | `NULL` | Always set with `a2_unlock_method` |
+| `a2_unlock_method` | `a2_unlock_method_enum NULL` | `NULL` | Always set with `a2_unlocked_at` |
+
+**Constraints added:**
+- `user_subjects_route_stage_check`: enforces the route↔stage relationship (`unconfirmed`→`NULL`, `as_only`→`as`, `staged`→`as` or `a2`, `full_level`→`full`).
+- `user_subjects_a2_unlock_consistency`: both unlock fields must be set or both must be NULL.
+- `user_subjects_staged_a2_requires_unlock`: a staged subject already in A2 must have both unlock fields filled.
+
+**Application note:** Manually unlocking A2 for an `as_only` enrolment must also update `study_route` to `staged` — leaving contradictory data is prevented by the route_stage constraint.
+
+### `chapters` — one new column
+
+| Column | Type | Default | Notes |
+|---|---|---|---|
+| `stage` | `chapter_stage_enum NULL` | `NULL` | `as`, `a2`, `shared`, or `route_dependent` (NULL = not yet classified) |
+
+**Backfill applied:**
+
+| Subject | Component | Assigned Stage | Notes |
+|---|---|---|---|
+| Mathematics 9709 | Pure 1, Pure 2 | `as` | Fixed AS content |
+| Mathematics 9709 | Pure 3, Statistics 2 | `a2` | Fixed A2 content |
+| Mathematics 9709 | Mechanics, Statistics 1 | `route_dependent` | Effective AS/A2 stage resolved at query time from `subject_paper_selections` |
+| Physics 9702 | AS Core | `as` | Fixed AS content |
+| Physics 9702 | A2 Core, A2 Applied | `a2` | Fixed A2 content |
+| Chemistry 9701 | AS Physical, AS Inorganic, AS Organic | `as` | Fixed AS content |
+| Chemistry 9701 | A2 Physical, A2 Inorganic, A2 Organic | `a2` | Fixed A2 content |
+
+Unseeded subjects (Biology, CS, etc.) and custom user-created chapters remain `stage IS NULL` until seeded or tagged.
+
+**Index added:** `idx_chapters_stage ON chapters (subject_id, stage) WHERE stage IS NOT NULL`
+
+### `past_papers` — one new column
+
+| Column | Type | Notes |
+|---|---|---|
+| `stage` | `TEXT CHECK (stage IN ('as', 'a2')) NULL` | `NULL` = not yet tagged; `'full'` is rejected |
+
+Existing rows stay NULL. Stage cannot be reliably inferred from paper codes without syllabus data.
+
+### New table: `subject_paper_selections`
+
+Stores the student's chosen paper combination, one row per component. No `user_id` column — ownership is always derived via `user_subjects`.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `UUID PK` | |
+| `user_subject_id` | `UUID NOT NULL FK→user_subjects` | |
+| `component_name` | `TEXT NOT NULL` | Matches `chapters.component` |
+| `paper_number` | `SMALLINT NULL` | CAIE paper number (1–9); NULL if no fixed number |
+| `stage` | `TEXT NOT NULL CHECK (stage IN ('as','a2'))` | |
+| `created_at` | `TIMESTAMPTZ` | |
+
+**Constraints:** `sps_unique_component UNIQUE (user_subject_id, component_name)`
+
+**Index:** `idx_sps_stage ON subject_paper_selections (user_subject_id, stage)` — covers stage-filtered readiness queries not served by the UNIQUE index.
+
+**RLS:** All four operations use `EXISTS (SELECT 1 FROM user_subjects us WHERE us.id = ... AND us.user_id = auth.uid())`.
+
+### New table: `subject_stage_results`
+
+Stores expected, forecast, or actual AS/A2 results. No `user_id` column — ownership always derived via `user_subjects`.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `UUID PK` | |
+| `user_subject_id` | `UUID NOT NULL FK→user_subjects` | |
+| `stage` | `TEXT NOT NULL CHECK (stage IN ('as','a2'))` | `'full'` is rejected |
+| `result_type` | `result_type_enum NOT NULL` | `expected`, `forecast`, or `actual` |
+| `score_obtained` | `SMALLINT NOT NULL CHECK (>= 0)` | |
+| `score_maximum` | `SMALLINT NOT NULL CHECK (> 0)` | |
+| `exam_series` | `paper_session_enum NOT NULL` | Required — no result without a known session |
+| `exam_year` | `SMALLINT NOT NULL CHECK (1990–2100)` | Required |
+| `carry_forward` | `BOOLEAN NOT NULL DEFAULT FALSE` | Whether AS result feeds the final A-Level grade (enforced AS-only) |
+| `created_at` | `TIMESTAMPTZ` | |
+| `updated_at` | `TIMESTAMPTZ` | Auto-maintained by `set_updated_at` trigger |
+
+**Constraints:**
+- `ssr_score_valid CHECK (score_obtained <= score_maximum)`
+- `ssr_carry_forward_as_only CHECK (carry_forward = FALSE OR stage = 'as')`
+- `ssr_unique UNIQUE (user_subject_id, stage, result_type, exam_series, exam_year)` — also serves as the primary lookup index (leading column = `user_subject_id`).
+
+**Index:** `idx_ssr_carry_forward ON subject_stage_results (user_subject_id) WHERE carry_forward = TRUE` — partial index not covered by the UNIQUE key.
+
+**RLS:** Same `EXISTS` pattern via `user_subjects` as `subject_paper_selections`.
+
+### Deferred (Phase 2.5 continuation)
+
+`compute_readiness_score` is not modified in this migration. Stage-aware readiness calculations, mission filtering by stage, access control based on `study_route`, and the result-entry UI all remain pending per the roadmap.
