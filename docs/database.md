@@ -33,9 +33,9 @@ Business logic is implemented as PostgreSQL functions (`complete_mission`, `awar
 ## Future Expansion
 Stubs for future features are included, such as: `friendships`, `pvp_challenges`, `study_pets`, `ai_coach_conversations`, `user_currencies`, and `shop_items`.
 
-## AS/A2 Data Foundation — Prepared (Pending Application in Migration 020)
+## AS/A2 Data Foundation — Applied and Verified (Migration 020)
 
-The following changes are defined in `20260824000020_as_a2_foundation.sql` (prepared, pending application). All changes are additive.
+The following changes were applied and verified in `20260824000020_as_a2_foundation.sql`. All 23 rollback-only database tests passed. All changes are additive.
 
 ### New Enum Types
 

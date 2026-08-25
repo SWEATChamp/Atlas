@@ -12,6 +12,7 @@
 | Gamification | Built; XP, streak, and achievement award flow verified |
 | Timezone handling | Complete; application and database verification passed |
 | Core safety tests | Complete; all three tests passed |
+| Phase 2.5 Database Foundation | Applied and verified; all 23 database tests passed |
 | Google Docs integration | Not started |
 
 ## Phase 0: Foundation (Complete)
@@ -31,7 +32,7 @@
 
 ## Phase 2.5: Study Routes & Readiness Correction
 
-### Database Foundation (Prepared, pending application — Migration 020)
+### Database Foundation (Applied and verified — Migration 020)
 - [x] Add `study_route` column to `user_subjects` (`unconfirmed`, `as_only`, `staged`, `full_level`)
 - [x] Add `current_stage` column to `user_subjects` with route↔stage consistency constraint
 - [x] Add `a2_unlocked_at` and `a2_unlock_method` with pair-consistency and staged-A2 constraints
@@ -40,7 +41,7 @@
 - [x] Create `subject_paper_selections` table (structured, one row per component; no `user_id`)
 - [x] Create `subject_stage_results` table with required series/year, score constraint, carry-forward AS-only constraint, and dedup UNIQUE
 - [x] RLS on both new tables via `user_subjects` join (no `user_id` column in either table)
-- [x] Rollback-only database tests covering positive/negative RLS, stage restrictions, duplicates, score validation, carry-forward rules, and unlock consistency
+- [x] All 23 rollback-only database tests passed (covering positive/negative RLS, stage restrictions, duplicates, score validation, carry-forward rules, and unlock consistency)
 - [x] TypeScript types updated in `database.ts` and `index.ts`
 
 ### Pending (UI and logic work)
