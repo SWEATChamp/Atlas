@@ -777,6 +777,10 @@ BEGIN
           HAVING
             (SELECT COUNT(*)
              FROM public.chapters c
+             WHERE c.subject_id = us.subject_id AND c.is_global = TRUE) > 0
+            AND
+            (SELECT COUNT(*)
+             FROM public.chapters c
              WHERE c.subject_id = us.subject_id AND c.is_global = TRUE)
             =
             (SELECT COUNT(*)
@@ -882,6 +886,90 @@ REVOKE ALL ON FUNCTION public.check_and_unlock_achievements(UUID, UUID, INTEGER)
 GRANT  EXECUTE ON FUNCTION public.check_and_unlock_achievements(UUID, UUID, INTEGER) TO authenticated, service_role;
 
 
+-- ─── 9.5 update_streak (Attempt Scoped Milestone XP) ────────────────────────
+DROP FUNCTION IF EXISTS public.update_streak(UUID);
+
+CREATE OR REPLACE FUNCTION public.update_streak(
+  p_user_id    UUID,
+  p_mission_id UUID    DEFAULT NULL,
+  p_attempt    INTEGER DEFAULT NULL
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_streak public.streaks%ROWTYPE;
+  v_today  DATE;
+BEGIN
+  v_today := public.get_user_local_date(p_user_id);
+
+  SELECT * INTO v_streak
+  FROM public.streaks
+  WHERE user_id = p_user_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    INSERT INTO public.streaks (user_id, current_streak, longest_streak, last_activity_date)
+    VALUES (p_user_id, 1, 1, v_today);
+    RETURN;
+  END IF;
+
+  IF v_streak.last_activity_date = v_today THEN
+    RETURN;
+  END IF;
+
+  IF v_streak.last_activity_date = v_today - 1 THEN
+    UPDATE public.streaks
+    SET
+      current_streak     = current_streak + 1,
+      longest_streak     = GREATEST(longest_streak, current_streak + 1),
+      last_activity_date = v_today,
+      updated_at         = NOW()
+    WHERE user_id = p_user_id;
+
+    IF (v_streak.current_streak + 1) = 7 THEN
+      PERFORM public.award_xp(
+        p_user_id, 150::SMALLINT, 'streak_bonus_7'::public.xp_event_type_enum,
+        p_mission_id, jsonb_build_object('streak_days', 7, 'completion_attempt', p_attempt)
+      );
+    ELSIF (v_streak.current_streak + 1) = 30 THEN
+      PERFORM public.award_xp(
+        p_user_id, 500::SMALLINT, 'streak_bonus_30'::public.xp_event_type_enum,
+        p_mission_id, jsonb_build_object('streak_days', 30, 'completion_attempt', p_attempt)
+      );
+    ELSIF (v_streak.current_streak + 1) = 100 THEN
+      PERFORM public.award_xp(
+        p_user_id, 2000::SMALLINT, 'streak_bonus_100'::public.xp_event_type_enum,
+        p_mission_id, jsonb_build_object('streak_days', 100, 'completion_attempt', p_attempt)
+      );
+    END IF;
+  ELSE
+    UPDATE public.streaks
+    SET
+      current_streak     = 1,
+      longest_streak     = GREATEST(longest_streak, 1),
+      last_activity_date = v_today,
+      updated_at         = NOW()
+    WHERE user_id = p_user_id;
+  END IF;
+END;
+$$;
+
+COMMENT ON FUNCTION public.update_streak(UUID, UUID, INTEGER) IS
+  'Updates streak for local date and awards attempt-scoped streak milestone bonuses.';
+
+REVOKE ALL ON FUNCTION public.update_streak(UUID, UUID, INTEGER) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.update_streak(UUID, UUID, INTEGER) TO service_role;
+
+REVOKE ALL ON FUNCTION public.award_xp(UUID, SMALLINT, public.xp_event_type_enum, UUID, JSONB) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.award_xp(UUID, SMALLINT, public.xp_event_type_enum, UUID, JSONB) TO service_role;
+
+REVOKE ALL ON FUNCTION public.award_xp(UUID, INTEGER, TEXT, UUID, JSONB) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.award_xp(UUID, INTEGER, TEXT, UUID, JSONB) TO service_role;
+
+
 -- ─── 10. complete_mission (Updated with Date Guard & Attempt Tracking) ────────
 CREATE OR REPLACE FUNCTION public.complete_mission(
   p_mission_id UUID,
@@ -899,6 +987,7 @@ DECLARE
   v_achievements JSONB    := '[]'::JSONB;
   v_ach_xp       SMALLINT := 0;
   v_bonus_xp     SMALLINT := 0;
+  v_streak_xp    SMALLINT := 0;
   v_total_xp     SMALLINT := 0;
   v_attempt      INTEGER;
   v_today        DATE;
@@ -982,7 +1071,8 @@ BEGIN
     );
   END IF;
 
-  PERFORM public.update_streak(p_user_id);
+  -- Update streak and award attempt-scoped streak bonuses
+  PERFORM public.update_streak(p_user_id, p_mission_id, v_attempt);
 
   -- Touch last_reviewed_at on the chapter
   IF v_mission.target_entity_type = 'chapter'
@@ -1002,15 +1092,24 @@ BEGIN
     v_ach_xp := v_ach_xp + rec.xp_reward;
   END LOOP;
 
+  -- Query streak milestone XP awarded in this attempt
+  SELECT COALESCE(SUM(xp_amount), 0)::SMALLINT INTO v_streak_xp
+  FROM public.xp_events
+  WHERE user_id = p_user_id
+    AND reference_id = p_mission_id
+    AND event_type IN ('streak_bonus_7', 'streak_bonus_30', 'streak_bonus_100')
+    AND (metadata->>'completion_attempt')::INTEGER = v_attempt;
+
   SELECT * INTO v_profile FROM public.profiles WHERE id = p_user_id;
   SELECT * INTO v_streak  FROM public.streaks  WHERE user_id = p_user_id;
 
-  v_total_xp := v_mission.xp_reward + v_bonus_xp + v_ach_xp;
+  v_total_xp := v_mission.xp_reward + v_bonus_xp + v_ach_xp + v_streak_xp;
 
   RETURN jsonb_build_object(
     'mission_xp',            v_mission.xp_reward,
     'daily_bonus_xp',        v_bonus_xp,
     'achievement_xp',        v_ach_xp,
+    'streak_bonus_xp',       v_streak_xp,
     'total_xp_awarded',      v_total_xp,
     'xp_awarded',            v_total_xp,
     'new_total_xp',          v_profile.total_xp,
@@ -1040,15 +1139,17 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_mission          public.daily_missions%ROWTYPE;
-  v_today            DATE;
-  v_mission_xp       SMALLINT := 0;
-  v_bonus_xp         SMALLINT := 0;
-  v_ach_reversed     SMALLINT := 0;
-  v_total_reversal   SMALLINT := 0;
-  v_profile          public.profiles%ROWTYPE;
-  v_streak           public.streaks%ROWTYPE;
-  v_ach_rec          RECORD;
+  v_mission               public.daily_missions%ROWTYPE;
+  v_today                 DATE;
+  v_mission_xp            SMALLINT := 0;
+  v_bonus_xp              SMALLINT := 0;
+  v_ach_reversed          SMALLINT := 0;
+  v_streak_bonus_reversed SMALLINT := 0;
+  v_total_reversal        SMALLINT := 0;
+  v_profile               public.profiles%ROWTYPE;
+  v_streak                public.streaks%ROWTYPE;
+  v_ach_rec               RECORD;
+  v_streak_bonus_rec      RECORD;
 BEGIN
   -- Auth guard
   IF auth.uid() IS DISTINCT FROM p_user_id THEN
@@ -1143,6 +1244,28 @@ BEGIN
     v_ach_reversed := v_ach_reversed + v_ach_rec.xp_amount;
   END LOOP;
 
+  -- 4. Streak milestone bonuses awarded during THIS completion attempt
+  FOR v_streak_bonus_rec IN
+    SELECT xp_amount, event_type
+    FROM   public.xp_events
+    WHERE  user_id      = p_user_id
+      AND  reference_id = p_mission_id
+      AND  event_type IN ('streak_bonus_7', 'streak_bonus_30', 'streak_bonus_100')
+      AND  (metadata->>'completion_attempt')::INTEGER = v_mission.completion_attempt
+  LOOP
+    PERFORM public.award_xp(
+      p_user_id,
+      (-v_streak_bonus_rec.xp_amount)::SMALLINT,
+      'mission_undo',
+      p_mission_id,
+      jsonb_build_object(
+        'reversed_streak_bonus', v_streak_bonus_rec.event_type,
+        'completion_attempt', v_mission.completion_attempt
+      )
+    );
+    v_streak_bonus_reversed := v_streak_bonus_reversed + v_streak_bonus_rec.xp_amount;
+  END LOOP;
+
   -- ── Reverse mission XP ───────────────────────────────────────────────────
   IF v_mission_xp > 0 THEN
     PERFORM public.award_xp(
@@ -1177,30 +1300,151 @@ BEGIN
          completed_at = NULL
   WHERE  id = p_mission_id;
 
+  -- ── Recalculate streak after undoing completion ──────────────────────────
+  PERFORM public.recalculate_streak(p_user_id);
+
   SELECT * INTO v_profile FROM public.profiles WHERE id = p_user_id;
   SELECT * INTO v_streak  FROM public.streaks  WHERE user_id = p_user_id;
 
-  v_total_reversal := v_mission_xp + v_bonus_xp + v_ach_reversed;
+  v_total_reversal := v_mission_xp + v_bonus_xp + v_ach_reversed + v_streak_bonus_reversed;
 
   RETURN jsonb_build_object(
-    'xp_reversed',             v_total_reversal,
-    'mission_xp_reversed',     v_mission_xp,
-    'daily_bonus_xp_reversed', v_bonus_xp,
-    'achievement_xp_reversed', v_ach_reversed,
-    'new_total_xp',            v_profile.total_xp,
-    'new_level',               v_profile.current_level,
-    'level_title',             public.compute_level_title(v_profile.current_level),
-    'streak_days',             v_streak.current_streak,
-    'mission_status',          'pending'
+    'xp_reversed',                 v_total_reversal,
+    'mission_xp_reversed',         v_mission_xp,
+    'daily_bonus_xp_reversed',     v_bonus_xp,
+    'achievement_xp_reversed',     v_ach_reversed,
+    'streak_bonus_xp_reversed',    v_streak_bonus_reversed,
+    'new_total_xp',                v_profile.total_xp,
+    'new_level',                   v_profile.current_level,
+    'level_title',                 public.compute_level_title(v_profile.current_level),
+    'streak_days',                 COALESCE(v_streak.current_streak, 0),
+    'mission_status',              'pending'
   );
 END;
 $$;
 
 COMMENT ON FUNCTION public.undo_mission_completion(UUID, UUID) IS
-  'Atomic attempt-scoped mission undo. Reverses mission XP, bonus, and unlocked achievements, and restores pending state.';
+  'Atomic attempt-scoped mission undo. Reverses mission XP, bonus, streak milestone XP, and unlocked achievements, restores pending state, and recalculates streak.';
 
 REVOKE ALL ON FUNCTION public.undo_mission_completion(UUID, UUID) FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION public.undo_mission_completion(UUID, UUID) TO authenticated, service_role;
+
+
+-- ─── 12. recalculate_streak (Auth Protected, Calendar DATE, Exact Longest Streak) ───
+CREATE OR REPLACE FUNCTION public.recalculate_streak(p_user_id UUID)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_today          DATE;
+  v_streak         public.streaks%ROWTYPE;
+  v_curr           INTEGER := 0;
+  v_longest        INTEGER := 0;
+  v_last_act       DATE := NULL;
+  v_check_date     DATE;
+  v_has_today      BOOLEAN;
+  v_has_yesterday  BOOLEAN;
+  v_max_past_date  DATE;
+BEGIN
+  -- Strict owner auth guard
+  IF auth.uid() IS DISTINCT FROM p_user_id THEN
+    RAISE EXCEPTION 'Unauthorized' USING ERRCODE = '42501';
+  END IF;
+
+  v_today := public.get_user_local_date(p_user_id);
+
+  SELECT * INTO v_streak
+  FROM public.streaks
+  WHERE user_id = p_user_id
+  FOR UPDATE;
+
+  -- Active days: daily_missions (completed) and past_papers (attempted_at is DATE)
+  WITH active_days AS (
+    SELECT DISTINCT act_date
+    FROM (
+      SELECT mission_date AS act_date
+      FROM   public.daily_missions
+      WHERE  user_id = p_user_id
+        AND  status  = 'completed'
+      UNION
+      SELECT attempted_at AS act_date
+      FROM   public.past_papers
+      WHERE  user_id = p_user_id
+    ) a
+  ),
+  grouped AS (
+    SELECT
+      act_date,
+      act_date - (ROW_NUMBER() OVER (ORDER BY act_date))::INTEGER AS grp
+    FROM active_days
+  ),
+  streak_lengths AS (
+    SELECT COUNT(*)::INTEGER AS streak_len
+    FROM grouped
+    GROUP BY grp
+  )
+  SELECT
+    EXISTS (SELECT 1 FROM active_days WHERE act_date = v_today),
+    EXISTS (SELECT 1 FROM active_days WHERE act_date = v_today - 1),
+    (SELECT MAX(act_date) FROM active_days),
+    COALESCE((SELECT MAX(streak_len) FROM streak_lengths), 0)
+  INTO v_has_today, v_has_yesterday, v_max_past_date, v_longest;
+
+  IF v_has_today THEN
+    v_last_act := v_today;
+    v_curr := 1;
+    v_check_date := v_today - 1;
+    WHILE EXISTS (
+      SELECT 1 FROM (
+        SELECT mission_date AS act_date FROM public.daily_missions WHERE user_id = p_user_id AND status = 'completed'
+        UNION
+        SELECT attempted_at AS act_date FROM public.past_papers WHERE user_id = p_user_id
+      ) ad WHERE ad.act_date = v_check_date
+    ) LOOP
+      v_curr := v_curr + 1;
+      v_check_date := v_check_date - 1;
+    END LOOP;
+  ELSIF v_has_yesterday THEN
+    v_last_act := v_today - 1;
+    v_curr := 1;
+    v_check_date := v_today - 2;
+    WHILE EXISTS (
+      SELECT 1 FROM (
+        SELECT mission_date AS act_date FROM public.daily_missions WHERE user_id = p_user_id AND status = 'completed'
+        UNION
+        SELECT attempted_at AS act_date FROM public.past_papers WHERE user_id = p_user_id
+      ) ad WHERE ad.act_date = v_check_date
+    ) LOOP
+      v_curr := v_curr + 1;
+      v_check_date := v_check_date - 1;
+    END LOOP;
+  ELSE
+    v_last_act := v_max_past_date;
+    v_curr := 0;
+  END IF;
+
+  IF v_streak.user_id IS NOT NULL THEN
+    UPDATE public.streaks
+    SET
+      current_streak     = v_curr,
+      longest_streak     = v_longest,
+      last_activity_date = v_last_act,
+      updated_at         = NOW()
+    WHERE user_id = p_user_id;
+  ELSE
+    INSERT INTO public.streaks (user_id, current_streak, longest_streak, last_activity_date)
+    VALUES (p_user_id, v_curr, v_longest, v_last_act);
+  END IF;
+END;
+$$;
+
+COMMENT ON FUNCTION public.recalculate_streak(UUID) IS
+  'Recalculates current_streak, longest_streak, and last_activity_date based on active completed missions and past papers.';
+
+REVOKE ALL ON FUNCTION public.recalculate_streak(UUID) FROM PUBLIC;
+GRANT  EXECUTE ON FUNCTION public.recalculate_streak(UUID) TO authenticated, service_role;
 
 
 -- ─── 12. Declarative Backfill of user_chapters (Auth-Independent) ────────────

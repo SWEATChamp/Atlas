@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(10);
+SELECT plan(11);
 
 -- ─── Test context ─────────────────────────────────────────────────────────────
 
@@ -25,7 +25,8 @@ CREATE TEMP TABLE m22_ctx (
   t7_regen_route_ch BOOLEAN DEFAULT FALSE,
   t8_dash_username  BOOLEAN DEFAULT FALSE,
   t9_upgrade_bf     BOOLEAN DEFAULT FALSE,
-  t10_ach_auth_prot BOOLEAN DEFAULT FALSE
+  t10_ach_auth_prot BOOLEAN DEFAULT FALSE,
+  t11_no_zero_comp  BOOLEAN DEFAULT FALSE
 ) ON COMMIT DROP;
 
 GRANT ALL ON TABLE m22_ctx TO authenticated, anon;
@@ -610,6 +611,50 @@ $$;
 
 SELECT ok((SELECT t10_ach_auth_prot FROM m22_ctx),
   'check_and_unlock_achievements rejects unauthenticated and non-owner calls with 42501');
+
+
+-- ═══════════════════════════════════════════════════════════════════
+-- TEST 11: Completionist does NOT unlock for a subject with 0 chapters
+-- ═══════════════════════════════════════════════════════════════════
+
+DO $$
+DECLARE
+  v_user      UUID;
+  v_empty_sb  UUID := gen_random_uuid();
+  v_unlocked  BOOLEAN;
+BEGIN
+  SELECT user_id INTO v_user FROM m22_ctx;
+
+  -- Create a subject with 0 chapters and enroll the user
+  INSERT INTO public.subjects (id, name, code, is_global, created_by)
+  VALUES (v_empty_sb, 'Empty Subject', '9999', FALSE, v_user);
+
+  INSERT INTO public.user_subjects (user_id, subject_id, priority, exam_date, study_route, current_stage)
+  VALUES (v_user, v_empty_sb, 1, CURRENT_DATE + 60, 'staged', 'as');
+
+  -- Ensure completionist is NOT in user_achievements
+  DELETE FROM public.user_achievements WHERE user_id = v_user AND achievement_key = 'completionist';
+
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_user::text)::text, true);
+
+  -- Evaluate achievements
+  PERFORM * FROM public.check_and_unlock_achievements(v_user);
+
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', true);
+
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_achievements
+    WHERE  user_id = v_user AND achievement_key = 'completionist'
+  ) INTO v_unlocked;
+
+  UPDATE m22_ctx SET t11_no_zero_comp = (NOT v_unlocked);
+END;
+$$;
+
+SELECT ok((SELECT t11_no_zero_comp FROM m22_ctx),
+  'Completionist achievement does not unlock for subjects with zero chapters');
 
 
 SELECT * FROM finish();

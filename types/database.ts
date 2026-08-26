@@ -291,6 +291,7 @@ export interface CompleteMissionResult {
   mission_xp: number
   daily_bonus_xp: number
   achievement_xp: number
+  streak_bonus_xp?: number
   total_xp_awarded: number
   xp_awarded: number
   new_total_xp: number
@@ -305,6 +306,7 @@ export interface UndoMissionResult {
   mission_xp_reversed?: number
   daily_bonus_xp_reversed?: number
   achievement_xp_reversed?: number
+  streak_bonus_xp_reversed?: number
   new_total_xp: number
   new_level: number
   level_title: string

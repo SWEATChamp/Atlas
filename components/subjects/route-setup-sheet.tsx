@@ -3,7 +3,11 @@
 import { useState, useTransition } from 'react'
 import { X, BookOpen, Layers, Award } from 'lucide-react'
 import { configureSubjectRoute } from '@/lib/actions/route'
-import PaperSelectionPanel, { getMathsCombinations, matchSavedMathsCombination } from './paper-selection-panel'
+import PaperSelectionPanel, {
+  getMathsCombinations,
+  matchSavedMathsCombination,
+  remapMathsSelectionsOnRouteChange,
+} from './paper-selection-panel'
 import type { Subject, UserSubject, StudyRoute } from '@/types'
 import type { PaperSelectionInput } from '@/types'
 
@@ -70,14 +74,11 @@ export default function RouteSetupSheet({
   if (!isOpen) return null
 
   const handleRouteChange = (route: StudyRoute) => {
+    const prevRoute = selectedRoute
     setSelectedRoute(route)
     if (isMaths) {
-      const match = matchSavedMathsCombination(route, paperSelections)
-      if (match) {
-        setPaperSelections(match.selections)
-      } else {
-        setPaperSelections([])
-      }
+      const remapped = remapMathsSelectionsOnRouteChange(prevRoute, route, paperSelections)
+      setPaperSelections(remapped)
     }
   }
 

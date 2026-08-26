@@ -75,6 +75,7 @@ export interface CompleteMissionResult {
   mission_xp: number
   daily_bonus_xp: number
   achievement_xp: number
+  streak_bonus_xp?: number
   total_xp_awarded: number
   xp_awarded: number
   new_total_xp: number

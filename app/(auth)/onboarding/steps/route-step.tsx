@@ -5,7 +5,11 @@ import { motion } from 'framer-motion'
 import { Loader2, BookOpen, Layers, Award } from 'lucide-react'
 import { setStudyRoutes, completeOnboarding } from '@/lib/actions/onboarding'
 import { createClient } from '@/lib/supabase/client'
-import PaperSelectionPanel, { getMathsCombinations, matchSavedMathsCombination } from '@/components/subjects/paper-selection-panel'
+import PaperSelectionPanel, {
+  getMathsCombinations,
+  matchSavedMathsCombination,
+  remapMathsSelectionsOnRouteChange,
+} from '@/components/subjects/paper-selection-panel'
 import type { UserSubjectWithSubject, StudyRoute, PaperSelectionInput } from '@/types'
 
 interface SubjectRouteEntry {
@@ -24,15 +28,15 @@ const ROUTE_OPTIONS: Array<{
   {
     id: 'as_only',
     title: 'AS Level Only',
-    subtitle: '1-Year Standalone',
-    description: 'Studying AS qualification only. A2 content will stay hidden.',
+    subtitle: '1-year course',
+    description: 'Only AS chapters will be unlocked.',
     icon: BookOpen,
   },
   {
     id: 'staged',
     title: 'Staged A Level',
     subtitle: 'AS in Year 1, A2 in Year 2',
-    description: 'AS chapters first. You will unlock A2 with your AS results.',
+    description: 'AS chapters unlocked now; A2 unlocked upon promotion.',
     icon: Layers,
   },
   {
@@ -97,9 +101,9 @@ export default function RouteStep({ subjectIds }: { subjectIds: string[] }) {
     const isMaths = subjectCode === '9709'
     let selections: PaperSelectionInput[] = []
     if (isMaths) {
+      const prevRoute = entries[subjectId]?.route ?? 'unconfirmed'
       const current = entries[subjectId]?.paperSelections ?? []
-      const match = matchSavedMathsCombination(route, current)
-      selections = match ? match.selections : []
+      selections = remapMathsSelectionsOnRouteChange(prevRoute, route, current)
     }
 
     setEntries((prev) => ({

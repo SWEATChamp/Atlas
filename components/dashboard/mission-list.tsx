@@ -23,6 +23,41 @@ interface XpToast {
   levelTitle?: string
 }
 
+export function calculateCompletionTotalXp(result: CompleteMissionResult): number {
+  return (
+    result.total_xp_awarded ??
+    (result.mission_xp +
+      result.daily_bonus_xp +
+      result.achievement_xp +
+      (result.streak_bonus_xp ?? 0))
+  )
+}
+
+export function formatCompletionBreakdown(result: CompleteMissionResult): string {
+  const totalAwarded = calculateCompletionTotalXp(result)
+  const parts: string[] = []
+  if (result.mission_xp) parts.push(`+${result.mission_xp} Mission`)
+  if (result.daily_bonus_xp) parts.push(`+${result.daily_bonus_xp} All-Done Bonus`)
+  if (result.achievement_xp) parts.push(`+${result.achievement_xp} Achievement`)
+  if (result.streak_bonus_xp) parts.push(`+${result.streak_bonus_xp} Streak Bonus`)
+
+  return parts.length > 1
+    ? `+${totalAwarded} XP (${parts.join(', ')})`
+    : `+${totalAwarded} XP`
+}
+
+export function formatUndoBreakdown(result: UndoMissionResult): string {
+  const parts: string[] = []
+  if (result.mission_xp_reversed) parts.push(`-${result.mission_xp_reversed} Mission`)
+  if (result.daily_bonus_xp_reversed) parts.push(`-${result.daily_bonus_xp_reversed} Bonus`)
+  if (result.achievement_xp_reversed) parts.push(`-${result.achievement_xp_reversed} Achievement`)
+  if (result.streak_bonus_xp_reversed) parts.push(`-${result.streak_bonus_xp_reversed} Streak Bonus`)
+
+  return parts.length > 1
+    ? `-${result.xp_reversed} XP (${parts.join(', ')})`
+    : `-${result.xp_reversed} XP (Reversed)`
+}
+
 export default function MissionList({ missions: initialMissions, hasExamDates, hasChapterData }: MissionListProps) {
   const router = useRouter()
   const [missions, setMissions]     = useState<DailyMission[]>(initialMissions)
@@ -42,15 +77,7 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
       prev.map(m => (m.id === id ? { ...m, status: 'completed', completed_at: new Date().toISOString() } : m))
     )
 
-    const totalAwarded = result.total_xp_awarded ?? (result.mission_xp + result.daily_bonus_xp + result.achievement_xp)
-    const parts: string[] = []
-    if (result.mission_xp) parts.push(`+${result.mission_xp} Mission`)
-    if (result.daily_bonus_xp) parts.push(`+${result.daily_bonus_xp} All-Done Bonus`)
-    if (result.achievement_xp) parts.push(`+${result.achievement_xp} Achievement`)
-
-    const breakdownText = parts.length > 1
-      ? `+${totalAwarded} XP (${parts.join(', ')})`
-      : `+${totalAwarded} XP`
+    const breakdownText = formatCompletionBreakdown(result)
 
     const toastId = crypto.randomUUID()
     setToasts(prev => [
@@ -73,14 +100,7 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
       prev.map(m => (m.id === id ? { ...m, status: 'pending', completed_at: null } : m))
     )
 
-    const parts: string[] = []
-    if (result.mission_xp_reversed) parts.push(`-${result.mission_xp_reversed} Mission`)
-    if (result.daily_bonus_xp_reversed) parts.push(`-${result.daily_bonus_xp_reversed} Bonus`)
-    if (result.achievement_xp_reversed) parts.push(`-${result.achievement_xp_reversed} Achievement`)
-
-    const breakdownText = parts.length > 1
-      ? `-${result.xp_reversed} XP (${parts.join(', ')})`
-      : `-${result.xp_reversed} XP (Reversed)`
+    const breakdownText = formatUndoBreakdown(result)
 
     const toastId = crypto.randomUUID()
     setToasts(prev => [
