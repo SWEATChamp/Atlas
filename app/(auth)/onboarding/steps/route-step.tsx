@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { Loader2, BookOpen, Layers, Award } from 'lucide-react'
 import { setStudyRoutes, completeOnboarding } from '@/lib/actions/onboarding'
 import { createClient } from '@/lib/supabase/client'
-import PaperSelectionPanel, { getMathsCombinations } from '@/components/subjects/paper-selection-panel'
+import PaperSelectionPanel, { getMathsCombinations, matchSavedMathsCombination } from '@/components/subjects/paper-selection-panel'
 import type { UserSubjectWithSubject, StudyRoute, PaperSelectionInput } from '@/types'
 
 interface SubjectRouteEntry {
@@ -58,7 +58,7 @@ export default function RouteStep({ subjectIds }: { subjectIds: string[] }) {
 
       let query = supabase
         .from('user_subjects')
-        .select('*, subjects(*)')
+        .select('*, subjects(*), subject_paper_selections(*)')
         .eq('user_id', user.id)
 
       if (subjectIds.length > 0) {
@@ -77,8 +77,8 @@ export default function RouteStep({ subjectIds }: { subjectIds: string[] }) {
               : 'staged'
 
           const isMaths = r.subjects.code === '9709'
-          const defaultMathsSelections = isMaths
-            ? getMathsCombinations(defaultRoute)[0]?.selections ?? []
+          const defaultMathsSelections = isMaths && r.subject_paper_selections
+            ? matchSavedMathsCombination(defaultRoute, r.subject_paper_selections)?.selections ?? []
             : []
 
           initial[r.subject_id] = {
@@ -95,14 +95,19 @@ export default function RouteStep({ subjectIds }: { subjectIds: string[] }) {
 
   const handleRouteChange = (subjectId: string, route: StudyRoute, subjectCode?: string | null) => {
     const isMaths = subjectCode === '9709'
-    const defaultSelections = isMaths ? getMathsCombinations(route)[0]?.selections ?? [] : []
+    let selections: PaperSelectionInput[] = []
+    if (isMaths) {
+      const current = entries[subjectId]?.paperSelections ?? []
+      const match = matchSavedMathsCombination(route, current)
+      selections = match ? match.selections : []
+    }
 
     setEntries((prev) => ({
       ...prev,
       [subjectId]: {
         ...prev[subjectId],
         route,
-        paperSelections: defaultSelections,
+        paperSelections: selections,
       },
     }))
   }
@@ -117,8 +122,23 @@ export default function RouteStep({ subjectIds }: { subjectIds: string[] }) {
     }))
   }
 
+  const hasMathsWithoutSelection = userSubjects.some((us) => {
+    if (us.subjects.code === '9709') {
+      const entry = entries[us.subject_id]
+      if (!entry) return true
+      const match = matchSavedMathsCombination(entry.route, entry.paperSelections)
+      return !match
+    }
+    return false
+  })
+
   const handleSubmit = async () => {
     setError('')
+    if (hasMathsWithoutSelection) {
+      setError('Please choose a paper combination for Mathematics before continuing.')
+      return
+    }
+
     const routesToSet = Object.values(entries).map((e) => ({
       subjectId: e.subjectId,
       route: (e.route === 'unconfirmed' ? 'staged' : e.route) as 'as_only' | 'staged' | 'full_level',
@@ -273,11 +293,18 @@ export default function RouteStep({ subjectIds }: { subjectIds: string[] }) {
       <motion.button
         type="button"
         onClick={handleSubmit}
-        disabled={submitting}
+        disabled={submitting || hasMathsWithoutSelection}
         className="btn btn-primary"
-        whileHover={{ scale: 1.02, y: -1 }}
-        whileTap={{ scale: 0.97 }}
-        style={{ width: '100%', height: 52, fontSize: '1rem', marginTop: 4 }}
+        whileHover={hasMathsWithoutSelection ? {} : { scale: 1.02, y: -1 }}
+        whileTap={hasMathsWithoutSelection ? {} : { scale: 0.97 }}
+        style={{
+          width: '100%',
+          height: 52,
+          fontSize: '1rem',
+          marginTop: 4,
+          opacity: hasMathsWithoutSelection ? 0.6 : 1,
+          cursor: hasMathsWithoutSelection ? 'not-allowed' : 'pointer',
+        }}
       >
         {submitting ? (
           <Loader2 size={18} style={{ animation: 'spin 0.8s linear infinite' }} />

@@ -65,15 +65,19 @@ Study route is configured per enrolled subject:
 - **Daily Missions**:
   - Generated daily based on accessible chapters only.
   - Excludes unconfirmed subjects and locked A2 content.
+  - Skipped missions do not consume active daily budget, permitting replenishment.
 - **Mission Completion**:
-  - Atomic RPC awards XP, updates streak, checks achievements, and awards all-missions-completed bonus with `reference_id = mission_id`.
+  - Atomic RPC (`complete_mission`) validates the user's local calendar day, increments `completion_attempt`, awards mission XP, updates streak, checks achievements, and awards all-missions-completed bonus.
+  - Associates all generated XP events and achievement unlocks with the mission ID and attempt index.
+  - Returns a detailed breakdown: `mission_xp`, `daily_bonus_xp`, `achievement_xp`, `total_xp_awarded`, and `new_total_xp`.
 - **Mission Undo**:
-  - Atomic RPC allows undoing completion within 10 minutes on the same local calendar day.
-  - Reverses mission XP with a new `mission_undo` negative ledger event.
-  - Reverses all-missions-complete bonus if linked by `reference_id`.
-  - Floors `total_xp` at 0 (never negative).
-  - Preserves streaks, achievements, and review timestamps (MVP design constraint).
+  - Atomic RPC (`undo_mission_completion`) allows undoing completion within 10 minutes on the same local calendar day.
+  - Reverses mission XP with a `mission_undo` negative ledger event.
+  - Reverses all-missions-complete bonus linked to that attempt.
+  - Reverses attempt-linked achievements unlocked during that completion and deletes their `user_achievements` row so the badges can be re-earned.
+  - Supports multiple `complete → undo → complete → undo` cycles cleanly.
+  - Preserves the ledger invariant: `profiles.total_xp = SUM(xp_events.xp_amount)`.
+  - Preserves streaks and review timestamps (MVP design constraint).
 
 ## Real-time Sync
 Supabase Realtime channels are utilized to subscribe to database changes, ensuring real-time updates for streak and XP changes across devices.
-

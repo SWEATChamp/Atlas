@@ -49,6 +49,7 @@ export interface SubjectReadiness {
 
 export interface DashboardData {
   profile: {
+    username?: string | null
     full_name: string
     avatar_url: string | null
     total_xp: number
@@ -71,8 +72,11 @@ export interface DashboardData {
 }
 
 export interface CompleteMissionResult {
-  xp_awarded: number
+  mission_xp: number
+  daily_bonus_xp: number
   achievement_xp: number
+  total_xp_awarded: number
+  xp_awarded: number
   new_total_xp: number
   new_level: number
   level_title: string

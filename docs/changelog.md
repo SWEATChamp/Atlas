@@ -14,16 +14,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automatic browser-timezone detection for existing users and during onboarding.
 - Three small safety tests covering mission generation, mission completion, and local-midnight exam countdowns.
 - **AS/A2 Database Foundation (Migration 020):** Applied and verified database migration with `study_route`, `current_stage`, `a2_unlocked_at`, and `a2_unlock_method` columns on `user_subjects` with three consistency constraints; `stage` column on `chapters` (including `route_dependent` for Maths Mechanics & Statistics 1); `stage` column on `past_papers`; new `subject_paper_selections` table (structured paper combination, ownership via `user_subjects`); new `subject_stage_results` table (required series/year, score CHECK, carry-forward AS-only CHECK, dedup UNIQUE, `set_updated_at` trigger); RLS on both new tables via `user_subjects` join; five new enum types; indexes on `chapters.stage`, `subject_paper_selections.stage`, and `subject_stage_results` carry-forward; TypeScript types updated in `database.ts` and `index.ts`; all 23 rollback-only database tests passed.
-- **AS/A2 Application Flow & Migration 021 (Prepared — Not Yet Applied):**
+- **AS/A2 Application Flow & Migration 021 (Applied Locally):**
   - Route selection UI (`RouteSelectionBanner`, `RouteSetupSheet`) and Onboarding Step 4 for choosing AS only, Staged A Level, or Full A Level per subject.
   - Paper combination selection (`PaperSelectionPanel`) for Mathematics (Pure 1/Pure 3/Mechanics/Statistics).
   - Stage-aware readiness calculation via PostgreSQL `compute_readiness_score(user_id, subject_id, stage)` RPC, removing application-side calculation entirely.
   - Separate AS and A2 readiness displays across dashboard and subject pages; removed averaged readiness hero chip.
   - A2 transition modal supporting standard AS result entry with carry-forward validation and early manual unlock.
-  - Mission undo action within 10 minutes on same local calendar day, reversing mission and all-missions-completed bonus XP atomically.
   - Past paper logging with required stage selection and legacy paper tagger (`PaperStageTagger`).
   - Auth guards (`auth.uid() = p_user_id`) added to all security definer functions and chapter/paper RLS policies.
-  - 34 rollback-only database tests authored covering readiness, access control, route configuration, A2 transition, and mission undo.
+- **AS/A2 Fixes & Gamification Accounting (Migration 022 — Prepared, Pending Hosted Application):**
+  - Mission completion attempts tracked via `daily_missions.completion_attempt`.
+  - Detailed XP breakdown payload returned from `complete_mission` (`mission_xp`, `daily_bonus_xp`, `achievement_xp`, `total_xp_awarded`, `new_total_xp`) and displayed in dashboard toast stack.
+  - Mission completion enforces user local calendar date match and rejects foreign-date missions.
+  - Mission undo atomically reverses mission XP, daily completion bonus, and attempt-linked achievements (deleting unlock records from `user_achievements` so badges can be re-earned).
+  - Clean support for multiple `complete → undo → complete → undo` cycles without cross-attempt reward leakage.
+  - Strict profile XP ledger invariant maintained (`profiles.total_xp = SUM(xp_events.xp_amount)`).
+  - Atomic onboarding subject selection via `set_onboarding_subjects` RPC (enforcing 1–5 subjects and `onboarding_completed = FALSE`).
+  - Mathematics 9709 paper selection strict matching and onboarding Continue button validation.
+  - Pure 2 Mathematics reclassified as `route_dependent`.
+  - Declarative auth-independent migration backfill of `user_chapters` for existing confirmed enrollments.
+  - 10 database tests in `migration_022_fixes.test.sql` and 10 tests in `undo_mission.test.sql`.
 
 ### Fixed
 - Replaced inconsistent application-side readiness calculation with database-level single source of truth.
@@ -31,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tightened `carry_forward = TRUE` constraint to require both `stage = 'as'` and `result_type = 'actual'`.
 
 ### Known Issues & MVP Limitations
-- Mission undo in MVP reverses XP and restores pending status, but does not modify streaks, achievements already unlocked, or `last_reviewed_at` timestamps.
+- Mission undo in MVP reverses XP, daily bonus, and attempt-linked achievements, but does not modify streaks or `last_reviewed_at` timestamps.
 - Biology and Computer Science do not yet have seeded chapters.
 
 

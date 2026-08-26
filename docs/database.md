@@ -145,9 +145,9 @@ Stores expected, forecast, or actual AS/A2 results. No `user_id` column — owne
 
 `compute_readiness_score` is not modified in Migration 020. Stage-aware readiness calculations, mission filtering by stage, access control based on `study_route`, and the result-entry UI are implemented in Migration 021.
 
-## AS/A2 Readiness, Route Management & Safety (Migration 021) — Prepared, Not Yet Applied
+## AS/A2 Readiness, Route Management & Safety (Migration 021) — Applied Locally
 
-The changes below are authored in `supabase/migrations/20260826000021_as_a2_readiness.sql`. Rollback-only tests are defined in `supabase/tests/database/as_a2_readiness.test.sql` (25 tests) and `supabase/tests/database/undo_mission.test.sql` (9 tests). Status: **prepared — not yet applied to database**.
+Authored in `supabase/migrations/20260826000021_as_a2_readiness.sql`. Rollback-only tests are defined in `supabase/tests/database/as_a2_readiness.test.sql` (27 tests) and `supabase/tests/database/undo_mission.test.sql` (10 tests).
 
 ### Key Functions & Logic
 
@@ -163,7 +163,7 @@ The changes below are authored in `supabase/migrations/20260826000021_as_a2_read
    - Preserves backward compatibility by delegating to `compute_readiness_score(p_user_id, p_subject_id, 'all')`.
 
 3. **`configure_subject_route(UUID, UUID, study_route_enum, JSONB)`**:
-   - Atomic transaction updating `user_subjects.study_route` and `current_stage`, replacing `subject_paper_selections`, validating component belonging, clearing unlock timestamps on route downgrade, and cancelling stale missions.
+   - Atomic transaction updating `user_subjects.study_route` and `current_stage`, replacing `subject_paper_selections`, validating component belonging, clearing unlock timestamps on route downgrade, auto-creating accessible `user_chapters`, and cancelling stale missions.
 
 4. **`transition_to_a2(...)`**:
    - Atomic transaction handling normal staged transition (recording AS result + unlocking A2) and manual unlock (converting `as_only` to `staged` with atomic rollback on failure).
@@ -171,12 +171,54 @@ The changes below are authored in `supabase/migrations/20260826000021_as_a2_read
 5. **`generate_daily_missions(UUID)`**:
    - Skips unconfirmed subjects and filters out inaccessible A2 chapters.
 
-6. **`complete_mission(UUID, UUID)` & `undo_mission_completion(UUID, UUID)`**:
-   - Guarded with `auth.uid() = p_user_id` and chapter accessibility checks.
-   - `undo_mission_completion` atomically restores mission to pending, inserts a negative `mission_undo` XP event, reverses exact bonus via `reference_id`, leaves streaks/achievements untouched (MVP design), and enforces a 10-minute/same-local-calendar-day window.
-
-7. **RLS Hardening**:
+6. **RLS Hardening**:
    - `user_chapters` INSERT/UPDATE policies enforce `user_can_access_chapter(auth.uid(), chapter_id)`.
    - `past_papers` UPDATE policy allows classifying legacy NULL-stage papers while enforcing ownership and stage accessibility.
    - `subject_stage_results` constraint tightened: `ssr_carry_forward_actual CHECK (carry_forward = FALSE OR (stage = 'as' AND result_type = 'actual'))`.
 
+---
+
+## AS/A2 Fixes & Gamification Accounting Hardening (Migration 022) — Prepared, Pending Hosted Application
+
+Authored in `supabase/migrations/20260826000022_as_a2_fixes.sql`. Rollback-only tests are defined in `supabase/tests/database/migration_022_fixes.test.sql` (10 tests) and `supabase/tests/database/undo_mission.test.sql` (10 tests). Status: **prepared — pending hosted application**.
+
+### Schema & Function Updates
+
+1. **`daily_missions.completion_attempt`**:
+   - Added column `completion_attempt INTEGER NOT NULL DEFAULT 0` to scope XP events and undos to the specific completion cycle.
+
+2. **`set_onboarding_subjects(p_user_id UUID, p_subject_ids UUID[])`**:
+   - Atomic RPC for onboarding subject selection: deletes unselected subjects and upserts selected ones in a single transaction.
+   - Guarded by `profiles.onboarding_completed = FALSE`, `auth.uid() = p_user_id`, and 1–5 subject count limit (aligned with `user_subjects` priority constraint).
+
+3. **`complete_mission(UUID, UUID)`**:
+   - Enforces mission local calendar date validation (`v_mission.mission_date = v_today`).
+   - Increments `completion_attempt` counter on the mission row.
+   - Awards mission XP and final-mission daily bonus tagged with `completion_attempt`.
+   - Invokes `check_and_unlock_achievements(p_user_id, p_mission_id, v_attempt)`.
+   - Returns structured XP breakdown: `mission_xp`, `daily_bonus_xp`, `achievement_xp`, `total_xp_awarded`, `new_total_xp`, `new_level`, `level_title`, `streak_days`, `achievements_unlocked`.
+
+4. **`undo_mission_completion(UUID, UUID)`**:
+   - Reverses mission XP, daily completion bonus XP, and attempt-linked achievement XP for the current `completion_attempt`.
+   - Deletes the `user_achievements` row for achievements unlocked during that attempt so they can be re-earned on future completions.
+   - Restores mission to `status = 'pending'`, `completed_at = NULL`.
+   - Strictly preserves ledger invariant: `profiles.total_xp = SUM(xp_events.xp_amount)`.
+
+5. **`check_and_unlock_achievements(UUID, UUID DEFAULT NULL, INTEGER DEFAULT NULL)`**:
+   - Auth guarded (`auth.uid() = p_user_id`).
+   - Tags unlocked achievement XP events with `reference_id = p_mission_id` and metadata `completion_attempt = p_attempt` when called from `complete_mission`.
+
+6. **`sync_xp_to_profile()`**:
+   - Maintains exact profile ledger invariant `total_xp = total_xp + NEW.xp_amount` on `xp_events` insert.
+
+7. **Mathematics 9709 Pure 2 Classification**:
+   - Classified Pure 2 chapter as `stage = 'route_dependent'` so it is accessible only when selected in the AS-only combination (Pure 1 + Pure 2).
+
+8. **`transition_to_a2` Result Upserting**:
+   - Uses `ON CONFLICT (user_subject_id, stage, result_type, exam_series, exam_year) DO UPDATE` to prevent `ssr_unique` duplicate key conflicts.
+
+9. **Dynamic Mission Replenishment**:
+   - `generate_daily_missions` excludes `skipped` missions from the daily active count budget, allowing replenishment when missions are skipped.
+
+10. **Declarative Auth-Independent Migration Backfill**:
+    - Backfills accessible `user_chapters` using pure relational joins without calling `user_can_access_chapter`, executing cleanly during migrations when `auth.uid()` is NULL.

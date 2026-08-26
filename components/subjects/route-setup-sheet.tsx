@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { X, BookOpen, Layers, Award } from 'lucide-react'
 import { configureSubjectRoute } from '@/lib/actions/route'
-import PaperSelectionPanel, { getMathsCombinations } from './paper-selection-panel'
+import PaperSelectionPanel, { getMathsCombinations, matchSavedMathsCombination } from './paper-selection-panel'
 import type { Subject, UserSubject, StudyRoute } from '@/types'
 import type { PaperSelectionInput } from '@/types'
 
@@ -72,9 +72,11 @@ export default function RouteSetupSheet({
   const handleRouteChange = (route: StudyRoute) => {
     setSelectedRoute(route)
     if (isMaths) {
-      const combos = getMathsCombinations(route)
-      if (combos.length > 0) {
-        setPaperSelections(combos[0].selections)
+      const match = matchSavedMathsCombination(route, paperSelections)
+      if (match) {
+        setPaperSelections(match.selections)
+      } else {
+        setPaperSelections([])
       }
     }
   }
@@ -83,6 +85,14 @@ export default function RouteSetupSheet({
     if (selectedRoute === 'unconfirmed') {
       setError('Please choose a valid study route')
       return
+    }
+
+    if (isMaths) {
+      const match = matchSavedMathsCombination(selectedRoute, paperSelections)
+      if (!match) {
+        setError('Please select a valid paper combination for the chosen route')
+        return
+      }
     }
 
     setError(null)

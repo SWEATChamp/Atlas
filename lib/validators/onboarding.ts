@@ -20,8 +20,10 @@ export const SubjectEnrollSchema = z.object({
   subjectIds: z
     .array(z.string().uuid())
     .min(1, 'Select at least one subject')
-    .max(10, 'Maximum 10 subjects allowed'),
+    .max(5, 'Maximum 5 subjects allowed'),
 })
+
+export const EnrollSubjectsSchema = SubjectEnrollSchema
 
 export const ExamDateSchema = z.object({
   enrollments: z.array(

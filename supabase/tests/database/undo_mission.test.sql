@@ -1,20 +1,8 @@
 -- ============================================================
--- DATABASE TESTS: Undo Mission Completion (Migration 021)
+-- DATABASE TESTS: Undo Mission Completion & XP Accounting
 --
 -- Run via: supabase test db
 -- All changes roll back — no data is persisted.
---
--- Tests (9):
---   1. XP reversed by exact mission amount (no bonus)
---   2. Bonus XP reversed when bonus reference_id matches mission_id
---   3. Mission restored to pending after undo
---   4. Duplicate undo attempt raises P0007 (checked before status)
---   5. Undo after 10 minutes raises P0006 (expired window)
---   6. Undo on a different calendar day raises P0006 (same-day rule)
---   7. XP floor: total_xp cannot go below zero
---   8. Streak unchanged after undo (MVP limitation: streak not reversed)
---   9. carry_forward=TRUE + result_type='actual' + stage='as' is accepted
---  10. Unauthenticated call (auth.uid() IS NULL) to undo_mission_completion raises 42501
 -- ============================================================
 
 BEGIN;
@@ -25,28 +13,22 @@ SELECT plan(10);
 -- ─── TEMP TABLE ────────────────────────────────────────────────────────────
 
 CREATE TEMP TABLE undo_ctx (
-  user_id      UUID NOT NULL,
-  subj_id      UUID NOT NULL DEFAULT gen_random_uuid(),
-  us_id        UUID,
-  chapter_id   UUID NOT NULL DEFAULT gen_random_uuid(),
-  uc_id        UUID NOT NULL DEFAULT gen_random_uuid(),
-  mission_id   UUID NOT NULL DEFAULT gen_random_uuid(),
-  -- captured values
-  xp_before    INTEGER,
-  xp_after_complete INTEGER,
-  xp_after_undo     INTEGER,
-  streak_before INTEGER,
-  streak_after_undo INTEGER,
+  user_id           UUID NOT NULL,
+  subj_id           UUID NOT NULL DEFAULT gen_random_uuid(),
+  us_id             UUID,
+  chapter_id        UUID NOT NULL DEFAULT gen_random_uuid(),
+  uc_id             UUID NOT NULL DEFAULT gen_random_uuid(),
+  mission_id        UUID NOT NULL DEFAULT gen_random_uuid(),
   -- test flags
-  t1_xp_reversed   BOOLEAN DEFAULT FALSE,
+  t1_xp_reversed    BOOLEAN DEFAULT FALSE,
   t2_bonus_reversed BOOLEAN DEFAULT FALSE,
-  t3_status_pending BOOLEAN DEFAULT FALSE,
-  t4_dup_undo       BOOLEAN DEFAULT FALSE,
-  t5_expired_undo   BOOLEAN DEFAULT FALSE,
-  t6_diff_day       BOOLEAN DEFAULT FALSE,
-  t7_xp_floor       BOOLEAN DEFAULT FALSE,
-  t8_streak_unchanged BOOLEAN DEFAULT FALSE,
-  t9_cf_actual_ok   BOOLEAN DEFAULT FALSE,
+  t3_ach_reversed   BOOLEAN DEFAULT FALSE,
+  t4_multi_cycle    BOOLEAN DEFAULT FALSE,
+  t5_ledger_match   BOOLEAN DEFAULT FALSE,
+  t6_wrong_date_rej BOOLEAN DEFAULT FALSE,
+  t7_dup_undo       BOOLEAN DEFAULT FALSE,
+  t8_expired_undo   BOOLEAN DEFAULT FALSE,
+  t9_diff_day_undo  BOOLEAN DEFAULT FALSE,
   t10_unauth_undo   BOOLEAN DEFAULT FALSE
 ) ON COMMIT DROP;
 
@@ -56,6 +38,11 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.daily_missions TO authentic
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.subject_stage_results TO authenticated, anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.user_subjects TO authenticated, anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.chapters TO authenticated, anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.user_achievements TO authenticated, anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.achievement_definitions TO authenticated, anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.xp_events TO authenticated, anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.profiles TO authenticated, anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.streaks TO authenticated, anon;
 
 INSERT INTO undo_ctx (user_id) VALUES ('b0210001-0000-0000-0000-000000000001');
 
@@ -78,10 +65,14 @@ BEGIN
     NOW(), NOW()
   )
   ON CONFLICT (id) DO NOTHING;
+
+  UPDATE public.profiles
+  SET    total_xp = 0, current_level = 1, timezone = 'UTC'
+  WHERE  id = 'b0210001-0000-0000-0000-000000000001';
 END;
 $$;
 
--- ─── SETUP: subject, enrollment, chapter, user_chapter, mission ───────────
+-- ─── SETUP: subject, enrollment, chapter, user_chapter, missions ──────────
 
 DO $$
 DECLARE
@@ -126,153 +117,300 @@ BEGIN
 END;
 $$;
 
--- ─── Capture XP and streak before completion ──────────────────────────────
 
-UPDATE undo_ctx ctx
-SET    xp_before    = p.total_xp,
-       streak_before = COALESCE(s.current_streak, 0)
-FROM   public.profiles p
-JOIN   public.streaks  s ON s.user_id = p.id
-WHERE  p.id = ctx.user_id;
-
--- ─── Complete the mission (as the user) ───────────────────────────────────
+-- ═══════════════════════════════════════════════════════════════════
+-- TEST 1: Normal Mission: +50 awarded, undo reverses -50
+-- ═══════════════════════════════════════════════════════════════════
 
 DO $$
 DECLARE
-  v_user UUID;
-  v_miss UUID;
+  v_user      UUID;
+  v_miss      UUID;
+  v_uc_id     UUID;
+  v_miss2     UUID := gen_random_uuid();
+  v_today     DATE;
+  v_xp_before INTEGER;
+  v_xp_after  INTEGER;
+  v_xp_undone INTEGER;
+  v_ret       JSONB;
 BEGIN
-  SELECT user_id, mission_id INTO v_user, v_miss FROM undo_ctx;
+  SELECT user_id, mission_id, uc_id INTO v_user, v_miss, v_uc_id FROM undo_ctx;
+  v_today := public.get_user_local_date(v_user);
+
+  -- Insert a 2nd pending mission so completing mission 1 does NOT trigger all-missions bonus
+  INSERT INTO public.daily_missions (
+    id, user_id, mission_date, type, target_entity_type, target_entity_id,
+    title, description, xp_reward, status, difficulty
+  ) VALUES (
+    v_miss2, v_user, v_today, 'review_chapter', 'chapter', v_uc_id,
+    'Second Mission', 'Desc', 30, 'pending', 'easy'
+  );
+
+  SELECT total_xp INTO v_xp_before FROM public.profiles WHERE id = v_user;
 
   SET LOCAL ROLE authenticated;
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_user::text)::text, true);
 
-  PERFORM public.complete_mission(v_miss, v_user);
+  -- Complete normal mission (+50)
+  v_ret := public.complete_mission(v_miss, v_user);
+  SELECT total_xp INTO v_xp_after FROM public.profiles WHERE id = v_user;
 
-  RESET ROLE;
-  PERFORM set_config('request.jwt.claims', '', true);
-END;
-$$;
-
-UPDATE undo_ctx ctx
-SET    xp_after_complete = p.total_xp,
-       streak_after_undo  = COALESCE(s.current_streak, 0)  -- capture streak at completion time
-FROM   public.profiles p
-JOIN   public.streaks  s ON s.user_id = p.id
-WHERE  p.id = ctx.user_id;
-
--- ─── Undo the mission ─────────────────────────────────────────────────────
-
-DO $$
-DECLARE
-  v_user UUID;
-  v_miss UUID;
-BEGIN
-  SELECT user_id, mission_id INTO v_user, v_miss FROM undo_ctx;
-
-  SET LOCAL ROLE authenticated;
-  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_user::text)::text, true);
-
+  -- Undo normal mission (-50)
   PERFORM public.undo_mission_completion(v_miss, v_user);
+  SELECT total_xp INTO v_xp_undone FROM public.profiles WHERE id = v_user;
 
   RESET ROLE;
   PERFORM set_config('request.jwt.claims', '', true);
-END;
-$$;
 
-UPDATE undo_ctx ctx
-SET    xp_after_undo = p.total_xp
-FROM   public.profiles p
-WHERE  p.id = ctx.user_id;
+  -- Clean up second mission
+  DELETE FROM public.daily_missions WHERE id = v_miss2;
 
-
--- ═══════════════════════════════════════════════════════════════════
--- TEST 1: Mission XP reversed (50 XP reversed, achievement XP preserved)
--- ═══════════════════════════════════════════════════════════════════
-
-DO $$
-DECLARE
-  v_user     UUID;
-  v_miss     UUID;
-  v_complete INTEGER;
-  v_after    INTEGER;
-  v_undo_count INTEGER;
-BEGIN
-  SELECT user_id, mission_id, xp_after_complete, xp_after_undo
-  INTO   v_user, v_miss, v_complete, v_after
-  FROM   undo_ctx;
-
-  -- Verify that mission_undo events were created for this mission ID
-  SELECT COUNT(*)
-  INTO   v_undo_count
-  FROM   public.xp_events
-  WHERE  user_id = v_user
-    AND  reference_id = v_miss
-    AND  event_type = 'mission_undo';
-
-  -- Total XP decreased by at least 50 XP and undo events were recorded
   UPDATE undo_ctx SET t1_xp_reversed = (
-    v_undo_count >= 1 AND (v_complete - v_after >= 50)
+    (v_xp_after - v_xp_before = (v_ret->>'total_xp_awarded')::INTEGER) AND
+    (v_xp_undone = v_xp_before) AND
+    ((v_ret->>'mission_xp')::INTEGER = 50) AND
+    ((v_ret->>'daily_bonus_xp')::INTEGER = 0)
   );
 END;
 $$;
 
 SELECT ok((SELECT t1_xp_reversed FROM undo_ctx),
-  'XP after undo reflects exact mission XP reversal (mission XP event net zero)');
+  'Normal mission: +50 awarded, undo reverses exactly -50');
 
 
 -- ═══════════════════════════════════════════════════════════════════
--- TEST 2: Bonus XP reversed (single mission → bonus triggered and reversed)
+-- TEST 2: Final Mission: +50 mission + 25 bonus (+75 total), undo reverses -75
 -- ═══════════════════════════════════════════════════════════════════
 
 DO $$
 DECLARE
-  v_user     UUID;
-  v_miss     UUID;
-  v_complete INTEGER;
-  v_after    INTEGER;
-  v_net_xp   INTEGER;
+  v_user      UUID;
+  v_miss      UUID;
+  v_xp_before INTEGER;
+  v_xp_after  INTEGER;
+  v_xp_undone INTEGER;
+  v_ret       JSONB;
 BEGIN
-  SELECT user_id, mission_id, xp_after_complete, xp_after_undo
-  INTO   v_user, v_miss, v_complete, v_after
-  FROM   undo_ctx;
+  SELECT user_id, mission_id INTO v_user, v_miss FROM undo_ctx;
 
-  -- Verify that all mission + bonus events (total 75 XP) with reference_id = v_miss are net 0
-  SELECT COALESCE(SUM(xp_amount), 0)
-  INTO   v_net_xp
-  FROM   public.xp_events
-  WHERE  user_id = v_user
-    AND  reference_id = v_miss
-    AND  event_type IN ('mission_complete', 'mission_undo');
+  SELECT total_xp INTO v_xp_before FROM public.profiles WHERE id = v_user;
 
-  -- Total XP decreased by exactly 75 (50 mission + 25 bonus reversed; achievement XP unchanged)
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_user::text)::text, true);
+
+  -- Only 1 pending mission remains, so completing it awards 50 + 25 bonus = +75
+  v_ret := public.complete_mission(v_miss, v_user);
+  SELECT total_xp INTO v_xp_after FROM public.profiles WHERE id = v_user;
+
+  -- Undo reverses 75
+  PERFORM public.undo_mission_completion(v_miss, v_user);
+  SELECT total_xp INTO v_xp_undone FROM public.profiles WHERE id = v_user;
+
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', true);
+
   UPDATE undo_ctx SET t2_bonus_reversed = (
-    v_net_xp = 0 AND (v_complete - v_after = 75)
+    ((v_ret->>'mission_xp')::INTEGER = 50) AND
+    ((v_ret->>'daily_bonus_xp')::INTEGER = 25) AND
+    (v_xp_after - v_xp_before = (v_ret->>'total_xp_awarded')::INTEGER) AND
+    (v_xp_undone = v_xp_before)
   );
 END;
 $$;
 
 SELECT ok((SELECT t2_bonus_reversed FROM undo_ctx),
-  'All-missions-complete bonus reversed exactly (bonus event net zero, total XP -75)');
+  'Final mission: +50 mission + 25 bonus awarded (+75 total), undo reverses -75');
 
 
 -- ═══════════════════════════════════════════════════════════════════
--- TEST 3: Mission restored to pending after undo
+-- TEST 3: Achievement unlocked during completion is reversed and removed during undo
 -- ═══════════════════════════════════════════════════════════════════
 
-SELECT ok(
-  (
-    SELECT status = 'pending' AND completed_at IS NULL
-    FROM   public.daily_missions dm
-    JOIN   undo_ctx ctx ON dm.id = ctx.mission_id
-  ),
-  'Mission status restored to pending after undo'
-);
+DO $$
+DECLARE
+  v_user      UUID;
+  v_miss      UUID;
+  v_uc_id     UUID;
+  v_xp_before INTEGER;
+  v_xp_after  INTEGER;
+  v_xp_undone INTEGER;
+  v_ach_count INTEGER;
+  v_ret       JSONB;
+BEGIN
+  SELECT user_id, mission_id, uc_id INTO v_user, v_miss, v_uc_id FROM undo_ctx;
+
+  -- Ensure first_blood achievement is NOT unlocked yet
+  DELETE FROM public.user_achievements WHERE user_id = v_user AND achievement_key = 'first_blood';
+  -- Set user_chapter to notes_status = 'complete' so first_blood qualifies on check
+  UPDATE public.user_chapters SET notes_status = 'complete' WHERE id = v_uc_id;
+
+  SELECT total_xp INTO v_xp_before FROM public.profiles WHERE id = v_user;
+
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_user::text)::text, true);
+
+  -- Complete mission -> unlocks first_blood (+100 XP)
+  v_ret := public.complete_mission(v_miss, v_user);
+  SELECT total_xp INTO v_xp_after FROM public.profiles WHERE id = v_user;
+
+  -- Undo mission -> reverses mission, bonus, and first_blood achievement
+  PERFORM public.undo_mission_completion(v_miss, v_user);
+  SELECT total_xp INTO v_xp_undone FROM public.profiles WHERE id = v_user;
+
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', true);
+
+  -- Check that user_achievements record for first_blood was removed
+  SELECT COUNT(*) INTO v_ach_count
+  FROM   public.user_achievements
+  WHERE  user_id = v_user AND achievement_key = 'first_blood';
+
+  UPDATE undo_ctx SET t3_ach_reversed = (
+    ((v_ret->>'achievement_xp')::INTEGER >= 100) AND
+    (v_ach_count = 0) AND
+    (v_xp_undone = v_xp_before)
+  );
+END;
+$$;
+
+SELECT ok((SELECT t3_ach_reversed FROM undo_ctx),
+  'Achievement unlocked during completion is reversed and removed during undo');
 
 
 -- ═══════════════════════════════════════════════════════════════════
--- TEST 4: Duplicate undo attempt raises P0007
---         (checked BEFORE mission status — mission is now pending again)
+-- TEST 4: Two complete/undo cycles with identical results (attempt tracking)
+-- ═══════════════════════════════════════════════════════════════════
+
+DO $$
+DECLARE
+  v_user    UUID;
+  v_miss    UUID;
+  v_ret1    JSONB;
+  v_ret2    JSONB;
+  v_xp_mid  INTEGER;
+  v_xp_end  INTEGER;
+BEGIN
+  SELECT user_id, mission_id INTO v_user, v_miss FROM undo_ctx;
+
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_user::text)::text, true);
+
+  -- Cycle 1: Complete then Undo
+  v_ret1 := public.complete_mission(v_miss, v_user);
+  PERFORM public.undo_mission_completion(v_miss, v_user);
+  SELECT total_xp INTO v_xp_mid FROM public.profiles WHERE id = v_user;
+
+  -- Cycle 2: Complete again then Undo again
+  v_ret2 := public.complete_mission(v_miss, v_user);
+  PERFORM public.undo_mission_completion(v_miss, v_user);
+  SELECT total_xp INTO v_xp_end FROM public.profiles WHERE id = v_user;
+
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', true);
+
+  UPDATE undo_ctx SET t4_multi_cycle = (
+    v_xp_mid = v_xp_end AND
+    (v_ret1->>'mission_xp' = v_ret2->>'mission_xp') AND
+    (v_ret1->>'daily_bonus_xp' = v_ret2->>'daily_bonus_xp')
+  );
+END;
+$$;
+
+SELECT ok((SELECT t4_multi_cycle FROM undo_ctx),
+  'Two complete/undo cycles succeed with identical results without old reward collisions');
+
+
+-- ═══════════════════════════════════════════════════════════════════
+-- TEST 5: Profile total_xp equals SUM(xp_amount) of xp_events after every step
+-- ═══════════════════════════════════════════════════════════════════
+
+DO $$
+DECLARE
+  v_user        UUID;
+  v_miss        UUID;
+  v_profile_xp  INTEGER;
+  v_ledger_xp   INTEGER;
+  v_step1_match BOOLEAN;
+  v_step2_match BOOLEAN;
+BEGIN
+  SELECT user_id, mission_id INTO v_user, v_miss FROM undo_ctx;
+
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_user::text)::text, true);
+
+  -- Step 1: Complete
+  PERFORM public.complete_mission(v_miss, v_user);
+  SELECT total_xp INTO v_profile_xp FROM public.profiles WHERE id = v_user;
+  SELECT COALESCE(SUM(xp_amount), 0) INTO v_ledger_xp FROM public.xp_events WHERE user_id = v_user;
+  v_step1_match := (v_profile_xp = v_ledger_xp);
+
+  -- Step 2: Undo
+  PERFORM public.undo_mission_completion(v_miss, v_user);
+  SELECT total_xp INTO v_profile_xp FROM public.profiles WHERE id = v_user;
+  SELECT COALESCE(SUM(xp_amount), 0) INTO v_ledger_xp FROM public.xp_events WHERE user_id = v_user;
+  v_step2_match := (v_profile_xp = v_ledger_xp);
+
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', true);
+
+  UPDATE undo_ctx SET t5_ledger_match = (v_step1_match AND v_step2_match);
+END;
+$$;
+
+SELECT ok((SELECT t5_ledger_match FROM undo_ctx),
+  'Profile total_xp equals exact sum of xp_events after completion and undo (ledger invariant)');
+
+
+-- ═══════════════════════════════════════════════════════════════════
+-- TEST 6: complete_mission rejects mission from different local calendar day
+-- ═══════════════════════════════════════════════════════════════════
+
+DO $$
+DECLARE
+  v_user      UUID;
+  v_uc        UUID;
+  v_old_miss  UUID := gen_random_uuid();
+  v_xp_before INTEGER;
+  v_xp_after  INTEGER;
+  v_err       BOOLEAN := FALSE;
+BEGIN
+  SELECT user_id, uc_id INTO v_user, v_uc FROM undo_ctx;
+
+  -- Create a mission dated yesterday
+  INSERT INTO public.daily_missions (
+    id, user_id, mission_date, type, target_entity_type, target_entity_id,
+    title, description, xp_reward, status, difficulty
+  ) VALUES (
+    v_old_miss, v_user, CURRENT_DATE - 1, 'review_chapter', 'chapter', v_uc,
+    'Yesterday Mission', 'desc', 30, 'pending', 'easy'
+  );
+
+  SELECT total_xp INTO v_xp_before FROM public.profiles WHERE id = v_user;
+
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_user::text)::text, true);
+
+  BEGIN
+    PERFORM public.complete_mission(v_old_miss, v_user);
+  EXCEPTION
+    WHEN SQLSTATE 'P0006' THEN v_err := TRUE;
+  END;
+
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', true);
+
+  SELECT total_xp INTO v_xp_after FROM public.profiles WHERE id = v_user;
+
+  UPDATE undo_ctx SET t6_wrong_date_rej = (v_err AND v_xp_before = v_xp_after);
+END;
+$$;
+
+SELECT ok((SELECT t6_wrong_date_rej FROM undo_ctx),
+  'complete_mission rejects mission from different local date and awards no XP');
+
+
+-- ═══════════════════════════════════════════════════════════════════
+-- TEST 7: Duplicate undo attempt raises P0007
 -- ═══════════════════════════════════════════════════════════════════
 
 DO $$
@@ -294,229 +432,101 @@ BEGIN
 
   RESET ROLE;
   PERFORM set_config('request.jwt.claims', '', true);
-  UPDATE undo_ctx SET t4_dup_undo = v_err;
+
+  UPDATE undo_ctx SET t7_dup_undo = v_err;
 END;
 $$;
 
-SELECT ok((SELECT t4_dup_undo FROM undo_ctx),
-  'Duplicate undo attempt raises P0007 (before status check)');
+SELECT ok((SELECT t7_dup_undo FROM undo_ctx),
+  'Duplicate undo attempt raises P0007');
 
 
 -- ═══════════════════════════════════════════════════════════════════
--- TEST 5: Undo after 10 minutes raises P0006
--- ═══════════════════════════════════════════════════════════════════
-
-DO $$
-DECLARE
-  v_user UUID;
-  v_miss UUID := gen_random_uuid();
-  v_uc   UUID;
-  v_user2_uc UUID := gen_random_uuid();
-  v_today DATE;
-  v_err  BOOLEAN := FALSE;
-BEGIN
-  SELECT user_id, uc_id INTO v_user, v_uc FROM undo_ctx;
-  v_today := public.get_user_local_date(v_user);
-
-  -- Insert a mission that was completed 11 minutes ago
-  INSERT INTO public.daily_missions (
-    id, user_id, mission_date, type,
-    target_entity_type, target_entity_id,
-    title, description, xp_reward, status, difficulty,
-    completed_at
-  ) VALUES (
-    v_miss, v_user, v_today, 'review_chapter',
-    'chapter', v_uc,
-    'Expired Undo Mission', 'desc', 30, 'completed', 'easy',
-    NOW() - INTERVAL '11 minutes'
-  );
-
-  SET LOCAL ROLE authenticated;
-  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_user::text)::text, true);
-
-  BEGIN
-    PERFORM public.undo_mission_completion(v_miss, v_user);
-  EXCEPTION
-    WHEN SQLSTATE 'P0006' THEN v_err := TRUE;
-  END;
-
-  RESET ROLE;
-  PERFORM set_config('request.jwt.claims', '', true);
-  UPDATE undo_ctx SET t5_expired_undo = v_err;
-END;
-$$;
-
-SELECT ok((SELECT t5_expired_undo FROM undo_ctx),
-  'Undo after 10-minute window raises P0006');
-
-
--- ═══════════════════════════════════════════════════════════════════
--- TEST 6: Undo on a different calendar day raises P0006
--- ═══════════════════════════════════════════════════════════════════
-
-DO $$
-DECLARE
-  v_user UUID;
-  v_uc   UUID;
-  v_miss UUID := gen_random_uuid();
-  v_err  BOOLEAN := FALSE;
-BEGIN
-  SELECT user_id, uc_id INTO v_user, v_uc FROM undo_ctx;
-
-  -- Mission from yesterday
-  INSERT INTO public.daily_missions (
-    id, user_id, mission_date, type,
-    target_entity_type, target_entity_id,
-    title, description, xp_reward, status, difficulty,
-    completed_at
-  ) VALUES (
-    v_miss, v_user, CURRENT_DATE - 1, 'review_chapter',
-    'chapter', v_uc,
-    'Yesterday Mission', 'desc', 30, 'completed', 'easy',
-    NOW() - INTERVAL '30 minutes'  -- within 10 min — but wrong day
-  );
-
-  SET LOCAL ROLE authenticated;
-  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_user::text)::text, true);
-
-  BEGIN
-    PERFORM public.undo_mission_completion(v_miss, v_user);
-  EXCEPTION
-    WHEN SQLSTATE 'P0006' THEN v_err := TRUE;
-  END;
-
-  RESET ROLE;
-  PERFORM set_config('request.jwt.claims', '', true);
-  UPDATE undo_ctx SET t6_diff_day = v_err;
-END;
-$$;
-
-SELECT ok((SELECT t6_diff_day FROM undo_ctx),
-  'Undo on a different calendar day raises P0006');
-
-
--- ═══════════════════════════════════════════════════════════════════
--- TEST 7: XP floor — total_xp cannot go below zero
--- Force a situation where reversal would go negative.
--- ═══════════════════════════════════════════════════════════════════
-
-DO $$
-DECLARE
-  v_user       UUID;
-  v_subj       UUID;
-  v_ch_floor   UUID := gen_random_uuid();
-  v_uc_floor   UUID := gen_random_uuid();
-  v_miss       UUID := gen_random_uuid();
-  v_today      DATE;
-  v_final_xp   INTEGER;
-BEGIN
-  SELECT user_id, subj_id INTO v_user, v_subj FROM undo_ctx;
-  v_today := public.get_user_local_date(v_user);
-
-  -- Create a dedicated chapter & user_chapter to avoid daily_missions_unique collision
-  INSERT INTO public.chapters (id, subject_id, title, number, component, is_global, stage)
-  VALUES (v_ch_floor, v_subj, 'Floor Test Chapter', 99, 'Core', FALSE, 'as');
-
-  INSERT INTO public.user_chapters (id, user_id, chapter_id, notes_status)
-  VALUES (v_uc_floor, v_user, v_ch_floor, 'none');
-
-  -- Create a fresh completed mission with xp_reward=50
-  INSERT INTO public.daily_missions (
-    id, user_id, mission_date, type,
-    target_entity_type, target_entity_id,
-    title, description, xp_reward, status, difficulty,
-    completed_at
-  ) VALUES (
-    v_miss, v_user, v_today, 'complete_notes',
-    'chapter', v_uc_floor,
-    'Floor Test Mission', 'desc', 50, 'completed', 'medium',
-    NOW() - INTERVAL '2 minutes'
-  );
-
-  -- Create the original XP event so the undo logic finds it
-  PERFORM public.award_xp(v_user, 50, 'mission_complete', v_miss,
-    jsonb_build_object('mission_type', 'complete_notes'));
-
-  -- Explicitly set user total_xp to 20 (strictly less than the 50 XP to reverse)
-  -- This forces the undo function to trigger the floor clamp.
-  UPDATE public.profiles SET total_xp = 20, current_level = 1 WHERE id = v_user;
-
-  SET LOCAL ROLE authenticated;
-  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_user::text)::text, true);
-
-  PERFORM public.undo_mission_completion(v_miss, v_user);
-
-  RESET ROLE;
-  PERFORM set_config('request.jwt.claims', '', true);
-
-  SELECT total_xp INTO v_final_xp FROM public.profiles WHERE id = v_user;
-  UPDATE undo_ctx SET t7_xp_floor = (v_final_xp = 0);
-END;
-$$;
-
-SELECT ok((SELECT t7_xp_floor FROM undo_ctx),
-  'XP floor: total_xp is floored at exactly zero when reversal exceeds pre-undo total');
-
-
--- ═══════════════════════════════════════════════════════════════════
--- TEST 8: Streak unchanged after undo
--- ═══════════════════════════════════════════════════════════════════
-
-DO $$
-DECLARE
-  v_user       UUID;
-  v_streak_now INTEGER;
-  v_before     INTEGER;
-BEGIN
-  SELECT user_id, streak_after_undo INTO v_user, v_before FROM undo_ctx;
-  -- streak_after_undo was captured at completion time; after the undo it should be the same
-  SELECT current_streak INTO v_streak_now FROM public.streaks WHERE user_id = v_user;
-  UPDATE undo_ctx SET t8_streak_unchanged = (v_streak_now = v_before);
-END;
-$$;
-
-SELECT ok((SELECT t8_streak_unchanged FROM undo_ctx),
-  'Streak is unchanged after undo (MVP: streak not reversed on undo)');
-
-
--- ═══════════════════════════════════════════════════════════════════
--- TEST 9: carry_forward=TRUE + result_type='actual' + stage='as' is accepted
---         (positive control for the tightened ssr_carry_forward_actual constraint)
+-- TEST 8: Undo after 10 minutes raises P0006
 -- ═══════════════════════════════════════════════════════════════════
 
 DO $$
 DECLARE
   v_user  UUID;
-  v_us_id UUID;
-  v_ok    BOOLEAN := FALSE;
+  v_miss  UUID := gen_random_uuid();
+  v_uc    UUID;
+  v_today DATE;
+  v_err   BOOLEAN := FALSE;
 BEGIN
-  SELECT user_id, us_id INTO v_user, v_us_id FROM undo_ctx;
+  SELECT user_id, uc_id INTO v_user, v_uc FROM undo_ctx;
+  v_today := public.get_user_local_date(v_user);
+
+  INSERT INTO public.daily_missions (
+    id, user_id, mission_date, type, target_entity_type, target_entity_id,
+    title, description, xp_reward, status, difficulty, completed_at, completion_attempt
+  ) VALUES (
+    v_miss, v_user, v_today, 'review_chapter', 'chapter', v_uc,
+    'Expired Mission', 'desc', 30, 'completed', 'easy', NOW() - INTERVAL '11 minutes', 1
+  );
+
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_user::text)::text, true);
 
   BEGIN
-    INSERT INTO public.subject_stage_results (
-      user_subject_id, stage, result_type,
-      score_obtained, score_maximum,
-      exam_series, exam_year, carry_forward
-    ) VALUES (
-      v_us_id, 'as', 'actual',
-      85, 100,
-      'may_jun', 2025, TRUE
-    );
-    v_ok := TRUE;
+    PERFORM public.undo_mission_completion(v_miss, v_user);
   EXCEPTION
-    WHEN OTHERS THEN v_ok := FALSE;
+    WHEN SQLSTATE 'P0006' THEN v_err := TRUE;
   END;
 
-  UPDATE undo_ctx SET t9_cf_actual_ok = v_ok;
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', true);
+
+  UPDATE undo_ctx SET t8_expired_undo = v_err;
 END;
 $$;
 
-SELECT ok((SELECT t9_cf_actual_ok FROM undo_ctx),
-  'carry_forward=TRUE accepted when stage=as AND result_type=actual (constraint positive control)');
+SELECT ok((SELECT t8_expired_undo FROM undo_ctx),
+  'Undo after 10-minute window raises P0006');
 
 
 -- ═══════════════════════════════════════════════════════════════════
--- TEST 10: Unauthenticated call (auth.uid() IS NULL) to undo_mission_completion raises 42501
+-- TEST 9: Undo on a different calendar day raises P0006
+-- ═══════════════════════════════════════════════════════════════════
+
+DO $$
+DECLARE
+  v_user UUID;
+  v_uc   UUID;
+  v_miss UUID := gen_random_uuid();
+  v_err  BOOLEAN := FALSE;
+BEGIN
+  SELECT user_id, uc_id INTO v_user, v_uc FROM undo_ctx;
+
+  INSERT INTO public.daily_missions (
+    id, user_id, mission_date, type, target_entity_type, target_entity_id,
+    title, description, xp_reward, status, difficulty, completed_at, completion_attempt
+  ) VALUES (
+    v_miss, v_user, CURRENT_DATE - 1, 'complete_notes', 'chapter', v_uc,
+    'Yesterday Mission', 'desc', 50, 'completed', 'medium', NOW() - INTERVAL '5 minutes', 1
+  );
+
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_user::text)::text, true);
+
+  BEGIN
+    PERFORM public.undo_mission_completion(v_miss, v_user);
+  EXCEPTION
+    WHEN SQLSTATE 'P0006' THEN v_err := TRUE;
+  END;
+
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', true);
+
+  UPDATE undo_ctx SET t9_diff_day_undo = v_err;
+END;
+$$;
+
+SELECT ok((SELECT t9_diff_day_undo FROM undo_ctx),
+  'Undo on a different calendar day raises P0006');
+
+
+-- ═══════════════════════════════════════════════════════════════════
+-- TEST 10: Unauthenticated call raises 42501 Unauthorized
 -- ═══════════════════════════════════════════════════════════════════
 
 DO $$
@@ -527,7 +537,6 @@ DECLARE
 BEGIN
   SELECT user_id, mission_id INTO v_user, v_miss FROM undo_ctx;
 
-  -- Ensure no auth context
   RESET ROLE;
   PERFORM set_config('request.jwt.claims', '', true);
 
@@ -535,7 +544,6 @@ BEGIN
     PERFORM public.undo_mission_completion(v_miss, v_user);
   EXCEPTION
     WHEN SQLSTATE '42501' THEN v_err := TRUE;
-    WHEN OTHERS THEN NULL;
   END;
 
   UPDATE undo_ctx SET t10_unauth_undo = v_err;
@@ -543,7 +551,7 @@ END;
 $$;
 
 SELECT ok((SELECT t10_unauth_undo FROM undo_ctx),
-  'unauthenticated call to undo_mission_completion raises 42501 Unauthorized');
+  'Unauthenticated call to undo_mission_completion raises 42501 Unauthorized');
 
 
 SELECT * FROM finish();

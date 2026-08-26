@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { PaperSelectionInput } from '@/types'
 import type { StudyRoute } from '@/types/database'
 
@@ -11,10 +11,12 @@ interface Props {
   onChange: (selections: PaperSelectionInput[]) => void
 }
 
-interface OptionCombination {
+export interface OptionCombination {
   id: string
   label: string
   description: string
+  asPapers: string[]
+  a2Papers: string[]
   selections: PaperSelectionInput[]
 }
 
@@ -22,9 +24,22 @@ export function getMathsCombinations(route: StudyRoute): OptionCombination[] {
   if (route === 'as_only') {
     return [
       {
+        id: 'p1_p2',
+        label: 'Pure 1 + Pure 2 (Papers 1 & 2)',
+        description: 'Pure Mathematics 1 & 2',
+        asPapers: ['Pure 1 (Paper 1)', 'Pure 2 (Paper 2)'],
+        a2Papers: [],
+        selections: [
+          { component_name: 'Pure 1', paper_number: 1, stage: 'as' },
+          { component_name: 'Pure 2', paper_number: 2, stage: 'as' },
+        ],
+      },
+      {
         id: 'p1_m1',
         label: 'Pure 1 + Mechanics (Papers 1 & 4)',
-        description: 'Standard Mechanics AS combination',
+        description: 'Pure Mathematics 1 & Mechanics',
+        asPapers: ['Pure 1 (Paper 1)', 'Mechanics (Paper 4)'],
+        a2Papers: [],
         selections: [
           { component_name: 'Pure 1', paper_number: 1, stage: 'as' },
           { component_name: 'Mechanics', paper_number: 4, stage: 'as' },
@@ -33,7 +48,9 @@ export function getMathsCombinations(route: StudyRoute): OptionCombination[] {
       {
         id: 'p1_s1',
         label: 'Pure 1 + Statistics 1 (Papers 1 & 5)',
-        description: 'Standard Statistics AS combination',
+        description: 'Pure Mathematics 1 & Probability & Statistics 1',
+        asPapers: ['Pure 1 (Paper 1)', 'Statistics 1 (Paper 5)'],
+        a2Papers: [],
         selections: [
           { component_name: 'Pure 1', paper_number: 1, stage: 'as' },
           { component_name: 'Statistics 1', paper_number: 5, stage: 'as' },
@@ -47,7 +64,9 @@ export function getMathsCombinations(route: StudyRoute): OptionCombination[] {
     {
       id: 'mech_stats',
       label: 'Mechanics + Statistics 1 (Papers 1, 3, 4, 5)',
-      description: 'Pure 1 (AS) + Pure 3 (A2) + Mechanics (AS) + Statistics 1 (A2)',
+      description: 'Standard combination with both applied areas',
+      asPapers: ['Pure 1 (Paper 1)', 'Mechanics (Paper 4)'],
+      a2Papers: ['Pure 3 (Paper 3)', 'Statistics 1 (Paper 5)'],
       selections: [
         { component_name: 'Pure 1', paper_number: 1, stage: 'as' },
         { component_name: 'Pure 3', paper_number: 3, stage: 'a2' },
@@ -58,7 +77,9 @@ export function getMathsCombinations(route: StudyRoute): OptionCombination[] {
     {
       id: 'stats_double',
       label: 'Statistics 1 + Statistics 2 (Papers 1, 3, 5, 6)',
-      description: 'Pure 1 (AS) + Pure 3 (A2) + Statistics 1 (AS) + Statistics 2 (A2)',
+      description: 'Double statistics combination without mechanics',
+      asPapers: ['Pure 1 (Paper 1)', 'Statistics 1 (Paper 5)'],
+      a2Papers: ['Pure 3 (Paper 3)', 'Statistics 2 (Paper 6)'],
       selections: [
         { component_name: 'Pure 1', paper_number: 1, stage: 'as' },
         { component_name: 'Pure 3', paper_number: 3, stage: 'a2' },
@@ -67,6 +88,29 @@ export function getMathsCombinations(route: StudyRoute): OptionCombination[] {
       ],
     },
   ]
+}
+
+export function matchSavedMathsCombination(
+  route: StudyRoute,
+  selections: PaperSelectionInput[]
+): OptionCombination | null {
+  if (!selections || selections.length === 0) return null
+  const combinations = getMathsCombinations(route)
+
+  for (const combo of combinations) {
+    if (combo.selections.length === selections.length) {
+      const allMatch = combo.selections.every((sel) =>
+        selections.some(
+          (init) =>
+            init.component_name === sel.component_name &&
+            init.stage === sel.stage &&
+            init.paper_number === sel.paper_number
+        )
+      )
+      if (allMatch) return combo
+    }
+  }
+  return null
 }
 
 export default function PaperSelectionPanel({
@@ -78,21 +122,22 @@ export default function PaperSelectionPanel({
   const isMaths = subjectCode === '9709'
   const combinations = isMaths ? getMathsCombinations(route) : []
 
-  // Match initial selection to a combination ID if possible
-  const findMatchingCombo = () => {
-    if (!initialSelections.length && combinations.length > 0) return combinations[0].id
-    for (const combo of combinations) {
-      const match = combo.selections.every((sel) =>
-        initialSelections.some(
-          (init) => init.component_name === sel.component_name && init.stage === sel.stage
-        )
-      )
-      if (match) return combo.id
-    }
-    return combinations[0]?.id ?? ''
-  }
+  // Resolve matching combination ID strictly
+  const matched = isMaths ? matchSavedMathsCombination(route, initialSelections) : null
+  const defaultComboId = matched ? matched.id : ''
 
-  const [selectedComboId, setSelectedComboId] = useState<string>(findMatchingCombo)
+  const [selectedComboId, setSelectedComboId] = useState<string>(defaultComboId)
+
+  // Sync state if initialSelections or route change
+  useEffect(() => {
+    const match = matchSavedMathsCombination(route, initialSelections)
+    if (match) {
+      setSelectedComboId(match.id)
+    } else {
+      setSelectedComboId('')
+      onChange([])
+    }
+  }, [route, initialSelections])
 
   if (!isMaths || combinations.length === 0) {
     return null
@@ -108,10 +153,18 @@ export default function PaperSelectionPanel({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-        Paper combination (Mathematics 9709)
-      </label>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+          Paper combination (Mathematics 9709)
+        </label>
+        {!selectedComboId && (
+          <span style={{ fontSize: '0.75rem', color: 'var(--warning)', fontWeight: 600 }}>
+            Selection required
+          </span>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {combinations.map((combo) => {
           const isSelected = selectedComboId === combo.id
           return (
@@ -127,11 +180,11 @@ export default function PaperSelectionPanel({
                 transition: 'all 150ms ease',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                 <div
                   style={{
-                    width: 16,
-                    height: 16,
+                    width: 18,
+                    height: 18,
                     borderRadius: '50%',
                     border: `2px solid ${isSelected ? 'var(--primary)' : 'var(--border-muted)'}`,
                     background: isSelected ? 'var(--primary)' : 'transparent',
@@ -139,18 +192,43 @@ export default function PaperSelectionPanel({
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
+                    marginTop: 2,
                   }}
                 >
                   {isSelected && (
                     <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />
                   )}
                 </div>
-                <div>
+                <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                     {combo.label}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2, marginBottom: 8 }}>
                     {combo.description}
+                  </div>
+
+                  {/* Stage-separated paper breakdown */}
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    {combo.asPapers.length > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.72rem' }}>
+                        <span style={{ fontWeight: 700, color: 'var(--accent-primary, #5B7FFF)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          AS:
+                        </span>
+                        <span style={{ color: 'var(--text-secondary)' }}>
+                          {combo.asPapers.join(' + ')}
+                        </span>
+                      </div>
+                    )}
+                    {combo.a2Papers.length > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.72rem' }}>
+                        <span style={{ fontWeight: 700, color: 'var(--warning, #FFB74D)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          A2:
+                        </span>
+                        <span style={{ color: 'var(--text-secondary)' }}>
+                          {combo.a2Papers.join(' + ')}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

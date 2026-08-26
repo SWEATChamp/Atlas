@@ -104,7 +104,22 @@ export async function transitionToA2(
 
   if (error) {
     console.error('transitionToA2 error:', error)
-    return { error: error.message }
+    if (error.message.includes('ssr_carry_forward_actual') || error.message.includes('carry_forward')) {
+      return { error: 'Carry-forward marks can only be set for actual AS examination results.' }
+    }
+    if (error.message.includes('ssr_score_bounds') || error.message.includes('score_obtained')) {
+      return { error: 'Obtained score cannot exceed maximum score.' }
+    }
+    if (error.message.includes('normal_transition requires')) {
+      return { error: 'Standard A2 transition requires a staged AS enrollment with full AS result details.' }
+    }
+    if (error.message.includes('manual unlock requires')) {
+      return { error: 'Manual A2 unlock is only available for AS stage subjects.' }
+    }
+    if (error.message.includes('Already in A2')) {
+      return { error: 'This subject has already unlocked A2 content.' }
+    }
+    return { error: error.message || 'Failed to save AS result and unlock A2. Please try again.' }
   }
 
   revalidatePath('/dashboard')

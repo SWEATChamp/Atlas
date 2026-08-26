@@ -81,18 +81,22 @@ export async function enrollSubjects(subjectIds: string[]): Promise<{ error?: st
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  // Upsert to be idempotent (safe if user goes back and re-selects)
-  const rows = parsed.data.subjectIds.map((subjectId, idx) => ({
-    user_id: user.id,
-    subject_id: subjectId,
-    priority: idx + 1,
-  }))
+  const { error } = await supabase.rpc('set_onboarding_subjects', {
+    p_user_id: user.id,
+    p_subject_ids: parsed.data.subjectIds,
+  })
 
-  const { error } = await supabase
-    .from('user_subjects')
-    .upsert(rows, { onConflict: 'user_id,subject_id', ignoreDuplicates: false })
+  if (error) {
+    console.error('Error in set_onboarding_subjects:', error)
+    if (error.message.includes('already been completed')) {
+      return { error: 'Onboarding has already been completed. Use subject settings to update enrollments.' }
+    }
+    if (error.message.includes('between 1 and 5')) {
+      return { error: 'Please select between 1 and 5 subjects.' }
+    }
+    return { error: 'Failed to enroll subjects. Please try again.' }
+  }
 
-  if (error) return { error: 'Failed to enroll subjects. Please try again.' }
   return {}
 }
 

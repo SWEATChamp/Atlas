@@ -2,7 +2,8 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { signOut } from '@/lib/supabase/actions'
 import { X } from 'lucide-react'
 import UsernameStep from './steps/username-step'
@@ -79,8 +80,23 @@ function OnboardingContent() {
   const searchParams = useSearchParams()
   const step = Number(searchParams.get('step') ?? '1')
 
-  // Keep selected subject IDs in memory so step 3 doesn't need to re-fetch
+  // Keep selected subject IDs in memory and hydrate from DB if needed
   const [enrolledSubjectIds, setEnrolledSubjectIds] = useState<string[]>([])
+
+  useEffect(() => {
+    if (step >= 3 && enrolledSubjectIds.length === 0) {
+      const supabase = createClient()
+      supabase
+        .from('user_subjects')
+        .select('subject_id')
+        .eq('is_archived', false)
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            setEnrolledSubjectIds(data.map((r) => r.subject_id))
+          }
+        })
+    }
+  }, [step, enrolledSubjectIds.length])
 
   const goNext = (subjectIds?: string[]) => {
     const next = step + 1

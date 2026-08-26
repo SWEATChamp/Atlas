@@ -18,6 +18,7 @@ interface MissionListProps {
 interface XpToast {
   id: string
   text: string
+  type?: 'success' | 'reversal' | 'error'
   levelUp?: boolean
   levelTitle?: string
 }
@@ -41,17 +42,28 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
       prev.map(m => (m.id === id ? { ...m, status: 'completed', completed_at: new Date().toISOString() } : m))
     )
 
+    const totalAwarded = result.total_xp_awarded ?? (result.mission_xp + result.daily_bonus_xp + result.achievement_xp)
+    const parts: string[] = []
+    if (result.mission_xp) parts.push(`+${result.mission_xp} Mission`)
+    if (result.daily_bonus_xp) parts.push(`+${result.daily_bonus_xp} All-Done Bonus`)
+    if (result.achievement_xp) parts.push(`+${result.achievement_xp} Achievement`)
+
+    const breakdownText = parts.length > 1
+      ? `+${totalAwarded} XP (${parts.join(', ')})`
+      : `+${totalAwarded} XP`
+
     const toastId = crypto.randomUUID()
     setToasts(prev => [
       ...prev,
       {
         id: toastId,
-        text: `+${result.xp_awarded + result.achievement_xp} XP`,
+        text: breakdownText,
+        type: 'success',
         levelUp: result.levelled_up,
         levelTitle: result.level_title,
       },
     ])
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toastId)), 2800)
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toastId)), 3500)
 
     router.refresh()
   }
@@ -61,17 +73,40 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
       prev.map(m => (m.id === id ? { ...m, status: 'pending', completed_at: null } : m))
     )
 
+    const parts: string[] = []
+    if (result.mission_xp_reversed) parts.push(`-${result.mission_xp_reversed} Mission`)
+    if (result.daily_bonus_xp_reversed) parts.push(`-${result.daily_bonus_xp_reversed} Bonus`)
+    if (result.achievement_xp_reversed) parts.push(`-${result.achievement_xp_reversed} Achievement`)
+
+    const breakdownText = parts.length > 1
+      ? `-${result.xp_reversed} XP (${parts.join(', ')})`
+      : `-${result.xp_reversed} XP (Reversed)`
+
     const toastId = crypto.randomUUID()
     setToasts(prev => [
       ...prev,
       {
         id: toastId,
-        text: `-${result.xp_reversed} XP (Reversed)`,
+        text: breakdownText,
+        type: 'reversal',
       },
     ])
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toastId)), 2800)
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toastId)), 3500)
 
     router.refresh()
+  }
+
+  const handleError = (errorMsg: string) => {
+    const toastId = crypto.randomUUID()
+    setToasts(prev => [
+      ...prev,
+      {
+        id: toastId,
+        text: errorMsg,
+        type: 'error',
+      },
+    ])
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toastId)), 4000)
   }
 
   const handleGenerate = async () => {
@@ -80,6 +115,7 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
     const { error } = await generateMissions()
     if (error) {
       setGenError(error)
+      handleError(`Generation failed: ${error}`)
       setGenerating(false)
       return
     }
@@ -153,21 +189,25 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
               style={{
                 background: t.levelUp
                   ? 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))'
+                  : t.type === 'error'
+                  ? 'rgba(239, 68, 68, 0.92)'
                   : 'var(--bg-card)',
-                border: `1px solid ${t.levelUp ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
+                border: `1px solid ${t.levelUp ? 'var(--accent-primary)' : t.type === 'error' ? 'var(--danger)' : 'var(--border-subtle)'}`,
                 borderRadius: 'var(--radius-md)',
                 padding: '10px 16px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
-                color: t.levelUp ? '#fff' : 'var(--text-primary)',
+                color: t.levelUp || t.type === 'error' ? '#fff' : 'var(--text-primary)',
                 fontSize: '0.875rem',
                 fontWeight: 700,
                 boxShadow: t.levelUp ? '0 0 20px rgba(124,109,250,0.4)' : 'var(--shadow-md)',
                 pointerEvents: 'none',
               }}
             >
-              {t.text.startsWith('-') ? (
+              {t.type === 'error' ? (
+                <AlertCircle size={16} color="#fff" strokeWidth={2.5} />
+              ) : t.type === 'reversal' || t.text.startsWith('-') ? (
                 <RotateCcw size={16} color="var(--warning)" strokeWidth={2.5} />
               ) : (
                 <Zap size={16} strokeWidth={2.5} />
@@ -178,110 +218,160 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
         </AnimatePresence>
       </div>
 
-      {/* No missions state */}
-      {missions.length === 0 ? (
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
-          {renderBlockers()}
-          <div style={{ textAlign: 'center', padding: '24px 16px' }}>
-            <Zap size={28} color="var(--accent-primary)" style={{ margin: '0 auto 12px', opacity: 0.6 }} />
-            <p style={{ color: 'var(--text-muted)', marginBottom: 16, fontSize: '0.875rem', lineHeight: 1.6 }}>
-              {hasExamDates && hasChapterData
-                ? 'No missions generated yet for today.'
-                : 'Resolve the issues above, then generate your missions.'}
-            </p>
-            {genError && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-md)',
-                background: 'rgba(248,113,113,0.08)',
-                border: '1px solid rgba(248,113,113,0.2)',
-                marginBottom: 12,
-                textAlign: 'left',
-                fontSize: '0.8rem',
-                color: 'var(--danger)',
-              }}>
-                <AlertCircle size={14} />
-                {genError}
-              </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+              Daily Missions
+            </h2>
+            {missions.length > 0 && (
+              <span
+                style={{
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  padding: '2px 8px',
+                  borderRadius: 99,
+                  background: allDone ? 'rgba(52,211,153,0.15)' : 'var(--bg-elevated)',
+                  color: allDone ? 'var(--success)' : 'var(--text-muted)',
+                  border: `1px solid ${allDone ? 'rgba(52,211,153,0.3)' : 'var(--border-subtle)'}`,
+                }}
+              >
+                {completedCount}/{missions.length} done
+              </span>
             )}
-            <button
-              className="btn btn-primary"
-              onClick={handleGenerate}
-              disabled={generating}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            >
-              <RefreshCw size={14} style={{ animation: generating ? 'spin 1s linear infinite' : 'none' }} />
-              {generating ? 'Generating…' : 'Generate Missions'}
-            </button>
           </div>
+          <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+            Complete missions to earn XP and level up
+          </p>
         </div>
-      ) : allDone ? (
-        /* All missions complete */
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
+
+        {/* Generate / Refresh button */}
+        <button
+          onClick={handleGenerate}
+          disabled={generating}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '6px 12px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
+            color: 'var(--text-secondary)',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            cursor: generating ? 'not-allowed' : 'pointer',
+            transition: 'all 150ms ease',
+            opacity: generating ? 0.6 : 1,
+          }}
+          onMouseEnter={(e) => {
+            if (!generating) {
+              e.currentTarget.style.borderColor = 'var(--text-secondary)'
+              e.currentTarget.style.color = 'var(--text-primary)'
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = 'var(--border-subtle)'
+            e.currentTarget.style.color = 'var(--text-secondary)'
+          }}
+        >
+          <RefreshCw
+            size={12}
             style={{
-              textAlign: 'center',
-              padding: '24px 20px',
-              background: 'linear-gradient(135deg, rgba(52,211,153,0.08), rgba(52,211,153,0.03))',
-              border: '1px solid rgba(52,211,153,0.2)',
+              animation: generating ? 'spin 1s linear infinite' : 'none',
+            }}
+          />
+          {generating ? 'Generating…' : missions.length === 0 ? 'Generate Missions' : 'Refresh'}
+        </button>
+      </div>
+
+      {/* Blockers */}
+      {renderBlockers()}
+
+      {/* All-done celebratory banner */}
+      <AnimatePresence>
+        {allDone && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+            animate={{ opacity: 1, height: 'auto', marginBottom: 16 }}
+            exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+            style={{
+              background: 'linear-gradient(135deg, rgba(124,109,250,0.12), rgba(56,217,245,0.08))',
+              border: '1px solid rgba(124,109,250,0.25)',
               borderRadius: 'var(--radius-md)',
+              padding: '12px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
             }}
           >
-            <PartyPopper size={30} color="var(--success)" style={{ margin: '0 auto 10px' }} />
-            <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--success)', marginBottom: 2 }}>
-              All missions complete!
-            </div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              Come back tomorrow for new missions.
+            <PartyPopper size={20} color="var(--accent-primary)" style={{ flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                All missions complete for today! 🎉
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 1 }}>
+                Great work! Missions refresh tomorrow, or attempt a past paper for bonus XP.
+              </div>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
 
-          {/* Render cards so user can still see them and undo if needed */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {missions.map(mission => (
-              <MissionCard
-                key={mission.id}
-                mission={mission}
-                onComplete={handleComplete}
-                onUndo={handleUndo}
-              />
-            ))}
+      {/* Mission list */}
+      {missions.length === 0 ? (
+        <div
+          style={{
+            padding: '32px 16px',
+            textAlign: 'center',
+            borderRadius: 'var(--radius-md)',
+            background: 'var(--bg-card)',
+            border: '1px dashed var(--border-subtle)',
+          }}
+        >
+          <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+            No missions generated for today yet
           </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 12 }}>
+            {hasExamDates && hasChapterData
+              ? 'Click below to generate your personalised daily study missions.'
+              : 'Add your exam dates and start revising chapters to unlock daily missions.'}
+          </div>
+          {hasExamDates && hasChapterData && (
+            <button
+              onClick={handleGenerate}
+              disabled={generating}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 16px',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--accent-primary)',
+                border: 'none',
+                color: '#fff',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              <Zap size={14} />
+              Generate Missions
+            </button>
+          )}
         </div>
       ) : (
-        /* Mission list */
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-              {completedCount} / {missions.length} done
-            </span>
-            <div style={{ display: 'flex', gap: 4 }}>
-              {missions.map((m, i) => (
-                <div key={i} style={{
-                  width: 20,
-                  height: 4,
-                  borderRadius: 2,
-                  background: m.status === 'completed' ? 'var(--success)' : 'var(--bg-overlay)',
-                  transition: 'background 300ms ease',
-                }} />
-              ))}
-            </div>
-          </div>
-          <AnimatePresence>
-            {missions.map(mission => (
-              <MissionCard
-                key={mission.id}
-                mission={mission}
-                onComplete={handleComplete}
-                onUndo={handleUndo}
-              />
-            ))}
-          </AnimatePresence>
+          {missions.map(m => (
+            <MissionCard
+              key={m.id}
+              mission={m}
+              onComplete={handleComplete}
+              onUndo={handleUndo}
+              onError={handleError}
+            />
+          ))}
         </div>
       )}
     </div>

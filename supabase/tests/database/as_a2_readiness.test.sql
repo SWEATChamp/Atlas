@@ -914,9 +914,11 @@ BEGIN
   INTO   v_owner, v_us_id, v_a2_ch
   FROM   r021_ctx;
 
-  -- Create an A2 user_chapter (direct insert bypassing RLS for setup)
+  -- Create or reuse an A2 user_chapter
   INSERT INTO public.user_chapters (id, user_id, chapter_id, notes_status)
-  VALUES (v_a2_uc_id, v_owner, v_a2_ch, 'none');
+  VALUES (v_a2_uc_id, v_owner, v_a2_ch, 'none')
+  ON CONFLICT (user_id, chapter_id) DO UPDATE SET notes_status = 'none'
+  RETURNING id INTO v_a2_uc_id;
 
   -- Create a pending mission pointing at that A2 chapter
   INSERT INTO public.daily_missions (

@@ -36,7 +36,7 @@ export default async function DashboardPage() {
     subject_readiness,
   } = data
 
-  const firstName = profile.full_name?.split(' ')[0] ?? 'there'
+  const greetingName = profile.username || (profile.full_name?.split(' ')[0] ?? 'there')
   const activeMissions = today_missions.filter((m) => m.status !== 'skipped')
   const completedToday = activeMissions.filter((m) => m.status === 'completed').length
   const totalMissions  = activeMissions.length
@@ -104,7 +104,7 @@ export default async function DashboardPage() {
               fontFamily: 'var(--font-display)',
             }}
           >
-            {greeting(profile.timezone)}, {firstName}! 👋
+            {greeting(profile.timezone)}, {greetingName}! 👋
           </h1>
           <p style={{ margin: '4px 0 0', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
             {totalMissions > 0
