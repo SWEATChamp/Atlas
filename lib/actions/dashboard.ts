@@ -6,6 +6,7 @@ import type {
   StudyRoute,
   SubjectStage,
   UndoMissionResult,
+  ReplaceMissionResult,
 } from '@/types/database'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -29,6 +30,10 @@ export interface DailyMission {
   description: string | null
   xp_reward: number
   status: MissionStatus
+  difficulty?: 'easy' | 'medium' | 'hard'
+  estimated_minutes: number
+  skip_reason?: string | null
+  skipped_at?: string | null
   completed_at: string | null
   generated_at: string
 }
@@ -209,6 +214,29 @@ export async function undoMission(
 
   revalidatePath('/dashboard')
   return { result: data as UndoMissionResult }
+}
+
+/**
+ * Atomically replace a pending mission with an eligible alternative.
+ */
+export async function replaceMission(
+  missionId: string,
+  reason?: string
+): Promise<{ result?: ReplaceMissionResult; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data, error } = await supabase.rpc('replace_mission', {
+    p_mission_id: missionId,
+    p_user_id:    user.id,
+    p_reason:     reason ?? 'replaced',
+  })
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard')
+  return { result: data as ReplaceMissionResult }
 }
 
 /**

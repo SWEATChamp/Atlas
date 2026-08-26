@@ -222,3 +222,41 @@ Authored in `supabase/migrations/20260826000022_as_a2_fixes.sql`. Rollback-only 
 
 10. **Declarative Auth-Independent Migration Backfill**:
     - Backfills accessible `user_chapters` using pure relational joins without calling `user_can_access_chapter`, executing cleanly during migrations when `auth.uid()` is NULL.
+
+---
+
+## Mission Quality, Workload & Variety Balancing (Migration 023) — Prepared, Pending Hosted Application
+
+Authored in `supabase/migrations/20260826000023_mission_quality.sql`. Rollback-only tests are defined in `supabase/tests/database/mission_quality.test.sql` (24 tests). Status: **prepared — pending hosted application**.
+
+### Schema & Function Updates
+
+1. **`daily_missions.estimated_minutes`**:
+   - Added column `estimated_minutes SMALLINT NOT NULL DEFAULT 30 CHECK (estimated_minutes BETWEEN 5 AND 120)` to track estimated study time.
+   - Backfilled existing missions based on mission type (10–60 min).
+
+2. **`user_settings.max_missions_per_day`**:
+   - Constrained to `1..3` (default 3) for the 2–5-user MVP.
+   - Backfilled existing user settings `> 3` down to 3.
+
+3. **Direct Table Mutation Protection**:
+   - Revoked `INSERT`, `UPDATE`, and `DELETE` on `public.daily_missions` from `anon` and `authenticated`.
+   - Maintained read-only `SELECT` access scoped to owner (`auth.uid() = user_id`).
+   - All mutations must execute via `SECURITY DEFINER` RPCs (`generate_daily_missions`, `replace_mission`, `complete_mission`, `undo_mission_completion`).
+
+4. **`generate_daily_missions(UUID)`**:
+   - Serializes generation via `user_settings` row locking (`FOR UPDATE`).
+   - Enforces max 2 active missions per subject across today's budget.
+   - Prohibits duplicate target entities (`target_entity_id`) on the same local calendar day.
+   - Guarantees 60–120 min daily workload promise when 3 missions can be generated via lookahead over Category A (Notes 30m) / Category B (Weak 30m / Paper 60m).
+   - Strict relevance: `complete_notes` requires `notes_status != 'complete'`; `revisit_weak_topic` requires real recorded question attempts with `<70%` accuracy.
+   - Never generates all 3 missions of identical type; safely returns fewer than 3 missions when content is limited.
+   - Generates bite-sized, realistic action titles with clear subject and chapter context.
+
+5. **`replace_mission(UUID, UUID, TEXT DEFAULT 'replaced')`**:
+   - Fully atomic, pre-validated replacement RPC.
+   - Guards: `auth.uid() = p_user_id`, pending status, and current local date (`mission_date = v_today`).
+   - Locks `user_settings` and `daily_missions` rows (`FOR UPDATE`).
+   - Selects and validates replacement candidate *before* skipping the old mission.
+   - If no suitable candidate exists, aborts with `P0002: No suitable replacement available` without modifying the original mission.
+   - Replaces mission in place and enforces active cap of 3.

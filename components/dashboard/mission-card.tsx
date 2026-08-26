@@ -2,15 +2,16 @@
 
 import { useState, useEffect, useTransition } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { BookOpen, RefreshCw, FileSearch, AlertTriangle, Star, Check, Zap, RotateCcw, AlertCircle } from 'lucide-react'
-import { completeMission, undoMission } from '@/lib/actions/dashboard'
+import { BookOpen, RefreshCw, FileSearch, AlertTriangle, Star, Check, Zap, RotateCcw, AlertCircle, Clock } from 'lucide-react'
+import { completeMission, undoMission, replaceMission } from '@/lib/actions/dashboard'
 import type { DailyMission, CompleteMissionResult } from '@/lib/actions/dashboard'
-import type { UndoMissionResult } from '@/types/database'
+import type { UndoMissionResult, ReplaceMissionResult } from '@/types/database'
 
 interface MissionCardProps {
   mission: DailyMission
   onComplete?: (id: string, result: CompleteMissionResult) => void
   onUndo?: (id: string, result: UndoMissionResult) => void
+  onReplace?: (id: string, result: ReplaceMissionResult) => void
   onError?: (error: string) => void
 }
 
@@ -27,12 +28,13 @@ const MISSION_META: Record<DailyMission['type'], {
   confidence_check:  { icon: <Star size={16} />,          color: '#FFD166',                bg: 'rgba(255,209,102,0.12)',label: 'Confidence'  },
 }
 
-export default function MissionCard({ mission, onComplete, onUndo, onError }: MissionCardProps) {
+export default function MissionCard({ mission, onComplete, onUndo, onReplace, onError }: MissionCardProps) {
   const [done, setDone] = useState(mission.status === 'completed')
   const [completedAt, setCompletedAt] = useState<string | null>(mission.completed_at)
   const [canUndo, setCanUndo] = useState(false)
   const [cardError, setCardError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [isReplacing, startReplaceTransition] = useTransition()
   const meta = MISSION_META[mission.type]
 
   // Check if completion is within 10 minutes
@@ -55,7 +57,7 @@ export default function MissionCard({ mission, onComplete, onUndo, onError }: Mi
   }, [done, completedAt])
 
   const handleComplete = () => {
-    if (done || isPending) return
+    if (done || isPending || isReplacing) return
     setCardError(null)
     setDone(true) // optimistic
     const nowIso = new Date().toISOString()
@@ -76,7 +78,7 @@ export default function MissionCard({ mission, onComplete, onUndo, onError }: Mi
 
   const handleUndo = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!done || isPending) return
+    if (!done || isPending || isReplacing) return
     setCardError(null)
 
     startTransition(async () => {
@@ -89,6 +91,24 @@ export default function MissionCard({ mission, onComplete, onUndo, onError }: Mi
       setDone(false)
       setCompletedAt(null)
       onUndo?.(mission.id, result!)
+    })
+  }
+
+  const handleReplace = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (done || isPending || isReplacing) return
+    setCardError(null)
+
+    startReplaceTransition(async () => {
+      const { result, error } = await replaceMission(mission.id)
+      if (error) {
+        setCardError(error)
+        onError?.(`Replace failed: ${error}`)
+        return
+      }
+      if (result) {
+        onReplace?.(mission.id, result)
+      }
     })
   }
 
@@ -193,14 +213,64 @@ export default function MissionCard({ mission, onComplete, onUndo, onError }: Mi
               {mission.description}
             </div>
           )}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              fontSize: '0.7rem',
+              color: 'var(--text-secondary)',
+              marginTop: 3,
+            }}
+          >
+            <Clock size={11} style={{ opacity: 0.7 }} />
+            <span>~{mission.estimated_minutes ?? 30} min</span>
+          </div>
         </div>
 
         {/* Action / XP badge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          {!done && mission.status === 'pending' && (
+            <button
+              type="button"
+              onClick={handleReplace}
+              disabled={isPending || isReplacing}
+              title="Replace this mission with another available task"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '3px 8px',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--text-secondary)',
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                cursor: isPending || isReplacing ? 'not-allowed' : 'pointer',
+                transition: 'all 150ms ease',
+              }}
+              onMouseEnter={(e) => {
+                if (!isPending && !isReplacing) {
+                  e.currentTarget.style.borderColor = 'var(--text-secondary)'
+                  e.currentTarget.style.color = 'var(--text-primary)'
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-subtle)'
+                e.currentTarget.style.color = 'var(--text-secondary)'
+              }}
+            >
+              <RefreshCw size={10} style={{ animation: isReplacing ? 'spin 1s linear infinite' : 'none' }} />
+              {isReplacing ? 'Replacing…' : 'Replace'}
+            </button>
+          )}
+
           {done && canUndo && (
             <button
+              type="button"
               onClick={handleUndo}
-              disabled={isPending}
+              disabled={isPending || isReplacing}
               title="Undo completion (available for 10 minutes)"
               style={{
                 display: 'inline-flex',
@@ -213,7 +283,7 @@ export default function MissionCard({ mission, onComplete, onUndo, onError }: Mi
                 color: 'var(--text-muted)',
                 fontSize: '0.7rem',
                 fontWeight: 600,
-                cursor: isPending ? 'not-allowed' : 'pointer',
+                cursor: isPending || isReplacing ? 'not-allowed' : 'pointer',
                 transition: 'all 150ms ease',
               }}
               onMouseEnter={(e) => {
