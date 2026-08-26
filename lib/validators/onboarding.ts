@@ -20,8 +20,10 @@ export const SubjectEnrollSchema = z.object({
   subjectIds: z
     .array(z.string().uuid())
     .min(1, 'Select at least one subject')
-    .max(10, 'Maximum 10 subjects allowed'),
+    .max(5, 'Maximum 5 subjects allowed'),
 })
+
+export const EnrollSubjectsSchema = SubjectEnrollSchema
 
 export const ExamDateSchema = z.object({
   enrollments: z.array(
@@ -33,6 +35,24 @@ export const ExamDateSchema = z.object({
   ),
 })
 
+export const StudyRouteStepSchema = z.object({
+  routes: z.array(
+    z.object({
+      subjectId: z.string().uuid(),
+      route: z.enum(['as_only', 'staged', 'full_level']),
+      paperSelections: z.array(
+        z.object({
+          component_name: z.string().min(1),
+          paper_number: z.number().int().min(1).max(9).nullable().optional(),
+          stage: z.enum(['as', 'a2']),
+        })
+      ).optional().default([]),
+    })
+  ).min(1, 'Please configure study route for your subjects'),
+})
+
 export type UsernameInput = z.infer<typeof UsernameSchema>
 export type SubjectEnrollInput = z.infer<typeof SubjectEnrollSchema>
 export type ExamDateInput = z.infer<typeof ExamDateSchema>
+export type StudyRouteStepInput = z.infer<typeof StudyRouteStepSchema>
+

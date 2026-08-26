@@ -4,7 +4,14 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { daysUntilDate } from '@/lib/date'
-import type { Subject, UserSubject, Chapter, UserChapter } from '@/types'
+import type {
+  Subject,
+  UserSubject,
+  Chapter,
+  UserChapter,
+  SubjectPaperSelection,
+  SubjectStageResult,
+} from '@/types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -16,7 +23,9 @@ export interface SubjectWithProgress {
   inProgressChapters: number
   avgConfidence: number | null
   paperAccuracy: number | null
-  readiness: number
+  as_readiness: number | null
+  a2_readiness: number | null
+  readiness: number | null
   daysUntilExam: number | null
 }
 
@@ -24,6 +33,7 @@ export interface ChapterWithStatus {
   chapter: Chapter
   userChapter: UserChapter | null
   avgScore: number | null   // from paper_question_attempts, null = no data
+  isAccessible?: boolean
 }
 
 export interface ComponentGroup {
@@ -35,50 +45,22 @@ export interface SubjectDetailData {
   subject: Subject
   enrollment: UserSubject
   groups: ComponentGroup[]
+  paperSelections: SubjectPaperSelection[]
+  stageResults: SubjectStageResult[]
   totalChapters: number
   completedChapters: number
   inProgressChapters: number
   avgConfidence: number | null
-  readiness: number
+  as_readiness: number | null
+  a2_readiness: number | null
+  readiness: number | null
   daysUntilExam: number | null
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function computeReadiness(
-  userChapters: Pick<UserChapter, 'notes_status' | 'confidence_level'>[],
-  totalChapters: number,
-  paperAccuracy: number
-): number {
-  if (totalChapters === 0) return 0
-
-  // Notes score: complete=100%, in_progress=50%, none=0%
-  const notesScore =
-    (userChapters.reduce((acc, uc) => {
-      if (uc.notes_status === 'complete') return acc + 1
-      if (uc.notes_status === 'in_progress') return acc + 0.5
-      return acc
-    }, 0) /
-      totalChapters) *
-    100
-
-  // Confidence score: avg confidence / 5 * 100
-  const withConfidence = userChapters.filter((uc) => uc.confidence_level !== null)
-  const confidenceScore =
-    withConfidence.length > 0
-      ? (withConfidence.reduce((acc, uc) => acc + (uc.confidence_level ?? 0), 0) /
-          withConfidence.length /
-          5) *
-        100
-      : 0
-
-  return Math.round(notesScore * 0.35 + paperAccuracy * 0.4 + confidenceScore * 0.25)
 }
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
 /**
- * Get all enrolled subjects for the current user with computed progress stats.
+ * Get all enrolled subjects for the current user with database-computed progress stats.
  */
 export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> {
   const supabase = await createClient()
@@ -109,7 +91,7 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
 
   const subjectIds = enrollments.map((e) => e.subject_id)
 
-  // Batch 1: chapters + papers in parallel (both need only subjectIds)
+  // Batch 1: chapters + papers in parallel
   const [chaptersResult, papersResult] = await Promise.all([
     supabase
       .from('chapters')
@@ -122,11 +104,11 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
       .in('subject_id', subjectIds),
   ])
 
-  const chapters   = chaptersResult.data ?? []
-  const papers     = papersResult.data ?? []
+  const chapters = chaptersResult.data ?? []
+  const papers = papersResult.data ?? []
   const chapterIds = chapters.map((c) => c.id)
 
-  // Batch 2: user chapters (needs chapterIds from batch 1)
+  // Batch 2: user chapters
   const { data: userChapters } = chapterIds.length > 0
     ? await supabase
         .from('user_chapters')
@@ -135,6 +117,43 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
         .in('chapter_id', chapterIds)
     : { data: [] }
 
+  // Batch 3: DB readiness scores for each enrolled subject
+  const readinessResults = await Promise.all(
+    enrollments.map(async (enrollment) => {
+      const studyRoute = enrollment.study_route
+      const currentStage = enrollment.current_stage
+
+      if (studyRoute === 'unconfirmed') {
+        return { asScore: null, a2Score: null, legacyScore: null }
+      }
+
+      const [asResult, a2Result] = await Promise.all([
+        supabase.rpc('compute_readiness_score', {
+          p_user_id: user.id,
+          p_subject_id: enrollment.subject_id,
+          p_stage: 'as',
+        }),
+        studyRoute === 'full_level' || (studyRoute === 'staged' && currentStage === 'a2')
+          ? supabase.rpc('compute_readiness_score', {
+              p_user_id: user.id,
+              p_subject_id: enrollment.subject_id,
+              p_stage: 'a2',
+            })
+          : Promise.resolve({ data: null, error: null }),
+      ])
+
+      const asScore = typeof asResult.data === 'number' ? asResult.data : null
+      const a2Score = typeof a2Result.data === 'number' ? a2Result.data : null
+
+      // Legacy readiness display rule:
+      // - as_only & staged/as -> asScore
+      // - staged/a2 -> asScore (primary context)
+      // - full_level -> null (do not silently choose one stage)
+      const legacyScore = studyRoute === 'full_level' ? null : asScore
+
+      return { asScore, a2Score, legacyScore }
+    })
+  )
 
   // Index for fast lookup
   const ucByChapter = new Map(
@@ -153,7 +172,7 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
     papersBySubject.set(p.subject_id, arr)
   })
 
-  return enrollments.map((enrollment) => {
+  return enrollments.map((enrollment, idx) => {
     const subject = enrollment.subjects as unknown as Subject
     const chIds = chaptersBySubject.get(enrollment.subject_id) ?? []
     const ucs = chIds
@@ -168,7 +187,7 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
     const paperAccuracy =
       paperAccuracyArr.length > 0
         ? paperAccuracyArr.reduce((a, b) => a + b, 0) / paperAccuracyArr.length
-        : 0
+        : null
 
     const withConfidence = ucs.filter((uc) => uc.confidence_level !== null)
     const avgConfidence =
@@ -177,7 +196,7 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
           withConfidence.length
         : null
 
-    const readiness = computeReadiness(ucs, totalChapters, paperAccuracy)
+    const { asScore, a2Score, legacyScore } = readinessResults[idx]
 
     return {
       enrollment: enrollment as unknown as UserSubject,
@@ -187,14 +206,17 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
       inProgressChapters,
       avgConfidence,
       paperAccuracy,
-      readiness,
+      as_readiness: asScore,
+      a2_readiness: a2Score,
+      readiness: legacyScore,
       daysUntilExam: daysUntilDate(enrollment.exam_date, timeZone),
     }
   })
 }
 
 /**
- * Get full detail for one subject including chapters grouped by component.
+ * Get full detail for one subject including chapters grouped by component,
+ * stage readiness scores, paper selections, and stage results.
  */
 export async function getSubjectDetail(
   subjectId: string
@@ -231,23 +253,42 @@ export async function getSubjectDetail(
   if (!enrollment) return null
   const timeZone = profileResult.data?.timezone ?? 'UTC'
 
-  // All chapters for this subject
-  const { data: chapters } = await supabase
-    .from('chapters')
-    .select('*')
-    .eq('subject_id', subjectId)
-    .order('number')
+  // Fetch chapters, paper selections, stage results in parallel
+  const [chaptersResult, paperSelectionsResult, stageResultsResult] = await Promise.all([
+    supabase
+      .from('chapters')
+      .select('*')
+      .eq('subject_id', subjectId)
+      .order('number'),
+    supabase
+      .from('subject_paper_selections')
+      .select('*')
+      .eq('user_subject_id', enrollment.id),
+    supabase
+      .from('subject_stage_results')
+      .select('*')
+      .eq('user_subject_id', enrollment.id)
+      .order('created_at', { ascending: false }),
+  ])
 
-  if (!chapters?.length) {
+  const chapters = chaptersResult.data ?? []
+  const paperSelections = (paperSelectionsResult.data ?? []) as SubjectPaperSelection[]
+  const stageResults = (stageResultsResult.data ?? []) as SubjectStageResult[]
+
+  if (!chapters.length) {
     return {
       subject: subject as Subject,
       enrollment: enrollment as UserSubject,
       groups: [],
+      paperSelections,
+      stageResults,
       totalChapters: 0,
       completedChapters: 0,
       inProgressChapters: 0,
       avgConfidence: null,
-      readiness: 0,
+      as_readiness: null,
+      a2_readiness: null,
+      readiness: null,
       daysUntilExam: daysUntilDate(enrollment.exam_date, timeZone),
     }
   }
@@ -270,22 +311,19 @@ export async function getSubjectDetail(
 
   const userChapters = userChaptersResult.data ?? []
   const paperRows = paperIdsResult.data ?? []
-  const paperAccuracy = paperRows.length
-    ? paperRows.reduce((a, p) => a + p.accuracy_pct, 0) / paperRows.length
-    : 0
 
-  // Fetch question attempts for those papers (chapter-level accuracy)
+  // Fetch question attempts for chapter accuracy
   const chapterAccuracyMap = new Map<string, { obtained: number; available: number }>()
   if (paperRows.length > 0) {
     const { data: attempts } = await supabase
       .from('paper_question_attempts')
       .select('chapter_id, marks_obtained, marks_available')
-      .in('paper_id', paperRows.map(p => p.id))
+      .in('paper_id', paperRows.map((p) => p.id))
       .not('chapter_id', 'is', null)
     for (const q of attempts ?? []) {
       if (!q.chapter_id) continue
       const s = chapterAccuracyMap.get(q.chapter_id) ?? { obtained: 0, available: 0 }
-      s.obtained  += q.marks_obtained
+      s.obtained += q.marks_obtained
       s.available += q.marks_available
       chapterAccuracyMap.set(q.chapter_id, s)
     }
@@ -293,7 +331,7 @@ export async function getSubjectDetail(
 
   const ucMap = new Map(userChapters.map((uc) => [uc.chapter_id, uc]))
 
-  // Group chapters by component, attaching avgScore from question attempts
+  // Group chapters by component
   const groupMap = new Map<string, ChapterWithStatus[]>()
   chapters.forEach((chapter) => {
     const key = chapter.component ?? 'General'
@@ -302,10 +340,30 @@ export async function getSubjectDetail(
     const avgScore = stats && stats.available > 0
       ? (stats.obtained / stats.available) * 100
       : null
+
+    // Determine accessibility
+    const studyRoute = enrollment.study_route
+    const currentStage = enrollment.current_stage
+    let isAccessible = false
+    if (studyRoute !== 'unconfirmed' && chapter.stage) {
+      if (chapter.stage === 'as' || chapter.stage === 'shared') {
+        isAccessible = true
+      } else if (chapter.stage === 'a2') {
+        isAccessible = currentStage === 'a2' || currentStage === 'full'
+      } else if (chapter.stage === 'route_dependent') {
+        const sel = paperSelections.find((s) => s.component_name === chapter.component)
+        if (sel) {
+          if (sel.stage === 'as') isAccessible = true
+          else if (sel.stage === 'a2') isAccessible = currentStage === 'a2' || currentStage === 'full'
+        }
+      }
+    }
+
     arr.push({
       chapter: chapter as Chapter,
       userChapter: (ucMap.get(chapter.id) as UserChapter) ?? null,
       avgScore,
+      isAccessible,
     })
     groupMap.set(key, arr)
   })
@@ -315,24 +373,52 @@ export async function getSubjectDetail(
   )
 
   const allUcs = userChapters as UserChapter[]
-  const completedChapters  = allUcs.filter((uc) => uc.notes_status === 'complete').length
+  const completedChapters = allUcs.filter((uc) => uc.notes_status === 'complete').length
   const inProgressChapters = allUcs.filter((uc) => uc.notes_status === 'in_progress').length
   const withConfidence = allUcs.filter((uc) => uc.confidence_level !== null)
   const avgConfidence = withConfidence.length > 0
     ? withConfidence.reduce((acc, uc) => acc + (uc.confidence_level ?? 0), 0) / withConfidence.length
     : null
 
-  const readiness = computeReadiness(allUcs, chapters.length, paperAccuracy)
+  // Compute database readiness scores
+  let asScore: number | null = null
+  let a2Score: number | null = null
+  let legacyScore: number | null = null
+
+  if (enrollment.study_route !== 'unconfirmed') {
+    const [asRpc, a2Rpc] = await Promise.all([
+      supabase.rpc('compute_readiness_score', {
+        p_user_id: user.id,
+        p_subject_id: subjectId,
+        p_stage: 'as',
+      }),
+      enrollment.study_route === 'full_level' || (enrollment.study_route === 'staged' && enrollment.current_stage === 'a2')
+        ? supabase.rpc('compute_readiness_score', {
+            p_user_id: user.id,
+            p_subject_id: subjectId,
+            p_stage: 'a2',
+          })
+        : Promise.resolve({ data: null, error: null }),
+    ])
+
+    asScore = typeof asRpc.data === 'number' ? asRpc.data : null
+    a2Score = typeof a2Rpc.data === 'number' ? a2Rpc.data : null
+    legacyScore = enrollment.study_route === 'full_level' ? null : asScore
+  }
 
   return {
     subject: subject as Subject,
     enrollment: enrollment as UserSubject,
     groups,
+    paperSelections,
+    stageResults,
     totalChapters: chapters.length,
     completedChapters,
     inProgressChapters,
     avgConfidence,
-    readiness,
+    as_readiness: asScore,
+    a2_readiness: a2Score,
+    readiness: legacyScore,
     daysUntilExam: daysUntilDate(enrollment.exam_date, timeZone),
   }
 }

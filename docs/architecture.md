@@ -33,39 +33,51 @@ A core component of Atlas is the Mission Engine. It generates up to 3 daily miss
 - Recency Penalty (15%)
 
 ## Readiness Score
-The Readiness Score is an aggregate metric evaluating a student's preparedness:
+The Readiness Score evaluates a student's preparedness based strictly on database calculations:
 `Readiness Score = (Notes Completion % * 35%) + (Paper Accuracy % * 40%) + (Confidence Level % * 25%)`
 
-### Approved AS/A2 Structure — Not Yet Implemented
+### Exact Formula Rules:
+1. **Notes Completion %**:
+   - `complete`: 100% (1.0).
+   - `in_progress`: 0% (0.0).
+   - `none` or untouched: 0% (0.0).
+   - Denominator = total accessible syllabus chapters for that stage/route.
+2. **Confidence Level %**:
+   - `SUM(COALESCE(confidence_level, 0) / 5.0) / total_accessible_chapters * 100`.
+   - Untouched chapters contribute 0 to the numerator and are included in the denominator.
+3. **Paper Accuracy %**:
+   - Average percentage scored across attempted past papers classified into the evaluated stage (`stage = p_stage`).
+   - Untagged papers (`stage IS NULL`) are excluded from stage readiness.
+   - If no papers have been attempted for the stage, Paper Accuracy evaluates to 0.
 
-Study route is selected separately for each subject:
+### Study Routes & Stage Display
+Study route is configured per enrolled subject:
+- **AS only**: AS chapters and past papers only. A2 content is hidden. Dashboard shows AS readiness.
+- **Staged A Level**:
+  - AS Stage (`current_stage = 'as'`): AS chapters and papers only. Dashboard shows AS readiness.
+  - A2 Stage (`current_stage = 'a2'`): A2 chapters and papers unlocked. Dashboard displays AS and A2 readiness separately (never averaged).
+- **Full A Level (Linear)**:
+  - Both AS and A2 chapters and papers are unlocked immediately. Dashboard displays AS and A2 readiness separately. Legacy readiness field is NULL.
+- **Unconfirmed**:
+  - Route setup banner prompts user; stage-sensitive features remain inactive.
 
-- **AS only**: AS topics and papers are shown. A2 content is hidden by default but can be manually unlocked.
-- **Staged A Level**: the student completes AS first, then continues to A2.
-- **Full A Level**: AS and A2 content are studied together for one examination session.
-
-Every chapter, component, and past paper must be tagged as `AS`, `A2`, or `shared`. A paper combination selected by the student must affect the readiness calculation, not only the visible chapter list.
-
-Readiness is split into three values:
-
-- **AS readiness**: calculated from AS notes, confidence, and AS paper results only.
-- **A2 readiness**: calculated from A2 notes, confidence, and A2 paper results only.
-- **Overall A-Level projection**: combines an AS result with estimated A2 performance. It is a projection, not a readiness score.
-
-The current formula weights remain provisional. The application and database must use one shared calculation so the dashboard and subject pages cannot disagree.
-
-### AS Result Transition
-
-When a staged student moves to A2, Atlas asks for an AS score rather than only a grade:
-
-- Result type: `expected`, `forecast`, or `actual`.
-- Score obtained and maximum score.
-- Examination series and year.
-- Whether the result is intended for carry forward.
-
-Actual results may contribute to the overall A-Level projection. Expected and forecast scores are shown as estimates and must be labelled as less certain. An AS result never changes the A2 readiness score.
-
-The normal staged transition asks for this result before entering A2. Students can still unlock A2 content manually with a warning, supporting early study and unusual school schedules.
+### Mission Engine & Undo Flow
+- **Daily Missions**:
+  - Generated daily based on accessible chapters only.
+  - Excludes unconfirmed subjects and locked A2 content.
+  - Skipped missions do not consume active daily budget, permitting replenishment.
+- **Mission Completion**:
+  - Atomic RPC (`complete_mission`) validates the user's local calendar day, increments `completion_attempt`, awards mission XP, updates streak, checks achievements, and awards all-missions-completed bonus.
+  - Associates all generated XP events and achievement unlocks with the mission ID and attempt index.
+  - Returns a detailed breakdown: `mission_xp`, `daily_bonus_xp`, `achievement_xp`, `total_xp_awarded`, and `new_total_xp`.
+- **Mission Undo**:
+  - Atomic RPC (`undo_mission_completion`) allows undoing completion within 10 minutes on the same local calendar day.
+  - Reverses mission XP with a `mission_undo` negative ledger event.
+  - Reverses all-missions-complete bonus linked to that attempt.
+  - Reverses attempt-linked achievements unlocked during that completion and deletes their `user_achievements` row so the badges can be re-earned.
+  - Supports multiple `complete → undo → complete → undo` cycles cleanly.
+  - Preserves the ledger invariant: `profiles.total_xp = SUM(xp_events.xp_amount)`.
+  - Preserves streaks and review timestamps (MVP design constraint).
 
 ## Real-time Sync
 Supabase Realtime channels are utilized to subscribe to database changes, ensuring real-time updates for streak and XP changes across devices.

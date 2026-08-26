@@ -38,15 +38,16 @@ export default function SubjectsStep({ onNext }: Props) {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase
-      .from('subjects')
-      .select('*')
-      .eq('is_global', true)
-      .order('name')
-      .then(({ data }) => {
-        setSubjects(data ?? [])
-        setLoading(false)
-      })
+    Promise.all([
+      supabase.from('subjects').select('*').eq('is_global', true).order('name'),
+      supabase.from('user_subjects').select('subject_id').eq('is_archived', false),
+    ]).then(([subjectsRes, userSubjectsRes]) => {
+      setSubjects(subjectsRes.data ?? [])
+      if (userSubjectsRes.data && userSubjectsRes.data.length > 0) {
+        setSelected(userSubjectsRes.data.map((us) => us.subject_id))
+      }
+      setLoading(false)
+    })
   }, [])
 
   const filtered = subjects.filter((s) =>

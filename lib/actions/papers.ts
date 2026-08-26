@@ -1,11 +1,13 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import type { 
   PaperWithSubject, 
   PaperWithQuestions, 
-  ChapterAccuracy 
+  ChapterAccuracy,
+  PaperStage,
 } from '@/types'
 
 export async function getAllPapersWithSubjects(): Promise<PaperWithSubject[]> {
@@ -121,16 +123,58 @@ export interface LogPaperInput {
   session: 'feb_mar' | 'may_jun' | 'oct_nov'
   paperNumber: number
   variant: number
+  stage: 'as' | 'a2'
   attemptedAt: string
   timeTakenMins?: number
   notes?: string
   questions: QuestionInput[]
 }
 
+const LogPaperSchema = z.object({
+  subjectId: z.string().uuid(),
+  year: z.number().int().min(1990).max(2100),
+  session: z.enum(['feb_mar', 'may_jun', 'oct_nov']),
+  paperNumber: z.number().int().min(1).max(9),
+  variant: z.number().int().min(1).max(9),
+  stage: z.enum(['as', 'a2']),
+  attemptedAt: z.string(),
+  timeTakenMins: z.number().int().min(0).optional(),
+  notes: z.string().optional(),
+  questions: z.array(
+    z.object({
+      questionNumber: z.string().min(1),
+      chapterId: z.string().uuid().nullable(),
+      marksObtained: z.number().int().min(0),
+      marksAvailable: z.number().int().min(1),
+    })
+  ),
+})
+
 export async function logPaper(data: LogPaperInput): Promise<{ error?: string; paperId?: string }> {
+  const parsed = LogPaperSchema.safeParse(data)
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Invalid paper data' }
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
+
+  // Check enrollment stage access
+  const { data: enrollment } = await supabase
+    .from('user_subjects')
+    .select('study_route, current_stage')
+    .eq('user_id', user.id)
+    .eq('subject_id', data.subjectId)
+    .single()
+
+  if (!enrollment || enrollment.study_route === 'unconfirmed') {
+    return { error: 'Please confirm your study route before logging papers.' }
+  }
+
+  if (data.stage === 'a2' && enrollment.current_stage !== 'a2' && enrollment.current_stage !== 'full') {
+    return { error: 'A2 is not unlocked for this subject yet.' }
+  }
 
   const { data: subject } = await supabase
     .from('subjects')
@@ -141,11 +185,8 @@ export async function logPaper(data: LogPaperInput): Promise<{ error?: string; p
   if (!subject) return { error: 'Subject not found' }
 
   const subjectCode = subject.code || 'UNKNOWN'
-  
   const sessionLetters = data.session === 'feb_mar' ? 'F/M' : data.session === 'may_jun' ? 'M/J' : 'O/N'
-  
   const yearShort = data.year.toString().slice(-2)
-
   const combinedPaperNumber = data.paperNumber * 10 + data.variant
   const paperCode = `${subjectCode}/${combinedPaperNumber}/${sessionLetters}/${yearShort}`
 
@@ -161,11 +202,12 @@ export async function logPaper(data: LogPaperInput): Promise<{ error?: string; p
       year: data.year,
       session: data.session,
       paper_number: combinedPaperNumber,
+      stage: data.stage,
       attempted_at: data.attemptedAt,
       score_raw: scoreRaw,
       score_max: scoreMax,
       time_taken_mins: data.timeTakenMins || null,
-      notes: data.notes || null
+      notes: data.notes || null,
     })
     .select('id')
     .single()
@@ -177,7 +219,7 @@ export async function logPaper(data: LogPaperInput): Promise<{ error?: string; p
     chapter_id: q.chapterId,
     question_number: q.questionNumber,
     marks_available: q.marksAvailable,
-    marks_obtained: q.marksObtained
+    marks_obtained: q.marksObtained,
   }))
 
   const { error: qError } = await supabase
@@ -187,6 +229,8 @@ export async function logPaper(data: LogPaperInput): Promise<{ error?: string; p
   if (qError) return { error: qError.message }
 
   revalidatePath('/past-papers')
+  revalidatePath('/dashboard')
+  revalidatePath(`/subjects/${data.subjectId}`)
   return { paperId: insertedPaper.id }
 }
 
@@ -203,6 +247,7 @@ export async function deletePaper(paperId: string): Promise<{ error?: string }> 
 
   if (error) return { error: error.message }
   revalidatePath('/past-papers')
+  revalidatePath('/dashboard')
   return {}
 }
 
@@ -210,6 +255,11 @@ export async function updatePaper(
   paperId: string,
   data: LogPaperInput
 ): Promise<{ error?: string }> {
+  const parsed = LogPaperSchema.safeParse(data)
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Invalid paper data' }
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
@@ -239,6 +289,7 @@ export async function updatePaper(
       year: data.year,
       session: data.session,
       paper_number: combinedPaperNumber,
+      stage: data.stage,
       attempted_at: data.attemptedAt,
       score_raw: scoreRaw,
       score_max: scoreMax,
@@ -272,5 +323,53 @@ export async function updatePaper(
 
   revalidatePath('/past-papers')
   revalidatePath(`/past-papers/${paperId}`)
+  revalidatePath('/dashboard')
+  revalidatePath(`/subjects/${data.subjectId}`)
+  return {}
+}
+
+/**
+ * Fetch papers with stage = NULL for the current user (legacy / untagged papers).
+ */
+export async function getUntaggedPapers(): Promise<PaperWithSubject[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data, error } = await supabase
+    .from('past_papers')
+    .select(`
+      *,
+      subjects!inner ( name, color_hex, code )
+    `)
+    .eq('user_id', user.id)
+    .is('stage', null)
+    .order('attempted_at', { ascending: false })
+
+  if (error) return []
+  return data as unknown as PaperWithSubject[]
+}
+
+/**
+ * Assign a stage ('as' | 'a2') to a legacy paper whose stage was NULL.
+ */
+export async function assignPaperStage(
+  paperId: string,
+  stage: 'as' | 'a2'
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { error } = await supabase
+    .from('past_papers')
+    .update({ stage })
+    .eq('id', paperId)
+    .eq('user_id', user.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/past-papers')
+  revalidatePath('/dashboard')
   return {}
 }

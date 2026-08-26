@@ -10,9 +10,10 @@ import {
 } from 'lucide-react'
 import { getSubjectDetail } from '@/lib/actions/subjects'
 import ChapterGroups from '@/components/subjects/chapter-groups'
-import ReadinessBar from '@/components/subjects/readiness-bar'
+import StageReadinessPanel from '@/components/subjects/stage-readiness-panel'
 import TargetGradePicker from '@/components/subjects/target-grade-picker'
 import ExamDatePicker from '@/components/subjects/exam-date-picker'
+import RouteSelectionBanner from '@/components/subjects/route-selection-banner'
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Calculator, Sigma, Zap, FlaskConical, Leaf, Code2, TrendingUp,
@@ -39,26 +40,41 @@ export default async function SubjectDetailPage({
   const data = await getSubjectDetail(subjectId)
   if (!data) notFound()
 
-  const { subject, enrollment, groups, totalChapters, completedChapters, inProgressChapters, avgConfidence, readiness, daysUntilExam } = data
+  const {
+    subject,
+    enrollment,
+    groups,
+    paperSelections,
+    stageResults,
+    totalChapters,
+    completedChapters,
+    inProgressChapters,
+    avgConfidence,
+    as_readiness,
+    a2_readiness,
+    daysUntilExam,
+  } = data
+
   const Icon = ICON_MAP[subject.icon] ?? GraduationCap
 
-  const examLabel = daysUntilExam !== null
-    ? daysUntilExam < 0
-      ? 'Exam passed'
-      : daysUntilExam === 0
-      ? 'Exam today!'
-      : `${daysUntilExam} days until exam`
-    : null
+  const examLabel =
+    daysUntilExam !== null
+      ? daysUntilExam < 0
+        ? 'Exam passed'
+        : daysUntilExam === 0
+        ? 'Exam today!'
+        : `${daysUntilExam} days until exam`
+      : null
 
-  const examColor = daysUntilExam !== null && daysUntilExam <= 14
-    ? 'var(--danger)'
-    : daysUntilExam !== null && daysUntilExam <= 60
-    ? 'var(--warning)'
-    : 'var(--text-muted)'
+  const examColor =
+    daysUntilExam !== null && daysUntilExam <= 14
+      ? 'var(--danger)'
+      : daysUntilExam !== null && daysUntilExam <= 60
+      ? 'var(--warning)'
+      : 'var(--text-muted)'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 28, maxWidth: 780 }}>
-
       {/* Back link */}
       <Link
         href="/subjects"
@@ -75,6 +91,13 @@ export default async function SubjectDetailPage({
         <ArrowLeft size={15} />
         All subjects
       </Link>
+
+      {/* Unconfirmed route banner if needed */}
+      {enrollment.study_route === 'unconfirmed' && (
+        <RouteSelectionBanner
+          unconfirmedSubjects={[{ enrollment, subject }]}
+        />
+      )}
 
       {/* Subject header card */}
       <div
@@ -126,7 +149,7 @@ export default async function SubjectDetailPage({
           </div>
 
           {/* Stats row */}
-          <div style={{ display: 'flex', gap: 24, marginBottom: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 24, marginBottom: 20, flexWrap: 'wrap' }}>
             {[
               { icon: <CheckCircle2 size={14} color="var(--success)" />, label: `${completedChapters} complete`, color: 'var(--success)' },
               { icon: <Clock size={14} color="var(--warning)" />, label: `${inProgressChapters} in progress`, color: 'var(--warning)' },
@@ -142,22 +165,25 @@ export default async function SubjectDetailPage({
             ))}
           </div>
 
-          {/* Readiness bar */}
-          <div>
-            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 6 }}>
-              Readiness score
-            </div>
-            <ReadinessBar value={readiness} height={8} />
-          </div>
+          {/* Stage readiness panel (AS / A2 separate bars & unlock actions) */}
+          <StageReadinessPanel
+            enrollment={enrollment}
+            subject={subject}
+            asReadiness={as_readiness}
+            a2Readiness={a2_readiness}
+            paperSelections={paperSelections}
+            stageResults={stageResults}
+          />
         </div>
       </div>
 
-      {/* Chapter groups — ChapterGroups handles Maths combination picker */}
+      {/* Chapter groups */}
       <ChapterGroups
         subjectId={subject.id}
         isMaths={subject.code === '9709'}
         groups={groups}
         subjectColor={subject.color_hex}
+        paperSelections={paperSelections}
       />
     </div>
   )

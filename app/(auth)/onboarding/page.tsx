@@ -2,18 +2,22 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { signOut } from '@/lib/supabase/actions'
 import { X } from 'lucide-react'
 import UsernameStep from './steps/username-step'
 import SubjectsStep from './steps/subjects-step'
 import ExamDatesStep from './steps/exam-dates-step'
+import RouteStep from './steps/route-step'
 
 const STEPS = [
   { id: 1, label: 'Choose a username' },
   { id: 2, label: 'Pick your subjects' },
   { id: 3, label: 'Set exam dates' },
+  { id: 4, label: 'Choose study routes' },
 ]
+
 
 function StepIndicator({ current }: { current: number }) {
   return (
@@ -76,8 +80,23 @@ function OnboardingContent() {
   const searchParams = useSearchParams()
   const step = Number(searchParams.get('step') ?? '1')
 
-  // Keep selected subject IDs in memory so step 3 doesn't need to re-fetch
+  // Keep selected subject IDs in memory and hydrate from DB if needed
   const [enrolledSubjectIds, setEnrolledSubjectIds] = useState<string[]>([])
+
+  useEffect(() => {
+    if (step >= 3 && enrolledSubjectIds.length === 0) {
+      const supabase = createClient()
+      supabase
+        .from('user_subjects')
+        .select('subject_id')
+        .eq('is_archived', false)
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            setEnrolledSubjectIds(data.map((r) => r.subject_id))
+          }
+        })
+    }
+  }, [step, enrolledSubjectIds.length])
 
   const goNext = (subjectIds?: string[]) => {
     const next = step + 1
@@ -188,8 +207,10 @@ function OnboardingContent() {
           >
             {step === 1 && <UsernameStep onNext={goNext} />}
             {step === 2 && <SubjectsStep onNext={goNext} />}
-            {step === 3 && <ExamDatesStep subjectIds={enrolledSubjectIds} />}
+            {step === 3 && <ExamDatesStep subjectIds={enrolledSubjectIds} onNext={goNext} />}
+            {step === 4 && <RouteStep subjectIds={enrolledSubjectIds} />}
           </motion.div>
+
         </AnimatePresence>
       </motion.div>
     </div>

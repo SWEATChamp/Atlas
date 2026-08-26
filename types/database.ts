@@ -43,6 +43,7 @@ export type MissionDifficulty = 'easy' | 'medium' | 'hard'
 export type PaperSession = 'feb_mar' | 'may_jun' | 'oct_nov'
 export type XpEventType =
   | 'mission_complete'
+  | 'mission_undo'
   | 'notes_complete'
   | 'notes_in_progress'
   | 'paper_attempt'
@@ -53,6 +54,7 @@ export type XpEventType =
   | 'confidence_update'
   | 'friend_challenge_win'
   | 'manual_adjustment'
+
 export type FriendshipStatus = 'pending' | 'accepted' | 'blocked'
 export type ChallengeStatus = 'pending' | 'active' | 'completed' | 'cancelled' | 'expired'
 export type NotificationType =
@@ -130,6 +132,7 @@ export interface UserSubject {
 
 export interface UserSubjectWithSubject extends UserSubject {
   subjects: Subject
+  subject_paper_selections?: SubjectPaperSelection[]
 }
 
 export interface Chapter {
@@ -285,8 +288,12 @@ export interface UserSettings {
 // ─── RPC Return Types ─────────────────────────────────────────────────────────
 
 export interface CompleteMissionResult {
-  xp_awarded: number
+  mission_xp: number
+  daily_bonus_xp: number
   achievement_xp: number
+  streak_bonus_xp?: number
+  total_xp_awarded: number
+  xp_awarded: number
   new_total_xp: number
   new_level: number
   level_title: string
@@ -294,31 +301,61 @@ export interface CompleteMissionResult {
   achievements_unlocked: Array<{ key: string; xp: number }>
 }
 
+export interface UndoMissionResult {
+  xp_reversed: number
+  mission_xp_reversed?: number
+  daily_bonus_xp_reversed?: number
+  achievement_xp_reversed?: number
+  streak_bonus_xp_reversed?: number
+  new_total_xp: number
+  new_level: number
+  level_title: string
+  streak_days: number
+  mission_status: 'pending'
+}
+
+
 export interface DashboardStats {
   profile: {
+    username?: string | null
     full_name: string
     avatar_url: string | null
     total_xp: number
     current_level: number
     level_title: string
+    timezone: string
   }
   streak: {
     current: number
     longest: number
     last_date: string | null
+    active_today: boolean
   }
-  overall_readiness: number
+  // overall_readiness removed: no combined score across stages.
+  // Consumers must use as_readiness / a2_readiness per subject.
+  has_exam_dates: boolean
+  has_chapter_data: boolean
+  has_unconfirmed_routes: boolean
   today_missions: DailyMission[]
   subject_readiness: Array<{
+    user_subject_id?: string
     subject_id: string
     subject_name: string
     color_hex: string
     exam_date: string | null
     days_until: number | null
-    readiness: number
+    study_route: import('./database').StudyRoute
+    current_stage: import('./database').SubjectStage | null
+    /** AS readiness (0–100). null when study_route='unconfirmed'. */
+    as_readiness: number | null
+    /** A2 readiness (0–100). null when A2 is not accessible for this subject. */
+    a2_readiness: number | null
+    /** Legacy readiness field for backward compat. null for unconfirmed and full_level. */
+    readiness: number | null
   }>
   recent_xp_events: XpEvent[]
 }
+
 
 export interface LeaderboardEntry {
   rank: number

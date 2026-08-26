@@ -1,10 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
-import { getAllPapersWithSubjects, getPapersForSubject, getChapterAccuracy } from '@/lib/actions/papers'
+import { getAllPapersWithSubjects, getPapersForSubject, getChapterAccuracy, getUntaggedPapers } from '@/lib/actions/papers'
 import { LogPaperButton } from '@/components/papers/log-paper-modal'
 import { SubjectFilterTabs } from '@/components/papers/subject-filter-tabs'
 import { ScoreTrendChart } from '@/components/papers/score-trend-chart'
 import { ChapterAccuracyChart } from '@/components/papers/chapter-accuracy-chart'
 import { PaperCard } from '@/components/papers/paper-card'
+import PaperStageTagger from '@/components/papers/paper-stage-tagger'
 
 export default async function PastPapersPage(props: {
   searchParams?: Promise<{ subject?: string }>
@@ -16,11 +17,12 @@ export default async function PastPapersPage(props: {
   const sp = props.searchParams ? await props.searchParams : {}
   const activeSubjectId = sp.subject || null
 
-  // ── Parallel fetch — all three run at the same time ──────────────────────
-  const [userSubjectsData, papers, chapterAccuracy, profileResult] = await Promise.all([
+  // ── Parallel fetch ────────────────────────────────────────────────────────
+  const [userSubjectsData, papers, chapterAccuracy, untaggedPapers, profileResult] = await Promise.all([
     supabase.from('user_subjects').select('subjects(id, name, color_hex)').eq('user_id', user.id),
     activeSubjectId ? getPapersForSubject(activeSubjectId) : getAllPapersWithSubjects(),
     activeSubjectId ? getChapterAccuracy(activeSubjectId) : Promise.resolve([]),
+    getUntaggedPapers(),
     supabase.from('profiles').select('timezone').eq('id', user.id).single(),
   ])
   const timeZone = profileResult.data?.timezone ?? 'UTC'
@@ -39,6 +41,11 @@ export default async function PastPapersPage(props: {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+      {/* Untagged papers notice */}
+      {untaggedPapers.length > 0 && (
+        <PaperStageTagger untaggedPapers={untaggedPapers} />
+      )}
+
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>

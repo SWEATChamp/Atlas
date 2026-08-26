@@ -21,9 +21,9 @@
 --   8.  UNIQUE: duplicate result for same subject/stage/type/series/year rejected
 --   9.  CHECK: score_obtained > score_maximum rejected
 --   10. CHECK: score_obtained = 0 accepted
---   11. CHECK: carry_forward = TRUE rejected when stage = 'a2'
---   12. CHECK: carry_forward = TRUE accepted when stage = 'as'
---   13. CHECK: unconfirmed route requires current_stage NULL (non-NULL rejected)
+--   11.  CHECK: carry_forward = TRUE rejected when stage = 'a2'
+--   12.  CHECK: carry_forward = TRUE accepted when stage = 'as' AND result_type = 'actual'
+--   13.  CHECK: unconfirmed route requires current_stage NULL (non-NULL rejected)
 --   14. CHECK: as_only route accepts current_stage = 'as'
 --   15. CHECK: as_only route rejects non-'as' stage
 --   16. CHECK: staged route accepts current_stage = 'as'
@@ -74,6 +74,11 @@ CREATE TEMP TABLE ssa2_test_ctx (
   t22_meth_only     BOOLEAN DEFAULT FALSE,
   t23_req_fields    BOOLEAN DEFAULT FALSE
 ) ON COMMIT DROP;
+
+GRANT ALL ON TABLE ssa2_test_ctx TO authenticated, anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.subject_stage_results TO authenticated, anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.subject_paper_selections TO authenticated, anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.user_subjects TO authenticated, anon;
 
 INSERT INTO ssa2_test_ctx (owner_id, other_id)
 VALUES (
@@ -183,6 +188,7 @@ BEGIN
     v_inserted := TRUE;
   EXCEPTION
     WHEN OTHERS THEN
+      RAISE NOTICE 'Test 1 INSERT failed: SQLSTATE %, SQLERRM %', SQLSTATE, SQLERRM;
       v_inserted := FALSE;
   END;
 
@@ -267,6 +273,7 @@ BEGIN
     v_inserted := TRUE;
   EXCEPTION
     WHEN OTHERS THEN
+      RAISE NOTICE 'Test 3 INSERT failed: SQLSTATE %, SQLERRM %', SQLSTATE, SQLERRM;
       v_inserted := FALSE;
   END;
 
@@ -545,7 +552,7 @@ SELECT ok(
 
 
 -- ═══════════════════════════════════════════════════════════════════
--- TEST 12: carry_forward = TRUE accepted when stage = 'as'
+-- TEST 12: carry_forward = TRUE accepted when stage = 'as' AND result_type = 'actual'
 -- ═══════════════════════════════════════════════════════════════════
 
 DO $$
@@ -559,10 +566,11 @@ BEGIN
     INSERT INTO public.subject_stage_results
       (user_subject_id, stage, result_type, score_obtained, score_maximum, exam_series, exam_year, carry_forward)
     VALUES
-      (v_us_id, 'as', 'forecast', 85, 100, 'oct_nov', 2024, TRUE);
+      (v_us_id, 'as', 'actual', 85, 100, 'oct_nov', 2024, TRUE);
     v_ok := TRUE;
   EXCEPTION
     WHEN OTHERS THEN
+      RAISE NOTICE 'Test 12 INSERT failed: SQLSTATE %, SQLERRM %', SQLSTATE, SQLERRM;
       v_ok := FALSE;
   END;
 
@@ -572,7 +580,7 @@ $$;
 
 SELECT ok(
   (SELECT t12_cf_as_ok FROM ssa2_test_ctx),
-  'CHECK: carry_forward = TRUE is accepted when stage = ''as'''
+  'CHECK: carry_forward = TRUE is accepted when stage = ''as'' AND result_type = ''actual'''
 );
 
 

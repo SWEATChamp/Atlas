@@ -136,7 +136,13 @@ function GradePicker({
 
 // ─── Main Step ─────────────────────────────────────────────────────────────────
 
-export default function ExamDatesStep({ subjectIds }: { subjectIds: string[] }) {
+export default function ExamDatesStep({
+  subjectIds,
+  onNext,
+}: {
+  subjectIds: string[]
+  onNext?: () => void
+}) {
   const [userSubjects, setUserSubjects] = useState<UserSubjectWithSubject[]>([])
   const [entries, setEntries]           = useState<Record<string, ExamEntry>>({})
   const [loading, setLoading]           = useState(true)
@@ -148,8 +154,6 @@ export default function ExamDatesStep({ subjectIds }: { subjectIds: string[] }) 
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
 
-      // Build the query — if we received IDs from step 2, use them directly;
-      // otherwise fall back to querying all user_subjects for this user.
       let query = supabase
         .from('user_subjects')
         .select('*, subjects(*)')
@@ -205,9 +209,15 @@ export default function ExamDatesStep({ subjectIds }: { subjectIds: string[] }) 
       setSubmitting(false)
       return
     }
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
-    await completeOnboarding(timeZone) // redirects internally
+
+    if (onNext) {
+      onNext()
+    } else {
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+      await completeOnboarding(timeZone)
+    }
   }
+
 
   const allSelected = Object.values(entries).every((e) => e.examDate)
 
@@ -326,9 +336,10 @@ export default function ExamDatesStep({ subjectIds }: { subjectIds: string[] }) 
         {submitting ? (
           <Loader2 size={18} style={{ animation: 'spin 0.8s linear infinite' }} />
         ) : (
-          '🚀  Launch Atlas'
+          'Next → Study Routes'
         )}
       </motion.button>
+
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>

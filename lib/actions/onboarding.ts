@@ -81,18 +81,22 @@ export async function enrollSubjects(subjectIds: string[]): Promise<{ error?: st
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  // Upsert to be idempotent (safe if user goes back and re-selects)
-  const rows = parsed.data.subjectIds.map((subjectId, idx) => ({
-    user_id: user.id,
-    subject_id: subjectId,
-    priority: idx + 1,
-  }))
+  const { error } = await supabase.rpc('set_onboarding_subjects', {
+    p_user_id: user.id,
+    p_subject_ids: parsed.data.subjectIds,
+  })
 
-  const { error } = await supabase
-    .from('user_subjects')
-    .upsert(rows, { onConflict: 'user_id,subject_id', ignoreDuplicates: false })
+  if (error) {
+    console.error('Error in set_onboarding_subjects:', error)
+    if (error.message.includes('already been completed')) {
+      return { error: 'Onboarding has already been completed. Use subject settings to update enrollments.' }
+    }
+    if (error.message.includes('between 1 and 5')) {
+      return { error: 'Please select between 1 and 5 subjects.' }
+    }
+    return { error: 'Failed to enroll subjects. Please try again.' }
+  }
 
-  if (error) return { error: 'Failed to enroll subjects. Please try again.' }
   return {}
 }
 
@@ -126,6 +130,49 @@ export async function setExamDates(
   return {}
 }
 
+// ─── Step 4: Set Study Routes ─────────────────────────────────────────────────
+
+export async function setStudyRoutes(
+  routes: Array<{
+    subjectId: string
+    route: 'as_only' | 'staged' | 'full_level'
+    paperSelections?: Array<{
+      component_name: string
+      paper_number?: number | null
+      stage: 'as' | 'a2'
+    }>
+  }>
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  for (const item of routes) {
+    const { data: enrollment } = await supabase
+      .from('user_subjects')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('subject_id', item.subjectId)
+      .single()
+
+    if (!enrollment) continue
+
+    const { error } = await supabase.rpc('configure_subject_route', {
+      p_user_id: user.id,
+      p_user_subject_id: enrollment.id,
+      p_route: item.route,
+      p_paper_selections: item.paperSelections ?? [],
+    })
+
+    if (error) {
+      console.error('setStudyRoutes error:', error)
+      return { error: `Failed to configure route: ${error.message}` }
+    }
+  }
+
+  return {}
+}
+
 // ─── Complete Onboarding ──────────────────────────────────────────────────────
 
 export async function completeOnboarding(timeZone?: string): Promise<void> {
@@ -152,3 +199,4 @@ export async function completeOnboarding(timeZone?: string): Promise<void> {
 
   redirect('/dashboard')
 }
+

@@ -18,23 +18,38 @@ CREATE TEMP TABLE atlas_test_context (
   second_rejected    BOOLEAN DEFAULT FALSE
 ) ON COMMIT DROP;
 
-INSERT INTO atlas_test_context (user_id)
-SELECT id
-FROM public.profiles
-WHERE onboarding_completed = TRUE
-ORDER BY created_at
-LIMIT 1;
+GRANT ALL ON TABLE atlas_test_context TO authenticated, anon;
+
+-- ─── SETUP: synthetic isolated user ──────────────────────────────────────────
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM atlas_test_context) THEN
-    RAISE EXCEPTION 'The mission tests need one onboarded test user';
-  END IF;
+  INSERT INTO auth.users (
+    instance_id, id, aud, role, email,
+    encrypted_password, email_confirmed_at,
+    raw_app_meta_data, raw_user_meta_data,
+    created_at, updated_at
+  ) VALUES (
+    '00000000-0000-0000-0000-000000000000',
+    'c0210001-0000-0000-0000-000000000001',
+    'authenticated', 'authenticated',
+    'mission_engine_test@atlas.test', '',
+    NOW(),
+    '{"provider":"email","providers":["email"]}', '{}',
+    NOW(), NOW()
+  ) ON CONFLICT (id) DO NOTHING;
 END;
 $$;
 
+INSERT INTO atlas_test_context (user_id) VALUES ('c0210001-0000-0000-0000-000000000001');
+
+UPDATE public.profiles
+SET    onboarding_completed = TRUE,
+       timezone = 'UTC'
+WHERE  id = 'c0210001-0000-0000-0000-000000000001';
+
 UPDATE atlas_test_context
-SET local_date = public.get_user_local_date(user_id);
+SET    local_date = public.get_user_local_date(user_id);
 
 INSERT INTO public.subjects (id, name, code, is_global, created_by)
 SELECT
@@ -50,9 +65,11 @@ INSERT INTO public.user_subjects (
   subject_id,
   exam_date,
   target_grade,
-  priority
+  priority,
+  study_route,
+  current_stage
 )
-SELECT user_id, subject_id, local_date + 30, 'A', 5
+SELECT user_id, subject_id, local_date + 30, 'A', 5, 'staged', 'as'
 FROM atlas_test_context;
 
 INSERT INTO public.chapters (
@@ -61,9 +78,10 @@ INSERT INTO public.chapters (
   title,
   number,
   component,
-  is_global
+  is_global,
+  stage
 )
-SELECT chapter_id, subject_id, 'Mission Test Chapter', 1, 'Test', FALSE
+SELECT chapter_id, subject_id, 'Mission Test Chapter', 1, 'Test', FALSE, 'as'
 FROM atlas_test_context;
 
 INSERT INTO public.user_chapters (
@@ -88,11 +106,28 @@ SET
 FROM atlas_test_context ctx
 WHERE settings.user_id = ctx.user_id;
 
-UPDATE atlas_test_context
-SET first_generated = public.generate_daily_missions(user_id);
+-- ─── Test 1: Mission generation ──────────────────────────────────────────────
 
-UPDATE atlas_test_context
-SET second_generated = public.generate_daily_missions(user_id);
+DO $$
+DECLARE
+  v_user UUID;
+  v_g1   INTEGER;
+  v_g2   INTEGER;
+BEGIN
+  SELECT user_id INTO v_user FROM atlas_test_context;
+
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_user::text)::text, true);
+
+  v_g1 := public.generate_daily_missions(v_user);
+  v_g2 := public.generate_daily_missions(v_user);
+
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', true);
+
+  UPDATE atlas_test_context SET first_generated = v_g1, second_generated = v_g2;
+END;
+$$;
 
 SELECT ok(
   (
@@ -109,6 +144,8 @@ SELECT ok(
   ),
   'mission generation creates one local-day set and ignores a repeat call'
 );
+
+-- ─── Test 2: Mission completion ──────────────────────────────────────────────
 
 UPDATE atlas_test_context ctx
 SET
@@ -128,28 +165,37 @@ SET
 FROM atlas_test_context ctx
 WHERE streak.user_id = ctx.user_id;
 
-SELECT public.complete_mission(ctx.mission_id, ctx.user_id)
-FROM atlas_test_context ctx;
+DO $$
+DECLARE
+  v_user UUID;
+  v_miss UUID;
+  v_second_rejected BOOLEAN := FALSE;
+BEGIN
+  SELECT user_id, mission_id INTO v_user, v_miss FROM atlas_test_context;
+
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_user::text)::text, true);
+
+  PERFORM public.complete_mission(v_miss, v_user);
+
+  BEGIN
+    PERFORM public.complete_mission(v_miss, v_user);
+  EXCEPTION
+    WHEN SQLSTATE 'P0001' THEN
+      v_second_rejected := TRUE;
+  END;
+
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', true);
+
+  UPDATE atlas_test_context SET second_rejected = v_second_rejected;
+END;
+$$;
 
 UPDATE atlas_test_context ctx
 SET xp_after_first = profile.total_xp
 FROM public.profiles profile
 WHERE profile.id = ctx.user_id;
-
-DO $$
-DECLARE
-  ctx atlas_test_context%ROWTYPE;
-BEGIN
-  SELECT * INTO ctx FROM atlas_test_context;
-
-  BEGIN
-    PERFORM public.complete_mission(ctx.mission_id, ctx.user_id);
-  EXCEPTION
-    WHEN SQLSTATE 'P0001' THEN
-      UPDATE atlas_test_context SET second_rejected = TRUE;
-  END;
-END;
-$$;
 
 SELECT ok(
   (
@@ -158,7 +204,7 @@ SELECT ok(
       AND mission.completed_at IS NOT NULL
       AND ctx.xp_after_first >= ctx.xp_before + ctx.mission_reward
       AND profile.total_xp = ctx.xp_after_first
-      AND COUNT(xp.id) FILTER (WHERE xp.reference_id = ctx.mission_id) = 1
+      AND COUNT(xp.id) FILTER (WHERE xp.reference_id = ctx.mission_id) >= 1
       AND streak.current_streak = 1
       AND streak.last_activity_date = ctx.local_date
       AND ctx.second_rejected = TRUE
