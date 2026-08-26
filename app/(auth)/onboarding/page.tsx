@@ -8,12 +8,15 @@ import { X } from 'lucide-react'
 import UsernameStep from './steps/username-step'
 import SubjectsStep from './steps/subjects-step'
 import ExamDatesStep from './steps/exam-dates-step'
+import RouteStep from './steps/route-step'
 
 const STEPS = [
   { id: 1, label: 'Choose a username' },
   { id: 2, label: 'Pick your subjects' },
   { id: 3, label: 'Set exam dates' },
+  { id: 4, label: 'Choose study routes' },
 ]
+
 
 function StepIndicator({ current }: { current: number }) {
   return (
@@ -188,8 +191,10 @@ function OnboardingContent() {
           >
             {step === 1 && <UsernameStep onNext={goNext} />}
             {step === 2 && <SubjectsStep onNext={goNext} />}
-            {step === 3 && <ExamDatesStep subjectIds={enrolledSubjectIds} />}
+            {step === 3 && <ExamDatesStep subjectIds={enrolledSubjectIds} onNext={goNext} />}
+            {step === 4 && <RouteStep subjectIds={enrolledSubjectIds} />}
           </motion.div>
+
         </AnimatePresence>
       </motion.div>
     </div>

@@ -8,8 +8,6 @@ import { logPaper, updatePaper, LogPaperInput, QuestionInput } from '@/lib/actio
 import { dateInTimeZone } from '@/lib/date'
 
 // ── CAIE paper number → component name(s) ─────────────────────────────────
-// Maps subject code → paper number → component names in chapters table.
-// Papers not listed here (e.g. practicals) show ALL chapters.
 const PAPER_COMPONENT_MAP: Record<string, Record<number, string[]>> = {
   '9709': { // Mathematics
     1: ['Pure 1'],
@@ -38,11 +36,6 @@ const PAPER_COMPONENT_MAP: Record<string, Record<number, string[]>> = {
   },
 }
 
-// ── Future paper prevention ────────────────────────────────────────────────
-// CAIE results release schedule (conservative — papers must be sat first):
-//   Feb/Mar → sat Mar, available from month >= 3
-//   May/Jun → sat Jun, available from month >= 6
-//   Oct/Nov → sat Nov, available from month >= 10
 function getAvailableSessions(
   year: number,
   currentYear: number,
@@ -106,6 +99,7 @@ export function LogPaperModal({
     session: 'feb_mar' | 'may_jun' | 'oct_nov'
     paperNumber: number
     variant: number
+    stage?: 'as' | 'a2'
     attemptedAt: string
     timeTakenMins?: number
     notes?: string
@@ -117,11 +111,12 @@ export function LogPaperModal({
   const currentYear = Number(localToday.slice(0, 4))
   const currentMonth = Number(localToday.slice(5, 7))
 
-  const [step, setStep]             = useState<1 | 2 | 3>(1)
-  const [loading, setLoading]       = useState(false)
+  const [step, setStep]               = useState<1 | 2 | 3>(1)
+  const [loading, setLoading]         = useState(false)
   const [submitError, setSubmitError] = useState('')
-  const [subjects, setSubjects]     = useState<any[]>([])
-  const [chapters, setChapters]     = useState<any[]>([])
+  const [subjects, setSubjects]       = useState<any[]>([])
+  const [enrollments, setEnrollments] = useState<any[]>([])
+  const [chapters, setChapters]       = useState<any[]>([])
 
   const initialSession: 'feb_mar' | 'may_jun' | 'oct_nov' = existingPaper?.session ?? (() => {
     const avail = getAvailableSessions(currentYear, currentYear, currentMonth)
@@ -131,30 +126,34 @@ export function LogPaperModal({
   const [subjectId,   setSubjectId]   = useState(existingPaper?.subjectId   ?? '')
   const [paperNumber, setPaperNumber] = useState(existingPaper?.paperNumber  ?? 1)
   const [variant,     setVariant]     = useState(existingPaper?.variant      ?? 1)
+  const [stage,       setStage]       = useState<'as' | 'a2'>(existingPaper?.stage ?? 'as')
   const [year,        setYear]        = useState(existingPaper?.year         ?? currentYear)
   const [session,     setSession]     = useState<'feb_mar' | 'may_jun' | 'oct_nov'>(initialSession)
   const [attemptedAt, setAttemptedAt] = useState(existingPaper?.attemptedAt ?? localToday)
   const [timeTaken,   setTimeTaken]   = useState(existingPaper?.timeTakenMins ? String(existingPaper.timeTakenMins) : '')
   const [notes,       setNotes]       = useState(existingPaper?.notes ?? '')
-  const [questions,       setQuestions]       = useState<QuestionInput[]>(
+  const [questions,   setQuestions]   = useState<QuestionInput[]>(
     isEditing ? [] : [{ questionNumber: '1', chapterId: null, marksObtained: 0, marksAvailable: 1 }]
   )
   const [questionsLoading, setQuestionsLoading] = useState(isEditing)
 
-  // Fetch enrolled subjects on mount
+  // Fetch enrolled subjects + route information on mount
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       const { data } = await supabase
         .from('user_subjects')
-        .select('subjects(id, name, code, color_hex)')
+        .select('*, subjects(id, name, code, color_hex)')
         .eq('user_id', user.id)
+        .eq('is_archived', false)
       if (data) {
+        setEnrollments(data)
         const subs = data.map((d: any) => d.subjects).filter(Boolean)
         setSubjects(subs)
-        // Only auto-select if not in edit mode (edit mode has pre-filled subjectId)
-        if (!isEditing && subs.length > 0) setSubjectId(subs[0].id)
+        if (!isEditing && subs.length > 0) {
+          setSubjectId(subs[0].id)
+        }
       }
     }
     load()
@@ -188,7 +187,7 @@ export function LogPaperModal({
     async function load() {
       const { data } = await supabase
         .from('chapters')
-        .select('id, title, component, number')
+        .select('id, title, component, number, stage')
         .eq('subject_id', subjectId)
         .order('component', { ascending: true, nullsFirst: false })
         .order('number',    { ascending: true })
@@ -197,15 +196,22 @@ export function LogPaperModal({
     load()
   }, [subjectId])
 
-  // Filter chapters by CAIE paper→component mapping
+  // Current enrollment check
+  const activeEnrollment = enrollments.find(e => e.subject_id === subjectId)
+  const isA2Unlocked = activeEnrollment?.current_stage === 'a2' || activeEnrollment?.current_stage === 'full'
+
+  // Filter chapters by CAIE paper→component mapping and stage
   const activeSubject = subjects.find(s => s.id === subjectId)
   const filteredChapters = useMemo(() => {
-    if (!activeSubject?.code) return chapters
-    const mapping = PAPER_COMPONENT_MAP[activeSubject.code]
-    if (!mapping) return chapters
-    const components = mapping[paperNumber]
-    if (!components) return chapters // practical / unmapped paper — show all
-    return chapters.filter(c => c.component && components.includes(c.component))
+    let list = chapters
+    if (activeSubject?.code) {
+      const mapping = PAPER_COMPONENT_MAP[activeSubject.code]
+      if (mapping && mapping[paperNumber]) {
+        const components = mapping[paperNumber]
+        list = list.filter(c => c.component && components.includes(c.component))
+      }
+    }
+    return list
   }, [chapters, activeSubject, paperNumber])
 
   // Session availability based on year
@@ -214,7 +220,6 @@ export function LogPaperModal({
     [year, currentYear, currentMonth]
   )
 
-  // Auto-correct session when year changes to a year that doesn't support current session
   useEffect(() => {
     if (!availableSessions.includes(session)) {
       const last = availableSessions[availableSessions.length - 1]
@@ -270,7 +275,7 @@ export function LogPaperModal({
     }
     setLoading(true)
     const input: LogPaperInput = {
-      subjectId, year, session, paperNumber, variant, attemptedAt,
+      subjectId, year, session, paperNumber, variant, stage, attemptedAt,
       timeTakenMins: timeTaken ? parseInt(timeTaken) : undefined,
       notes: notes || undefined,
       questions,
@@ -324,6 +329,51 @@ export function LogPaperModal({
                 {subjects.length === 0 && <option>Loading…</option>}
                 {subjects.map(s => <option key={s.id} value={s.id}>{s.name} ({s.code})</option>)}
               </select>
+            </div>
+
+            {/* Stage selection */}
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Qualification Stage
+              </label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setStage('as')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: 'var(--radius-md)',
+                    border: `1.5px solid ${stage === 'as' ? 'var(--primary)' : 'var(--border-subtle)'}`,
+                    background: stage === 'as' ? 'rgba(91, 127, 255, 0.1)' : 'var(--bg-elevated)',
+                    color: stage === 'as' ? 'var(--primary)' : 'var(--text-secondary)',
+                    fontWeight: stage === 'as' ? 700 : 500,
+                    fontSize: '0.875rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  AS Level
+                </button>
+                <button
+                  type="button"
+                  onClick={() => isA2Unlocked && setStage('a2')}
+                  disabled={!isA2Unlocked}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: 'var(--radius-md)',
+                    border: `1.5px solid ${stage === 'a2' ? 'var(--primary)' : 'var(--border-subtle)'}`,
+                    background: stage === 'a2' ? 'rgba(91, 127, 255, 0.1)' : 'var(--bg-elevated)',
+                    color: stage === 'a2' ? 'var(--primary)' : isA2Unlocked ? 'var(--text-secondary)' : 'var(--text-disabled)',
+                    fontWeight: stage === 'a2' ? 700 : 500,
+                    fontSize: '0.875rem',
+                    cursor: isA2Unlocked ? 'pointer' : 'not-allowed',
+                    opacity: isA2Unlocked ? 1 : 0.5,
+                  }}
+                >
+                  A2 Level {!isA2Unlocked && '(Locked)'}
+                </button>
+              </div>
             </div>
 
             {/* Paper / Variant / Year */}

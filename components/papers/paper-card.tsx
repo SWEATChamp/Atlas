@@ -61,7 +61,7 @@ export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZo
           backgroundColor: paper.subjects.color_hex || 'var(--accent-primary)',
         }} />
 
-        {/* Left: paper code + subject */}
+        {/* Left: paper code + subject + stage */}
         <div style={{ minWidth: 0 }}>
           <div style={{
             fontFamily: 'var(--font-mono)',
@@ -73,8 +73,38 @@ export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZo
           }}>
             {paper.paper_code}
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>
-            {paper.subjects.name}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              {paper.subjects.name}
+            </span>
+            {paper.stage ? (
+              <span
+                style={{
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  padding: '1px 5px',
+                  borderRadius: 4,
+                  background: paper.stage === 'a2' ? 'rgba(167, 139, 250, 0.15)' : 'rgba(91, 127, 255, 0.15)',
+                  color: paper.stage === 'a2' ? 'var(--accent-secondary)' : 'var(--accent-primary)',
+                }}
+              >
+                {paper.stage.toUpperCase()}
+              </span>
+            ) : (
+              <span
+                style={{
+                  fontSize: '0.65rem',
+                  fontWeight: 600,
+                  padding: '1px 5px',
+                  borderRadius: 4,
+                  background: 'rgba(255, 171, 0, 0.12)',
+                  color: 'var(--warning)',
+                }}
+              >
+                Untagged
+              </span>
+            )}
           </div>
         </div>
 
@@ -131,7 +161,7 @@ export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZo
         </div>
       </motion.div>
 
-      {/* Edit modal — only rendered when paper_number is known (non-null) */}
+      {/* Edit modal */}
       <AnimatePresence>
         {editOpen && paper.paper_number !== null && (
           <LogPaperModal
@@ -143,6 +173,7 @@ export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZo
               session: paper.session,
               paperNumber: Math.floor(paper.paper_number / 10),
               variant: paper.paper_number % 10,
+              stage: paper.stage ?? 'as',
               attemptedAt: paper.attempted_at,
               timeTakenMins: paper.time_taken_mins ?? undefined,
               notes: paper.notes ?? undefined,

@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircle2, Circle, Clock, Star } from 'lucide-react'
+import { CheckCircle2, Circle, Clock, Star, Lock } from 'lucide-react'
 import { updateChapterStatus, updateChapterConfidence } from '@/lib/actions/chapters'
 import type { Chapter, UserChapter, NotesStatus } from '@/types'
 
@@ -11,6 +11,7 @@ interface Props {
   userChapter: UserChapter | null
   avgScore: number | null
   subjectColor: string
+  isAccessible?: boolean
 }
 
 const STATUS_CYCLE: NotesStatus[] = ['none', 'in_progress', 'complete']
@@ -18,12 +19,33 @@ const STATUS_CYCLE: NotesStatus[] = ['none', 'in_progress', 'complete']
 function StatusButton({
   status,
   color,
+  isAccessible = true,
   onClick,
 }: {
   status: NotesStatus
   color: string
+  isAccessible?: boolean
   onClick: () => void
 }) {
+  if (!isAccessible) {
+    return (
+      <div
+        title="Locked: Unlock A2 or configure study route to study this chapter"
+        style={{
+          width: 26,
+          height: 26,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'var(--text-disabled)',
+          flexShrink: 0,
+        }}
+      >
+        <Lock size={15} color="var(--text-disabled)" />
+      </div>
+    )
+  }
+
   const icon =
     status === 'complete' ? (
       <CheckCircle2 size={18} color={color} strokeWidth={2.5} />
@@ -81,13 +103,34 @@ function StatusButton({
 function ConfidenceStars({
   value,
   color,
+  isAccessible = true,
   onChange,
 }: {
   value: number | null
   color: string
+  isAccessible?: boolean
   onChange: (level: number | null) => void
 }) {
   const [hovered, setHovered] = useState<number | null>(null)
+
+  if (!isAccessible) {
+    return (
+      <div
+        style={{ display: 'flex', gap: 2, alignItems: 'center', opacity: 0.3, pointerEvents: 'none' }}
+        title="Locked"
+      >
+        {[1, 2, 3, 4, 5].map((n) => (
+          <Star
+            key={n}
+            size={13}
+            fill="transparent"
+            color="var(--text-disabled)"
+            strokeWidth={1.5}
+          />
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div
@@ -183,7 +226,13 @@ const STATUS_META: Record<NotesStatus, { label: string; color: string }> = {
   complete:    { label: 'Complete',    color: 'var(--success)' },
 }
 
-export default function ChapterRow({ chapter, userChapter, avgScore, subjectColor }: Props) {
+export default function ChapterRow({
+  chapter,
+  userChapter,
+  avgScore,
+  subjectColor,
+  isAccessible = true,
+}: Props) {
   const [status,     setStatus]     = useState<NotesStatus>(userChapter?.notes_status ?? 'none')
   const [confidence, setConfidence] = useState<number | null>(userChapter?.confidence_level ?? null)
   const [, startTransition] = useTransition()
@@ -194,6 +243,7 @@ export default function ChapterRow({ chapter, userChapter, avgScore, subjectColo
   }, [userChapter?.notes_status, userChapter?.confidence_level])
 
   const handleStatusClick = () => {
+    if (!isAccessible) return
     const currentIdx  = STATUS_CYCLE.indexOf(status)
     const nextStatus  = STATUS_CYCLE[(currentIdx + 1) % STATUS_CYCLE.length]
     const prevStatus  = status
@@ -205,6 +255,7 @@ export default function ChapterRow({ chapter, userChapter, avgScore, subjectColo
   }
 
   const handleConfidenceChange = (level: number | null) => {
+    if (!isAccessible) return
     const prev = confidence
     setConfidence(level)
     startTransition(async () => {
@@ -213,12 +264,17 @@ export default function ChapterRow({ chapter, userChapter, avgScore, subjectColo
     })
   }
 
-  const rowBg =
-    status === 'complete'    ? `${subjectColor}08` :
-    status === 'in_progress' ? 'rgba(251,191,36,0.04)' :
-    'transparent'
+  const rowBg = !isAccessible
+    ? 'rgba(0, 0, 0, 0.15)'
+    : status === 'complete'
+    ? `${subjectColor}08`
+    : status === 'in_progress'
+    ? 'rgba(251,191,36,0.04)'
+    : 'transparent'
 
-  const { label: statusLabel, color: statusColor } = STATUS_META[status]
+  const { label: statusLabel, color: statusColor } = !isAccessible
+    ? { label: 'Locked (A2 Stage)', color: 'var(--text-disabled)' }
+    : STATUS_META[status]
 
   return (
     <motion.div
@@ -230,11 +286,17 @@ export default function ChapterRow({ chapter, userChapter, avgScore, subjectColo
         gap: 10,
         padding: '10px 14px',
         background: rowBg,
-        transition: 'background 250ms ease',
+        opacity: isAccessible ? 1 : 0.6,
+        transition: 'background 250ms ease, opacity 200ms ease',
       }}
     >
       {/* ① Status toggle icon */}
-      <StatusButton status={status} color={subjectColor} onClick={handleStatusClick} />
+      <StatusButton
+        status={status}
+        color={subjectColor}
+        isAccessible={isAccessible}
+        onClick={handleStatusClick}
+      />
 
       {/* ② Chapter number + title + status label */}
       <div style={{ minWidth: 0 }}>
@@ -242,8 +304,12 @@ export default function ChapterRow({ chapter, userChapter, avgScore, subjectColo
           style={{
             fontSize: '0.875rem',
             fontWeight: status === 'complete' ? 500 : 400,
-            color: status === 'complete' ? 'var(--text-secondary)' : 'var(--text-primary)',
-            textDecorationLine: status === 'complete' ? 'line-through' : 'none',
+            color: !isAccessible
+              ? 'var(--text-disabled)'
+              : status === 'complete'
+              ? 'var(--text-secondary)'
+              : 'var(--text-primary)',
+            textDecorationLine: isAccessible && status === 'complete' ? 'line-through' : 'none',
             textDecorationColor: 'var(--text-disabled)',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
@@ -292,8 +358,16 @@ export default function ChapterRow({ chapter, userChapter, avgScore, subjectColo
         )}
       </AnimatePresence>
 
-      {/* ④ Confidence stars */}
-      <ConfidenceStars value={confidence} color={subjectColor} onChange={handleConfidenceChange} />
+      {/* ④ Confidence star rating */}
+      <ConfidenceStars
+        value={confidence}
+        color={subjectColor}
+        isAccessible={isAccessible}
+        onChange={handleConfidenceChange}
+      />
+
+      {/* ⑤ Chapter link icon */}
+      <div style={{ width: 14 }} />
     </motion.div>
   )
 }

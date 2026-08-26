@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Zap, PartyPopper, RefreshCw, Calendar, BookOpen, AlertCircle } from 'lucide-react'
+import { Zap, PartyPopper, RefreshCw, Calendar, BookOpen, AlertCircle, RotateCcw } from 'lucide-react'
 import MissionCard from './mission-card'
 import { generateMissions } from '@/lib/actions/dashboard'
 import type { DailyMission, CompleteMissionResult } from '@/lib/actions/dashboard'
+import type { UndoMissionResult } from '@/types/database'
 
 interface MissionListProps {
   missions: DailyMission[]
@@ -16,36 +17,60 @@ interface MissionListProps {
 
 interface XpToast {
   id: string
-  xp: number
+  text: string
   levelUp?: boolean
   levelTitle?: string
 }
 
 export default function MissionList({ missions: initialMissions, hasExamDates, hasChapterData }: MissionListProps) {
   const router = useRouter()
-  const [missions, setMissions]       = useState<DailyMission[]>(initialMissions)
-  const [toasts, setToasts]           = useState<XpToast[]>([])
-  const [generating, setGenerating]   = useState(false)
-  const [genError, setGenError]       = useState<string | null>(null)
+  const [missions, setMissions]     = useState<DailyMission[]>(initialMissions)
+  const [toasts, setToasts]         = useState<XpToast[]>([])
+  const [generating, setGenerating] = useState(false)
+  const [genError, setGenError]     = useState<string | null>(null)
+
+  useEffect(() => {
+    setMissions(initialMissions)
+  }, [initialMissions])
 
   const completedCount = missions.filter(m => m.status === 'completed').length
   const allDone = completedCount === missions.length && missions.length > 0
 
   const handleComplete = (id: string, result: CompleteMissionResult) => {
-    setMissions(prev => prev.map(m => m.id === id ? { ...m, status: 'completed' } : m))
+    setMissions(prev =>
+      prev.map(m => (m.id === id ? { ...m, status: 'completed', completed_at: new Date().toISOString() } : m))
+    )
 
     const toastId = crypto.randomUUID()
-    setToasts(prev => [...prev, {
-      id: toastId,
-      xp: result.xp_awarded + result.achievement_xp,
-      levelUp: result.levelled_up,
-      levelTitle: result.level_title,
-    }])
+    setToasts(prev => [
+      ...prev,
+      {
+        id: toastId,
+        text: `+${result.xp_awarded + result.achievement_xp} XP`,
+        levelUp: result.levelled_up,
+        levelTitle: result.level_title,
+      },
+    ])
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toastId)), 2800)
 
-    // Refresh the Server Components that own the dashboard summary, XP, level,
-    // and streak. The action revalidates /dashboard; this fetches that fresh data
-    // while preserving this component's optimistic mission state and toast.
+    router.refresh()
+  }
+
+  const handleUndo = (id: string, result: UndoMissionResult) => {
+    setMissions(prev =>
+      prev.map(m => (m.id === id ? { ...m, status: 'pending', completed_at: null } : m))
+    )
+
+    const toastId = crypto.randomUUID()
+    setToasts(prev => [
+      ...prev,
+      {
+        id: toastId,
+        text: `-${result.xp_reversed} XP (Reversed)`,
+      },
+    ])
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toastId)), 2800)
+
     router.refresh()
   }
 
@@ -58,7 +83,6 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
       setGenerating(false)
       return
     }
-    // Refresh server-rendered data to load new missions into state
     router.refresh()
     setGenerating(false)
   }
@@ -143,8 +167,12 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
                 pointerEvents: 'none',
               }}
             >
-              <Zap size={16} strokeWidth={2.5} />
-              {t.levelUp ? `Level Up — ${t.levelTitle}!` : `+${t.xp} XP`}
+              {t.text.startsWith('-') ? (
+                <RotateCcw size={16} color="var(--warning)" strokeWidth={2.5} />
+              ) : (
+                <Zap size={16} strokeWidth={2.5} />
+              )}
+              {t.levelUp ? `Level Up — ${t.levelTitle}!` : t.text}
             </motion.div>
           ))}
         </AnimatePresence>
@@ -192,25 +220,39 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
         </div>
       ) : allDone ? (
         /* All missions complete */
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          style={{
-            textAlign: 'center',
-            padding: '32px 24px',
-            background: 'linear-gradient(135deg, rgba(52,211,153,0.08), rgba(52,211,153,0.03))',
-            border: '1px solid rgba(52,211,153,0.2)',
-            borderRadius: 'var(--radius-md)',
-          }}
-        >
-          <PartyPopper size={32} color="var(--success)" style={{ margin: '0 auto 12px' }} />
-          <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--success)', marginBottom: 4 }}>
-            All missions complete!
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            style={{
+              textAlign: 'center',
+              padding: '24px 20px',
+              background: 'linear-gradient(135deg, rgba(52,211,153,0.08), rgba(52,211,153,0.03))',
+              border: '1px solid rgba(52,211,153,0.2)',
+              borderRadius: 'var(--radius-md)',
+            }}
+          >
+            <PartyPopper size={30} color="var(--success)" style={{ margin: '0 auto 10px' }} />
+            <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--success)', marginBottom: 2 }}>
+              All missions complete!
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              Come back tomorrow for new missions.
+            </div>
+          </motion.div>
+
+          {/* Render cards so user can still see them and undo if needed */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {missions.map(mission => (
+              <MissionCard
+                key={mission.id}
+                mission={mission}
+                onComplete={handleComplete}
+                onUndo={handleUndo}
+              />
+            ))}
           </div>
-          <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-            Come back tomorrow for new missions.
-          </div>
-        </motion.div>
+        </div>
       ) : (
         /* Mission list */
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -232,7 +274,12 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
           </div>
           <AnimatePresence>
             {missions.map(mission => (
-              <MissionCard key={mission.id} mission={mission} onComplete={handleComplete} />
+              <MissionCard
+                key={mission.id}
+                mission={mission}
+                onComplete={handleComplete}
+                onUndo={handleUndo}
+              />
             ))}
           </AnimatePresence>
         </div>

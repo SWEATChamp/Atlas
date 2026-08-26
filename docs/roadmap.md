@@ -44,17 +44,18 @@
 - [x] All 23 rollback-only database tests passed (covering positive/negative RLS, stage restrictions, duplicates, score validation, carry-forward rules, and unlock consistency)
 - [x] TypeScript types updated in `database.ts` and `index.ts`
 
-### Pending (UI and logic work)
-- [ ] UI: route selection prompt for existing (unconfirmed) and new enrolments
-- [ ] UI: paper combination selector per enrolled subject (reads `subject_paper_selections`)
-- [ ] UI: result entry form for expected, forecast, and actual results
-- [ ] Access filtering: chapters and missions filtered by `current_stage` and `study_route`
-- [ ] Readiness: update `compute_readiness_score` to accept stage and selected paper combination
-- [ ] Readiness: remove application-side readiness calculation; route everything through the DB function
-- [ ] Readiness: show separate AS readiness and A2 readiness in the dashboard
-- [ ] Readiness: add overall A-Level projection separate from per-stage readiness
-- [ ] Staged students: prompt for AS result before the normal A2 transition
-- [ ] Manual A2 unlock: implement with warning; must also set `study_route` to `staged`
+### Application Layer & Migration 021 (Prepared — Not Yet Applied)
+- [x] UI: Route selection banner and RouteSetupSheet for unconfirmed and existing enrolments
+- [x] UI: Paper combination selector (`PaperSelectionPanel`) for Mathematics 9709
+- [x] UI: Stage-aware result entry & A2 transition modal (`A2TransitionModal`) supporting normal transition and manual unlock
+- [x] UI: Separate AS and A2 readiness bars (`StageReadinessPanel`, `SubjectCard`, `SubjectReadinessList`)
+- [x] UI: Onboarding Step 4 for choosing study routes and paper combinations
+- [x] UI: Past paper logging with required stage selection (`LogPaperModal`) and legacy paper tagger (`PaperStageTagger`)
+- [x] UI: 10-minute mission undo action with countdown timer and XP reversal notifications
+- [x] Database: Migration 021 SQL authored with 3-arg `compute_readiness_score`, atomic `configure_subject_route`, `transition_to_a2`, `undo_mission_completion`, mission filtering, and RLS guards
+- [x] Database Tests: 25 tests in `as_a2_readiness.test.sql` and 9 tests in `undo_mission.test.sql` authored
+- [x] TypeScript unit tests: `tests/as-a2-flow.test.ts` (13 tests) passed
+
 
 ## Phase 3: Past Papers & Analytics
 - Past paper logging UI

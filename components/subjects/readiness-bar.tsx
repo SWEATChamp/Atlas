@@ -7,10 +7,48 @@ export default function ReadinessBar({
   showLabel = true,
   height = 6,
 }: {
-  value: number
+  value?: number | null
   showLabel?: boolean
   height?: number
 }) {
+  if (value === null || value === undefined) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div
+          style={{
+            flex: 1,
+            height,
+            background: 'var(--bg-active)',
+            borderRadius: 999,
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              width: '0%',
+              height: '100%',
+              background: 'var(--border-muted)',
+              borderRadius: 999,
+            }}
+          />
+        </div>
+        {showLabel && (
+          <span
+            style={{
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              color: 'var(--text-disabled)',
+              minWidth: 34,
+              textAlign: 'right',
+            }}
+          >
+            --
+          </span>
+        )}
+      </div>
+    )
+  }
+
   const pct = Math.min(100, Math.max(0, value))
 
   const color =
@@ -60,3 +98,4 @@ export default function ReadinessBar({
     </div>
   )
 }
+

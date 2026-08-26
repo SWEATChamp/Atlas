@@ -126,6 +126,49 @@ export async function setExamDates(
   return {}
 }
 
+// ─── Step 4: Set Study Routes ─────────────────────────────────────────────────
+
+export async function setStudyRoutes(
+  routes: Array<{
+    subjectId: string
+    route: 'as_only' | 'staged' | 'full_level'
+    paperSelections?: Array<{
+      component_name: string
+      paper_number?: number | null
+      stage: 'as' | 'a2'
+    }>
+  }>
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  for (const item of routes) {
+    const { data: enrollment } = await supabase
+      .from('user_subjects')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('subject_id', item.subjectId)
+      .single()
+
+    if (!enrollment) continue
+
+    const { error } = await supabase.rpc('configure_subject_route', {
+      p_user_id: user.id,
+      p_user_subject_id: enrollment.id,
+      p_route: item.route,
+      p_paper_selections: item.paperSelections ?? [],
+    })
+
+    if (error) {
+      console.error('setStudyRoutes error:', error)
+      return { error: `Failed to configure route: ${error.message}` }
+    }
+  }
+
+  return {}
+}
+
 // ─── Complete Onboarding ──────────────────────────────────────────────────────
 
 export async function completeOnboarding(timeZone?: string): Promise<void> {
@@ -152,3 +195,4 @@ export async function completeOnboarding(timeZone?: string): Promise<void> {
 
   redirect('/dashboard')
 }
+

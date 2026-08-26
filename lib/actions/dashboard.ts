@@ -2,10 +2,20 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import type {
+  StudyRoute,
+  SubjectStage,
+  UndoMissionResult,
+} from '@/types/database'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type MissionType = 'complete_notes' | 'review_chapter' | 'attempt_paper' | 'revisit_weak_topic' | 'confidence_check'
+export type MissionType =
+  | 'complete_notes'
+  | 'review_chapter'
+  | 'attempt_paper'
+  | 'revisit_weak_topic'
+  | 'confidence_check'
 export type MissionStatus = 'pending' | 'completed' | 'skipped'
 
 export interface DailyMission {
@@ -24,12 +34,17 @@ export interface DailyMission {
 }
 
 export interface SubjectReadiness {
+  user_subject_id?: string
   subject_id: string
   subject_name: string
   color_hex: string
   exam_date: string | null
   days_until: number | null
-  readiness: number
+  study_route: StudyRoute
+  current_stage: SubjectStage | null
+  as_readiness: number | null
+  a2_readiness: number | null
+  readiness: number | null
 }
 
 export interface DashboardData {
@@ -47,9 +62,9 @@ export interface DashboardData {
     last_date: string | null
     active_today: boolean
   }
-  overall_readiness: number
   has_exam_dates: boolean
   has_chapter_data: boolean
+  has_unconfirmed_routes: boolean
   today_missions: DailyMission[]
   subject_readiness: SubjectReadiness[]
   recent_xp_events: { id: string; event_type: string; xp_amount: number; created_at: string }[]
@@ -94,10 +109,11 @@ export async function getDashboardData(): Promise<DashboardData | null> {
     return null
   }
 
-  const missions: DailyMission[] = stats.today_missions ?? []
+  const missions: DailyMission[] = (stats.today_missions ?? []).filter((m: DailyMission) => m.status !== 'skipped')
   const subjectReadiness: SubjectReadiness[] = stats.subject_readiness ?? []
-  const hasExamDates = subjectReadiness.some(subject => subject.exam_date !== null)
-  const hasChapterData = !chapterResult.error && (chapterResult.count ?? 0) > 0
+  const hasExamDates = stats.has_exam_dates ?? subjectReadiness.some(subject => subject.exam_date !== null)
+  const hasChapterData = stats.has_chapter_data ?? (!chapterResult.error && (chapterResult.count ?? 0) > 0)
+  const hasUnconfirmedRoutes = stats.has_unconfirmed_routes ?? subjectReadiness.some(s => s.study_route === 'unconfirmed')
 
   // Auto-generate missions if none exist for today
   if (missions.length === 0) {
@@ -105,28 +121,29 @@ export async function getDashboardData(): Promise<DashboardData | null> {
     // Re-fetch after generation
     const { data: refreshed } = await supabase.rpc('get_user_dashboard_stats', { p_user_id: user.id })
     if (refreshed) {
+      const refreshedReadiness: SubjectReadiness[] = refreshed.subject_readiness ?? []
       return {
-        profile:           refreshed.profile,
-        streak:            refreshed.streak,
-        overall_readiness: refreshed.overall_readiness ?? 0,
-        has_exam_dates:    hasExamDates,
-        has_chapter_data:  hasChapterData,
-        today_missions:    refreshed.today_missions    ?? [],
-        subject_readiness: refreshed.subject_readiness ?? [],
-        recent_xp_events:  refreshed.recent_xp_events ?? [],
+        profile:                refreshed.profile,
+        streak:                 refreshed.streak,
+        has_exam_dates:         refreshed.has_exam_dates ?? hasExamDates,
+        has_chapter_data:       refreshed.has_chapter_data ?? hasChapterData,
+        has_unconfirmed_routes: refreshed.has_unconfirmed_routes ?? refreshedReadiness.some(s => s.study_route === 'unconfirmed'),
+        today_missions:         (refreshed.today_missions ?? []).filter((m: DailyMission) => m.status !== 'skipped'),
+        subject_readiness:      refreshedReadiness,
+        recent_xp_events:       refreshed.recent_xp_events ?? [],
       }
     }
   }
 
   return {
-    profile:           stats.profile,
-    streak:            stats.streak,
-    overall_readiness: stats.overall_readiness ?? 0,
-    has_exam_dates:    hasExamDates,
-    has_chapter_data:  hasChapterData,
-    today_missions:    missions,
-    subject_readiness: subjectReadiness,
-    recent_xp_events:  stats.recent_xp_events  ?? [],
+    profile:                stats.profile,
+    streak:                 stats.streak,
+    has_exam_dates:         hasExamDates,
+    has_chapter_data:       hasChapterData,
+    has_unconfirmed_routes: hasUnconfirmedRoutes,
+    today_missions:         missions,
+    subject_readiness:      subjectReadiness,
+    recent_xp_events:       stats.recent_xp_events ?? [],
   }
 }
 
@@ -160,10 +177,33 @@ export async function completeMission(
 
   const result: CompleteMissionResult = {
     ...data,
-    levelled_up: profile?.current_level > data?.new_level ? false : data?.new_level > (profile?.current_level ?? 0),
+    levelled_up: (profile?.current_level ?? 0) > data?.new_level ? false : (data?.new_level ?? 0) > (profile?.current_level ?? 0),
   }
 
   return { result }
+}
+
+/**
+ * Undo a completed mission within 10 minutes on the same local calendar day.
+ * Calls undo_mission_completion RPC which restores mission status to pending,
+ * reverses XP, and reverses all-missions-completed bonus if applicable.
+ */
+export async function undoMission(
+  missionId: string
+): Promise<{ result?: UndoMissionResult; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data, error } = await supabase.rpc('undo_mission_completion', {
+    p_mission_id: missionId,
+    p_user_id:    user.id,
+  })
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard')
+  return { result: data as UndoMissionResult }
 }
 
 /**

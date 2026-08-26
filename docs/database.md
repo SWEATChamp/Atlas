@@ -143,4 +143,40 @@ Stores expected, forecast, or actual AS/A2 results. No `user_id` column — owne
 
 ### Deferred (Phase 2.5 continuation)
 
-`compute_readiness_score` is not modified in this migration. Stage-aware readiness calculations, mission filtering by stage, access control based on `study_route`, and the result-entry UI all remain pending per the roadmap.
+`compute_readiness_score` is not modified in Migration 020. Stage-aware readiness calculations, mission filtering by stage, access control based on `study_route`, and the result-entry UI are implemented in Migration 021.
+
+## AS/A2 Readiness, Route Management & Safety (Migration 021) — Prepared, Not Yet Applied
+
+The changes below are authored in `supabase/migrations/20260826000021_as_a2_readiness.sql`. Rollback-only tests are defined in `supabase/tests/database/as_a2_readiness.test.sql` (25 tests) and `supabase/tests/database/undo_mission.test.sql` (9 tests). Status: **prepared — not yet applied to database**.
+
+### Key Functions & Logic
+
+1. **`compute_readiness_score(UUID, UUID, TEXT)` (3-arg function)**:
+   - Evaluates AS (`'as'`), A2 (`'a2'`), or accessible (`'all'`) readiness on demand.
+   - Denominator includes all accessible chapters for the subject (untouched chapters contribute 0).
+   - Notes score: complete = 100%, in_progress = 0%, none = 0%.
+   - Confidence score: `SUM(COALESCE(confidence_level, 0) / 5) / total_accessible_chapters * 100`.
+   - Past papers: filtered by `stage = p_stage` (NULL-stage papers excluded).
+   - `auth.uid() = p_user_id` security check.
+
+2. **`compute_readiness_score(UUID, UUID DEFAULT NULL)` (2-arg wrapper)**:
+   - Preserves backward compatibility by delegating to `compute_readiness_score(p_user_id, p_subject_id, 'all')`.
+
+3. **`configure_subject_route(UUID, UUID, study_route_enum, JSONB)`**:
+   - Atomic transaction updating `user_subjects.study_route` and `current_stage`, replacing `subject_paper_selections`, validating component belonging, clearing unlock timestamps on route downgrade, and cancelling stale missions.
+
+4. **`transition_to_a2(...)`**:
+   - Atomic transaction handling normal staged transition (recording AS result + unlocking A2) and manual unlock (converting `as_only` to `staged` with atomic rollback on failure).
+
+5. **`generate_daily_missions(UUID)`**:
+   - Skips unconfirmed subjects and filters out inaccessible A2 chapters.
+
+6. **`complete_mission(UUID, UUID)` & `undo_mission_completion(UUID, UUID)`**:
+   - Guarded with `auth.uid() = p_user_id` and chapter accessibility checks.
+   - `undo_mission_completion` atomically restores mission to pending, inserts a negative `mission_undo` XP event, reverses exact bonus via `reference_id`, leaves streaks/achievements untouched (MVP design), and enforces a 10-minute/same-local-calendar-day window.
+
+7. **RLS Hardening**:
+   - `user_chapters` INSERT/UPDATE policies enforce `user_can_access_chapter(auth.uid(), chapter_id)`.
+   - `past_papers` UPDATE policy allows classifying legacy NULL-stage papers while enforcing ownership and stage accessibility.
+   - `subject_stage_results` constraint tightened: `ssr_carry_forward_actual CHECK (carry_forward = FALSE OR (stage = 'as' AND result_type = 'actual'))`.
+

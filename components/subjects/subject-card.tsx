@@ -45,8 +45,22 @@ function ExamCountdown({ days }: { days: number | null }) {
 }
 
 export default function SubjectCard({ data }: { data: SubjectWithProgress }) {
-  const { subject, enrollment, totalChapters, completedChapters, inProgressChapters, readiness, daysUntilExam } = data
+  const {
+    subject,
+    enrollment,
+    totalChapters,
+    completedChapters,
+    inProgressChapters,
+    as_readiness,
+    a2_readiness,
+    daysUntilExam,
+  } = data
+
   const Icon = ICON_MAP[subject.icon] ?? GraduationCap
+  const isUnconfirmed = enrollment.study_route === 'unconfirmed'
+  const isSeparateStages =
+    enrollment.study_route === 'full_level' ||
+    (enrollment.study_route === 'staged' && enrollment.current_stage === 'a2')
 
   return (
     <Link
@@ -106,11 +120,31 @@ export default function SubjectCard({ data }: { data: SubjectWithProgress }) {
                 <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3 }}>
                   {subject.name}
                 </div>
-                {subject.code && (
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 1 }}>
-                    {subject.code}
-                  </div>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                  {subject.code && (
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                      {subject.code}
+                    </span>
+                  )}
+                  <span
+                    style={{
+                      fontSize: '0.65rem',
+                      fontWeight: 600,
+                      color: isUnconfirmed ? 'var(--warning)' : 'var(--text-secondary)',
+                      background: 'var(--bg-overlay)',
+                      padding: '1px 6px',
+                      borderRadius: 4,
+                    }}
+                  >
+                    {isUnconfirmed
+                      ? 'Route Unconfirmed'
+                      : enrollment.study_route === 'as_only'
+                      ? 'AS Only'
+                      : enrollment.study_route === 'staged'
+                      ? `Staged (${enrollment.current_stage?.toUpperCase()})`
+                      : 'Full A Level'}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -141,7 +175,29 @@ export default function SubjectCard({ data }: { data: SubjectWithProgress }) {
               </span>
               <ExamCountdown days={daysUntilExam} />
             </div>
-            <ReadinessBar value={readiness} />
+
+            {isUnconfirmed ? (
+              <div style={{ fontSize: '0.75rem', color: 'var(--warning)', fontStyle: 'italic' }}>
+                Configure study route to track readiness
+              </div>
+            ) : isSeparateStages ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: 2 }}>
+                    AS Stage
+                  </div>
+                  <ReadinessBar value={as_readiness} height={5} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: 2 }}>
+                    A2 Stage
+                  </div>
+                  <ReadinessBar value={a2_readiness} height={5} />
+                </div>
+              </div>
+            ) : (
+              <ReadinessBar value={as_readiness} />
+            )}
           </div>
 
           {/* Chapter stats */}
