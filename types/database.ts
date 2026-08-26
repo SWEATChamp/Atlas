@@ -213,17 +213,24 @@ export interface DailyMission {
   user_id: string
   mission_date: string
   type: MissionType
-  target_entity_type: string
+  target_entity_type: 'chapter' | 'subject' | 'paper' | 'user'
   target_entity_id: string | null
   title: string
   description: string | null
   xp_reward: number
   status: MissionStatus
   difficulty: MissionDifficulty
+  estimated_minutes: number
   skip_reason: string | null
   skipped_at: string | null
   completed_at: string | null
   generated_at: string
+}
+
+export interface ReplaceMissionResult {
+  success: boolean
+  replaced_mission_id: string
+  new_mission: DailyMission
 }
 
 export interface XpEvent {

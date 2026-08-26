@@ -34,6 +34,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Pure 2 Mathematics reclassified as `route_dependent`.
   - Declarative auth-independent migration backfill of `user_chapters` for existing confirmed enrollments.
   - 10 database tests in `migration_022_fixes.test.sql` and 10 tests in `undo_mission.test.sql`.
+- **Mission Quality, Workload & Variety Balancing (Migration 023 — Prepared, Pending Hosted Application):**
+  - Added `estimated_minutes` column to `daily_missions` (CHECK 5–120 mins) and backfilled existing missions with sensible duration estimates (10–60 mins).
+  - Constrained `user_settings.max_missions_per_day` to 1..3 (default 3) and backfilled existing settings > 3 to 3.
+  - Overhauled `generate_daily_missions` algorithm:
+    - Enforces maximum 2 missions per subject across active daily budget.
+    - Prohibits duplicate target entities (`target_entity_id`) on the same local date.
+    - Ensures variety by prioritizing balanced category rotation (Notes ~30m/50XP, Practice/Weak-topic ~30m/40XP or Paper ~60m/75XP, Review ~20m/30XP or Confidence ~10m/20XP).
+    - Never generates all 3 missions of identical type; safely stops and emits fewer than 3 missions when content is limited.
+    - Replaces broad instructions with bite-sized, realistic action titles and clear descriptions.
+  - Added atomic, pre-validated `replace_mission` RPC:
+    - Verifies user ownership (`auth.uid() = p_user_id`), pending status, and user-local calendar date.
+    - Serializes user mission operations via `user_settings` row lock (`FOR UPDATE`).
+    - Validates alternative candidate availability before committing the skip; aborts with `P0002: No suitable replacement available` without modifying the original mission if exhausted.
+    - Replaces mission atomically in place and maintains 3-mission active cap.
+  - Quiet UI duration display with `<Clock /> ~X min` and secondary "Replace" button with specific loading state and propagation isolation.
+  - 15 pgTAP database tests in `mission_quality.test.sql` and 4 Vitest unit tests in `mission-quality.test.ts`.
 
 ### Fixed
 - Replaced inconsistent application-side readiness calculation with database-level single source of truth.

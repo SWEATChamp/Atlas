@@ -69,6 +69,18 @@
 - [x] Daily task execution flow
 - [x] Fix the exam-date calculation error found during mission-generation verification
 - [x] Use each user's local day for missions, streaks, achievements, countdowns, and exam archiving
+- **Mission Quality, Workload & Variety Hardening (Migration 023)**:
+  - **Implemented and tested locally**:
+    - [x] Daily mission cap strictly enforced (max 3 active missions/day, 60–120 min target workload promise)
+    - [x] `estimated_minutes` tracking (5–120 constraint) with quiet secondary clock display
+    - [x] Direct table mutation protection (revoked INSERT/UPDATE/DELETE from client roles on `daily_missions`)
+    - [x] Balanced category rotation & subject diversity (max 2 per subject, varied types, no duplicate targets)
+    - [x] Strict mission relevance (`complete_notes` requires `notes_status != 'complete'`, `revisit_weak_topic` requires real attempts with <70% accuracy)
+    - [x] Atomic, pre-validated `replace_mission` RPC with row locking and zero side-effects on exhaustion
+    - [x] 24 pgTAP database tests in `mission_quality.test.sql` and 4 Vitest tests in `mission-quality.test.ts` passed
+  - **Pending**:
+    - [ ] Hosted Supabase Migration 023 application pending
+    - [ ] Manual end-to-end user verification on production environment pending
 
 ## Phase 5: Gamification
 - XP awards, Levelling system

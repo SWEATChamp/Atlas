@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Zap, PartyPopper, RefreshCw, Calendar, BookOpen, AlertCircle, RotateCcw } from 'lucide-react'
+import { Zap, PartyPopper, RefreshCw, Calendar, BookOpen, AlertCircle, RotateCcw, Clock } from 'lucide-react'
 import MissionCard from './mission-card'
 import { generateMissions } from '@/lib/actions/dashboard'
 import type { DailyMission, CompleteMissionResult } from '@/lib/actions/dashboard'
-import type { UndoMissionResult } from '@/types/database'
+import type { UndoMissionResult, ReplaceMissionResult } from '@/types/database'
 
 interface MissionListProps {
   missions: DailyMission[]
@@ -69,8 +69,10 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
     setMissions(initialMissions)
   }, [initialMissions])
 
-  const completedCount = missions.filter(m => m.status === 'completed').length
-  const allDone = completedCount === missions.length && missions.length > 0
+  const activeMissions = missions.filter(m => m.status !== 'skipped')
+  const completedCount = activeMissions.filter(m => m.status === 'completed').length
+  const allDone = completedCount === activeMissions.length && activeMissions.length > 0
+  const totalEstimatedMinutes = activeMissions.reduce((acc, m) => acc + (m.estimated_minutes || 30), 0)
 
   const handleComplete = (id: string, result: CompleteMissionResult) => {
     setMissions(prev =>
@@ -109,6 +111,25 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
         id: toastId,
         text: breakdownText,
         type: 'reversal',
+      },
+    ])
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toastId)), 3500)
+
+    router.refresh()
+  }
+
+  const handleReplace = (id: string, result: ReplaceMissionResult) => {
+    setMissions(prev =>
+      prev.map(m => (m.id === id ? result.new_mission : m))
+    )
+
+    const toastId = crypto.randomUUID()
+    setToasts(prev => [
+      ...prev,
+      {
+        id: toastId,
+        text: `Replaced with "${result.new_mission.title}"`,
+        type: 'success',
       },
     ])
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toastId)), 3500)
@@ -241,24 +262,40 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
               Daily Missions
             </h2>
-            {missions.length > 0 && (
-              <span
-                style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  padding: '2px 8px',
-                  borderRadius: 99,
-                  background: allDone ? 'rgba(52,211,153,0.15)' : 'var(--bg-elevated)',
-                  color: allDone ? 'var(--success)' : 'var(--text-muted)',
-                  border: `1px solid ${allDone ? 'rgba(52,211,153,0.3)' : 'var(--border-subtle)'}`,
-                }}
-              >
-                {completedCount}/{missions.length} done
-              </span>
+            {activeMissions.length > 0 && (
+              <>
+                <span
+                  style={{
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    padding: '2px 8px',
+                    borderRadius: 99,
+                    background: allDone ? 'rgba(52,211,153,0.15)' : 'var(--bg-elevated)',
+                    color: allDone ? 'var(--success)' : 'var(--text-muted)',
+                    border: `1px solid ${allDone ? 'rgba(52,211,153,0.3)' : 'var(--border-subtle)'}`,
+                  }}
+                >
+                  {completedCount}/{activeMissions.length} done
+                </span>
+                {totalEstimatedMinutes > 0 && (
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      color: 'var(--text-secondary)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <Clock size={12} style={{ opacity: 0.7 }} />
+                    ~{totalEstimatedMinutes} min planned
+                  </span>
+                )}
+              </>
             )}
           </div>
           <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
@@ -302,7 +339,7 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
               animation: generating ? 'spin 1s linear infinite' : 'none',
             }}
           />
-          {generating ? 'Generating…' : missions.length === 0 ? 'Generate Missions' : 'Refresh'}
+          {generating ? 'Generating…' : activeMissions.length === 0 ? 'Generate Missions' : 'Refresh'}
         </button>
       </div>
 
@@ -340,7 +377,7 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
       </AnimatePresence>
 
       {/* Mission list */}
-      {missions.length === 0 ? (
+      {activeMissions.length === 0 ? (
         <div
           style={{
             padding: '32px 16px',
@@ -383,12 +420,13 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {missions.map(m => (
+          {activeMissions.map(m => (
             <MissionCard
               key={m.id}
               mission={m}
               onComplete={handleComplete}
               onUndo={handleUndo}
+              onReplace={handleReplace}
               onError={handleError}
             />
           ))}
