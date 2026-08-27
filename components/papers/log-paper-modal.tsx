@@ -17,16 +17,28 @@ const PAPER_COMPONENT_MAP: Record<string, Record<number, string[]>> = {
     5: ['Statistics 1'],
     6: ['Statistics 2'],
   },
+  '9231': { // Further Mathematics
+    1: ['Further Pure 1'],
+    2: ['Further Pure 2'],
+    3: ['Further Mechanics'],
+    4: ['Further Probability & Statistics'],
+  },
   '9702': { // Physics
     1: ['AS Core'],
     2: ['AS Core'],
-    4: ['A2 Core'],
-    5: ['A2 Core'],
+    4: ['A2 Core', 'A2 Applied'],
+    5: ['A2 Core', 'A2 Applied'],
   },
   '9701': { // Chemistry
-    1: ['AS Physical', 'AS Inorganic', 'AS Organic'],
-    2: ['AS Physical', 'AS Inorganic', 'AS Organic'],
-    4: ['A2 Physical', 'A2 Inorganic', 'A2 Organic'],
+    1: ['AS Physical', 'AS Inorganic', 'AS Organic', 'AS Analysis'],
+    2: ['AS Physical', 'AS Inorganic', 'AS Organic', 'AS Analysis'],
+    4: ['A2 Physical', 'A2 Inorganic', 'A2 Organic', 'A2 Analysis'],
+  },
+  '9618': { // Computer Science
+    1: ['Theory Fundamentals'],
+    2: ['Fundamental Problem-solving & Programming'],
+    3: ['Advanced Theory'],
+    4: ['Further Problem-solving & Programming'],
   },
   '9700': { // Biology
     1: ['AS'],
@@ -56,6 +68,8 @@ const SESSION_LABELS: Record<string, string> = {
   oct_nov: 'Oct/Nov',
 }
 
+const MVP_SUBJECT_CODES = new Set(['9709', '9231', '9702', '9701', '9618'])
+
 // ── Trigger button ─────────────────────────────────────────────────────────
 export function LogPaperButton({
   onSuccess,
@@ -81,20 +95,132 @@ export function LogPaperButton({
   )
 }
 
+interface RawSubject {
+  id: string
+  name: string
+  code?: string | null
+  color_hex?: string | null
+}
+
+interface RawEnrollment {
+  id: string
+  user_id: string
+  subject_id: string
+  current_stage?: string | null
+  study_route?: string | null
+  subjects?: RawSubject | null
+}
+
+interface RawChapter {
+  id: string
+  title: string
+  component?: string | null
+  number: number
+  stage?: string | null
+}
+
+interface RawSubjectPaper {
+  id: string
+  name: string
+  paper_number: number
+  stage?: 'as' | 'a2'
+}
+
+interface RawChapterPaper {
+  chapter_id: string
+  subject_paper_id: string
+}
+
+interface RawPaperSelection {
+  subject_paper_id?: string | null
+  paper_number: number
+  stage?: string | null
+  component_name?: string | null
+}
+
+export interface ChapterOption {
+  id: string
+  title?: string
+  component?: string | null
+  number: number
+  stage?: string | null
+}
+
+export function matchPaperOption<T extends { id: string; paper_number: number; stage?: 'as' | 'a2' }>(
+  papers: T[],
+  targetSubjectPaperId?: string | null,
+  targetPaperNumber?: number | null
+): T | null {
+  if (!papers || papers.length === 0) return null
+  if (targetSubjectPaperId) {
+    const found = papers.find(p => p.id === targetSubjectPaperId)
+    if (found) return found
+  }
+  if (targetPaperNumber != null) {
+    const found = papers.find(p => p.paper_number === targetPaperNumber)
+    if (found) return found
+  }
+  return papers[0] ?? null
+}
+
+export function filterChaptersForPaper<T extends ChapterOption>(
+  subjectCode: string | undefined | null,
+  paperNumber: number,
+  subjectPaperId: string | null | undefined,
+  chapters: T[],
+  chapterPapers: { chapter_id: string; subject_paper_id: string }[]
+): T[] {
+  let list = chapters
+  if (!subjectCode) return list
+
+  // Physics 9702 & Chemistry 9701 Practical cross-cutting rules
+  if ((subjectCode === '9702' || subjectCode === '9701') && paperNumber === 3) {
+    return list.filter(c => c.stage === 'as' || c.stage === 'shared')
+  }
+  if ((subjectCode === '9702' || subjectCode === '9701') && paperNumber === 5) {
+    return list
+  }
+  // Computer Science 9618 Paper 4: Practical Programming (Topics 19 & 20)
+  if (subjectCode === '9618' && paperNumber === 4) {
+    return list.filter(c => c.number === 19 || c.number === 20)
+  }
+
+  // If chapter_papers mappings exist for the chosen subject_paper_id
+  if (subjectPaperId && chapterPapers.length > 0) {
+    const allowedChapterIds = new Set(
+      chapterPapers
+        .filter(cp => cp.subject_paper_id === subjectPaperId)
+        .map(cp => cp.chapter_id)
+    )
+    if (allowedChapterIds.size > 0) {
+      return list.filter(c => allowedChapterIds.has(c.id))
+    }
+  }
+
+  // Fallback: legacy component map
+  const mapping = PAPER_COMPONENT_MAP[subjectCode]
+  if (mapping && mapping[paperNumber]) {
+    const components = mapping[paperNumber]
+    list = list.filter(c => c.component && components.includes(c.component))
+  }
+  return list
+}
+
 // ── Modal ──────────────────────────────────────────────────────────────────
 export function LogPaperModal({
   onSuccess,
   onClose,
+  timeZone,
   existingPaperId,
   existingPaper,
-  timeZone,
 }: {
   onSuccess?: () => void
   onClose: () => void
-  existingPaperId?: string
   timeZone: string
+  existingPaperId?: string
   existingPaper?: {
     subjectId: string
+    subjectPaperId?: string | null
     year: number
     session: 'feb_mar' | 'may_jun' | 'oct_nov'
     paperNumber: number
@@ -106,7 +232,7 @@ export function LogPaperModal({
   }
 }) {
   const isEditing = !!existingPaperId
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const localToday = dateInTimeZone(new Date(), timeZone)
   const currentYear = Number(localToday.slice(0, 4))
   const currentMonth = Number(localToday.slice(5, 7))
@@ -114,25 +240,28 @@ export function LogPaperModal({
   const [step, setStep]               = useState<1 | 2 | 3>(1)
   const [loading, setLoading]         = useState(false)
   const [submitError, setSubmitError] = useState('')
-  const [subjects, setSubjects]       = useState<any[]>([])
-  const [enrollments, setEnrollments] = useState<any[]>([])
-  const [chapters, setChapters]       = useState<any[]>([])
+  const [subjects, setSubjects]       = useState<RawSubject[]>([])
+  const [enrollments, setEnrollments]     = useState<RawEnrollment[]>([])
+  const [chapters, setChapters]           = useState<RawChapter[]>([])
+  const [subjectPapers, setSubjectPapers] = useState<RawSubjectPaper[]>([])
+  const [chapterPapers, setChapterPapers] = useState<RawChapterPaper[]>([])
 
   const initialSession: 'feb_mar' | 'may_jun' | 'oct_nov' = existingPaper?.session ?? (() => {
     const avail = getAvailableSessions(currentYear, currentYear, currentMonth)
     return avail[avail.length - 1] ?? 'may_jun'
   })()
 
-  const [subjectId,   setSubjectId]   = useState(existingPaper?.subjectId   ?? '')
-  const [paperNumber, setPaperNumber] = useState(existingPaper?.paperNumber  ?? 1)
-  const [variant,     setVariant]     = useState(existingPaper?.variant      ?? 1)
-  const [stage,       setStage]       = useState<'as' | 'a2'>(existingPaper?.stage ?? 'as')
-  const [year,        setYear]        = useState(existingPaper?.year         ?? currentYear)
-  const [session,     setSession]     = useState<'feb_mar' | 'may_jun' | 'oct_nov'>(initialSession)
-  const [attemptedAt, setAttemptedAt] = useState(existingPaper?.attemptedAt ?? localToday)
-  const [timeTaken,   setTimeTaken]   = useState(existingPaper?.timeTakenMins ? String(existingPaper.timeTakenMins) : '')
-  const [notes,       setNotes]       = useState(existingPaper?.notes ?? '')
-  const [questions,   setQuestions]   = useState<QuestionInput[]>(
+  const [subjectId,          setSubjectId]          = useState(existingPaper?.subjectId          ?? '')
+  const [subjectPaperId,     setSubjectPaperId]     = useState<string | null>(existingPaper?.subjectPaperId ?? null)
+  const [paperNumber,        setPaperNumber]        = useState(existingPaper?.paperNumber         ?? 1)
+  const [variant,            setVariant]            = useState(existingPaper?.variant             ?? 1)
+  const [stage,              setStage]              = useState<'as' | 'a2'>(existingPaper?.stage  ?? 'as')
+  const [year,               setYear]               = useState(existingPaper?.year                ?? currentYear)
+  const [session,            setSession]            = useState<'feb_mar' | 'may_jun' | 'oct_nov'>(initialSession)
+  const [attemptedAt,        setAttemptedAt]        = useState(existingPaper?.attemptedAt        ?? localToday)
+  const [timeTaken,          setTimeTaken]          = useState(existingPaper?.timeTakenMins ? String(existingPaper.timeTakenMins) : '')
+  const [notes,              setNotes]              = useState(existingPaper?.notes              ?? '')
+  const [questions,          setQuestions]          = useState<QuestionInput[]>(
     isEditing ? [] : [{ questionNumber: '1', chapterId: null, marksObtained: 0, marksAvailable: 1 }]
   )
   const [questionsLoading, setQuestionsLoading] = useState(isEditing)
@@ -148,8 +277,9 @@ export function LogPaperModal({
         .eq('user_id', user.id)
         .eq('is_archived', false)
       if (data) {
-        setEnrollments(data)
-        const subs = data.map((d: any) => d.subjects).filter(Boolean)
+        const rawEnrollments = data as unknown as RawEnrollment[]
+        setEnrollments(rawEnrollments)
+        const subs = rawEnrollments.map(d => d.subjects).filter((s): s is RawSubject => Boolean(s))
         setSubjects(subs)
         if (!isEditing && subs.length > 0) {
           setSubjectId(subs[0].id)
@@ -157,7 +287,7 @@ export function LogPaperModal({
       }
     }
     load()
-  }, [])
+  }, [isEditing, supabase])
 
   // In edit mode, load existing questions
   useEffect(() => {
@@ -165,54 +295,115 @@ export function LogPaperModal({
     async function loadQuestions() {
       const { data } = await supabase
         .from('paper_question_attempts')
-        .select('id, question_number, chapter_id, marks_obtained, marks_available')
+        .select('question_number, chapter_id, marks_obtained, marks_available')
         .eq('paper_id', existingPaperId)
-        .order('question_number')
+        .order('question_number', { ascending: true })
+
       if (data && data.length > 0) {
-        setQuestions(data.map((q: any) => ({
-          questionNumber: q.question_number,
-          chapterId: q.chapter_id,
-          marksObtained: q.marks_obtained,
-          marksAvailable: q.marks_available,
-        })))
+        setQuestions(
+          data.map(q => ({
+            questionNumber: q.question_number,
+            chapterId: q.chapter_id,
+            marksObtained: q.marks_obtained,
+            marksAvailable: q.marks_available,
+          }))
+        )
+      } else {
+        setQuestions([{ questionNumber: '1', chapterId: null, marksObtained: 0, marksAvailable: 1 }])
       }
       setQuestionsLoading(false)
     }
     loadQuestions()
-  }, [existingPaperId, isEditing])
+  }, [existingPaperId, isEditing, supabase])
 
-  // Fetch chapters when subject changes
+  // Fetch chapters, subject_papers, and chapter_papers when subject changes
   useEffect(() => {
     if (!subjectId) return
     async function load() {
-      const { data } = await supabase
-        .from('chapters')
-        .select('id, title, component, number, stage')
-        .eq('subject_id', subjectId)
-        .order('component', { ascending: true, nullsFirst: false })
-        .order('number',    { ascending: true })
-      if (data) setChapters(data)
-    }
-    load()
-  }, [subjectId])
+      const activeEnrollment = enrollments.find(e => e.subject_id === subjectId)
+      const [chRes, spRes, cpRes, selRes] = await Promise.all([
+        supabase
+          .from('chapters')
+          .select('id, title, component, number, stage')
+          .eq('subject_id', subjectId)
+          .eq('is_active', true)
+          .order('component', { ascending: true, nullsFirst: false })
+          .order('number',    { ascending: true }),
+        supabase
+          .from('subject_papers')
+          .select('id, name, paper_number')
+          .eq('subject_id', subjectId)
+          .order('paper_number', { ascending: true }),
+        supabase
+          .from('chapter_papers')
+          .select('chapter_id, subject_paper_id'),
+        supabase
+          .from('subject_paper_selections')
+          .select('subject_paper_id, paper_number, stage, component_name')
+          .eq('user_subject_id', activeEnrollment?.id ?? ''),
+      ])
 
-  // Current enrollment check
-  const activeEnrollment = enrollments.find(e => e.subject_id === subjectId)
-  const isA2Unlocked = activeEnrollment?.current_stage === 'a2' || activeEnrollment?.current_stage === 'full'
+      if (chRes.data) setChapters(chRes.data as RawChapter[])
+      if (cpRes.data) setChapterPapers(cpRes.data as RawChapterPaper[])
 
-  // Filter chapters by CAIE paper→component mapping and stage
-  const activeSubject = subjects.find(s => s.id === subjectId)
-  const filteredChapters = useMemo(() => {
-    let list = chapters
-    if (activeSubject?.code) {
-      const mapping = PAPER_COMPONENT_MAP[activeSubject.code]
-      if (mapping && mapping[paperNumber]) {
-        const components = mapping[paperNumber]
-        list = list.filter(c => c.component && components.includes(c.component))
+      const allPapers = (spRes.data ?? []) as RawSubjectPaper[]
+      const userSelections = (selRes.data ?? []) as RawPaperSelection[]
+      const currentSubject = subjects.find(s => s.id === subjectId)
+      const isMVP = currentSubject?.code ? MVP_SUBJECT_CODES.has(currentSubject.code) : false
+
+      let availablePapers: RawSubjectPaper[] = []
+      if (isMVP) {
+        if (userSelections.length > 0) {
+          availablePapers = userSelections.map(sel => {
+            const sp = allPapers.find(p => p.id === sel.subject_paper_id || p.paper_number === sel.paper_number)
+            return {
+              id: sel.subject_paper_id || sp?.id || '',
+              name: sp?.name || sel.component_name || `Paper ${sel.paper_number}`,
+              paper_number: sel.paper_number,
+              stage: (sel.stage || 'as') as 'as' | 'a2',
+            }
+          }).filter(p => {
+            if (activeEnrollment?.current_stage === 'as' && p.stage === 'a2') return false
+            return true
+          })
+        }
+      }
+
+      setSubjectPapers(availablePapers)
+
+      if (isMVP) {
+        if (availablePapers.length > 0) {
+          const selected = isEditing
+            ? matchPaperOption(availablePapers, existingPaper?.subjectPaperId, existingPaper?.paperNumber)
+            : availablePapers[0]
+
+          if (selected) {
+            setSubjectPaperId(selected.id)
+            setPaperNumber(selected.paper_number)
+            setStage(selected.stage ?? 'as')
+          }
+        } else {
+          setSubjectPaperId(null)
+        }
       }
     }
-    return list
-  }, [chapters, activeSubject, paperNumber])
+    load()
+  }, [subjectId, enrollments, isEditing, existingPaper, subjects, supabase])
+
+  // Current subject check
+  const activeSubject = subjects.find(s => s.id === subjectId)
+  const isMVP = activeSubject?.code ? MVP_SUBJECT_CODES.has(activeSubject.code) : false
+
+  // Filter chapters dynamically by chapter_papers mapping and practical rules
+  const filteredChapters = useMemo(() => {
+    return filterChaptersForPaper(
+      activeSubject?.code,
+      paperNumber,
+      subjectPaperId,
+      chapters,
+      chapterPapers
+    )
+  }, [chapters, chapterPapers, subjectPaperId, activeSubject, paperNumber])
 
   // Session availability based on year
   const availableSessions = useMemo(
@@ -220,19 +411,16 @@ export function LogPaperModal({
     [year, currentYear, currentMonth]
   )
 
-  useEffect(() => {
-    if (!availableSessions.includes(session)) {
-      const last = availableSessions[availableSessions.length - 1]
-      if (last) setSession(last)
-    }
-  }, [availableSessions])
+  const selectedSession = availableSessions.includes(session)
+    ? session
+    : (availableSessions[availableSessions.length - 1] ?? session)
 
   const previewCode = activeSubject
-    ? `${activeSubject.code}/${paperNumber}${variant}/${SESSION_LABELS[session]}/${year.toString().slice(-2)}`
+    ? `${activeSubject.code}/${paperNumber}${variant}/${SESSION_LABELS[selectedSession]}/${year.toString().slice(-2)}`
     : ''
 
   // Marks update with validation
-  const updateQuestion = (index: number, field: keyof QuestionInput, raw: any) => {
+  const updateQuestion = (index: number, field: keyof QuestionInput, raw: string | number | null) => {
     const updated = [...questions]
     if (field === 'marksAvailable' || field === 'marksObtained') {
       let val = parseInt(String(raw))
@@ -262,7 +450,13 @@ export function LogPaperModal({
   const totalAvailable = questions.reduce((s, q) => s + (q.marksAvailable || 0), 0)
   const pct = totalAvailable > 0 ? ((totalObtained / totalAvailable) * 100).toFixed(1) : '0'
 
-  const step1Valid = !!(subjectId && year && attemptedAt && availableSessions.includes(session))
+  const step1Valid = !!(
+    subjectId &&
+    year &&
+    attemptedAt &&
+    availableSessions.includes(selectedSession) &&
+    (!isMVP || subjectPapers.length > 0)
+  )
 
   const handleSubmit = async () => {
     setSubmitError('')
@@ -275,7 +469,14 @@ export function LogPaperModal({
     }
     setLoading(true)
     const input: LogPaperInput = {
-      subjectId, year, session, paperNumber, variant, stage, attemptedAt,
+      subjectId,
+      subjectPaperId: subjectPaperId || undefined,
+      year,
+      session: selectedSession,
+      paperNumber,
+      variant,
+      stage,
+      attemptedAt,
       timeTakenMins: timeTaken ? parseInt(timeTaken) : undefined,
       notes: notes || undefined,
       questions,
@@ -290,100 +491,160 @@ export function LogPaperModal({
   }
 
   const accentColor = Number(pct) >= 80 ? 'var(--success)' : Number(pct) >= 60 ? 'var(--warning)' : 'var(--danger)'
-  const componentHint = activeSubject && PAPER_COMPONENT_MAP[activeSubject.code]?.[paperNumber]
+  const componentHint = activeSubject && activeSubject.code && PAPER_COMPONENT_MAP[activeSubject.code]?.[paperNumber]
     ? PAPER_COMPONENT_MAP[activeSubject.code][paperNumber].join(' + ')
     : null
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-4)' }}>
       {/* Backdrop */}
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }} onClick={onClose} />
-
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        style={{ position: 'absolute', inset: 0, background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(4px)' }}
+      />
+
+      {/* Modal dialog */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="glass-strong"
-        style={{ position: 'relative', width: '100%', maxWidth: 620, maxHeight: '92vh', overflowY: 'auto', padding: 'var(--space-6)', borderRadius: 'var(--radius-xl)' }}
+        exit={{ opacity: 0, scale: 0.95, y: 16 }}
+        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        style={{
+          position: 'relative', width: '100%', maxWidth: step === 2 ? 680 : 540,
+          maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+          background: 'var(--bg-elevated)', borderRadius: 'var(--radius-xl)',
+          border: '1px solid var(--border-subtle)', boxShadow: '0 24px 48px rgba(0, 0, 0, 0.4)',
+          overflow: 'hidden', transition: 'max-width 200ms ease',
+        }}
       >
-        {/* Close button */}
-        <button onClick={onClose} className="btn btn-ghost"
-          style={{ position: 'absolute', top: 12, right: 12, width: 36, height: 36, padding: 0 }}>
-          <X size={18} />
-        </button>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-4) var(--space-6)', borderBottom: '1px solid var(--border-subtle)' }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+              {step === 3 ? 'Paper Logged!' : isEditing ? 'Edit Past Paper' : 'Log Past Paper'}
+            </h2>
+            {step < 3 && (
+              <p style={{ margin: '2px 0 0', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+                Step {step} of 2 — {step === 1 ? 'Paper Details' : 'Question Breakdown'}
+              </p>
+            )}
+          </div>
+          <button onClick={onClose} className="btn-icon" style={{ color: 'var(--text-muted)' }}>
+            <X size={18} />
+          </button>
+        </div>
 
-        {/* ── Step 1: Paper info ─────────────────────────────────────────── */}
-        {step === 1 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+        {/* Unconfigured MVP Subject Banner */}
+        {isMVP && subjectPapers.length === 0 && (
+          <div style={{ margin: 'var(--space-4) var(--space-6) 0', padding: 12, borderRadius: 'var(--radius-md)', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <AlertCircle size={18} style={{ color: 'var(--danger)', flexShrink: 0, marginTop: 2 }} />
             <div>
-              <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 700 }}>
-                {isEditing ? 'Edit Paper' : 'Log Past Paper'}
-              </h2>
-              <p style={{ margin: '4px 0 0', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Step 1 of 2 — Paper details</p>
+              <p style={{ margin: 0, fontWeight: 600, fontSize: '0.875rem', color: 'var(--danger)' }}>
+                Route configuration required
+              </p>
+              <p style={{ margin: '4px 0 0', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+                This subject does not have confirmed paper selections yet. Please configure your study route in the Subjects section before logging past papers.
+              </p>
             </div>
+          </div>
+        )}
 
-            {/* Subject */}
+        {/* Step 1: Paper metadata */}
+        {step === 1 && (
+          <div style={{ padding: 'var(--space-6)', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            {/* Subject selector */}
             <div>
               <label style={{ display: 'block', marginBottom: 6, fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Subject</label>
-              <select className="input" value={subjectId} onChange={e => setSubjectId(e.target.value)} style={{ width: '100%' }}>
-                {subjects.length === 0 && <option>Loading…</option>}
-                {subjects.map(s => <option key={s.id} value={s.id}>{s.name} ({s.code})</option>)}
+              <select
+                className="input"
+                value={subjectId}
+                disabled={isEditing}
+                onChange={e => {
+                  setSubjectId(e.target.value)
+                  setSubjectPaperId(null)
+                  if (!isEditing) {
+                    setQuestions([{ questionNumber: '1', chapterId: null, marksObtained: 0, marksAvailable: 1 }])
+                  }
+                }}
+                style={{ width: '100%' }}
+              >
+                {subjects.map(s => (
+                  <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+                ))}
               </select>
             </div>
 
-            {/* Stage selection */}
-            <div>
-              <label style={{ display: 'block', marginBottom: 6, fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                Qualification Stage
-              </label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={() => setStage('as')}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: `1.5px solid ${stage === 'as' ? 'var(--primary)' : 'var(--border-subtle)'}`,
-                    background: stage === 'as' ? 'rgba(91, 127, 255, 0.1)' : 'var(--bg-elevated)',
-                    color: stage === 'as' ? 'var(--primary)' : 'var(--text-secondary)',
-                    fontWeight: stage === 'as' ? 700 : 500,
-                    fontSize: '0.875rem',
-                    cursor: 'pointer',
-                  }}
-                >
-                  AS Level
-                </button>
-                <button
-                  type="button"
-                  onClick={() => isA2Unlocked && setStage('a2')}
-                  disabled={!isA2Unlocked}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: `1.5px solid ${stage === 'a2' ? 'var(--primary)' : 'var(--border-subtle)'}`,
-                    background: stage === 'a2' ? 'rgba(91, 127, 255, 0.1)' : 'var(--bg-elevated)',
-                    color: stage === 'a2' ? 'var(--primary)' : isA2Unlocked ? 'var(--text-secondary)' : 'var(--text-disabled)',
-                    fontWeight: stage === 'a2' ? 700 : 500,
-                    fontSize: '0.875rem',
-                    cursor: isA2Unlocked ? 'pointer' : 'not-allowed',
-                    opacity: isA2Unlocked ? 1 : 0.5,
-                  }}
-                >
-                  A2 Level {!isA2Unlocked && '(Locked)'}
-                </button>
+            {/* Stage Selector (Legacy custom fallback) */}
+            {!isMVP && (
+              <div>
+                <label style={{ display: 'block', marginBottom: 6, fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Stage</label>
+                <div style={{ display: 'flex', gap: 6, background: 'var(--bg-overlay)', padding: 4, borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                  <button
+                    type="button"
+                    onClick={() => setStage('as')}
+                    style={{
+                      flex: 1, padding: '8px 4px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer',
+                      background: stage === 'as' ? 'var(--accent-primary)' : 'transparent',
+                      color: stage === 'as' ? '#fff' : 'var(--text-secondary)',
+                      fontWeight: stage === 'as' ? 600 : 400, fontSize: '0.875rem',
+                    }}
+                  >
+                    AS Level
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStage('a2')}
+                    style={{
+                      flex: 1, padding: '8px 4px', borderRadius: 'var(--radius-sm)', border: 'none',
+                      background: stage === 'a2' ? 'var(--accent-primary)' : 'transparent',
+                      color: stage === 'a2' ? '#fff' : 'var(--text-secondary)',
+                      fontWeight: stage === 'a2' ? 600 : 400, fontSize: '0.875rem',
+                    }}
+                  >
+                    A2 Level
+                  </button>
+                </div>
               </div>
+            )}
+
+            {/* Paper Selector */}
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Paper</label>
+              {isMVP ? (
+                  <select
+                    className="input"
+                    value={subjectPaperId || ''}
+                    disabled={subjectPapers.length === 0}
+                    onChange={e => {
+                      const spId = e.target.value
+                      setSubjectPaperId(spId)
+                      const sp = subjectPapers.find(p => p.id === spId)
+                      if (sp) {
+                        setPaperNumber(sp.paper_number)
+                        setStage((sp.stage || 'as') as 'as' | 'a2')
+                      }
+                    }}
+                    style={{ width: '100%' }}
+                  >
+                    {subjectPapers.length === 0 && <option value="">No papers available</option>}
+                    {subjectPapers.map(sp => (
+                      <option key={sp.id} value={sp.id}>
+                        P{sp.paper_number}: {sp.name} ({(sp.stage || 'as').toUpperCase()})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <select className="input" value={paperNumber} onChange={e => setPaperNumber(parseInt(e.target.value))} style={{ width: '100%' }}>
+                    {[1,2,3,4,5,6].map(n => <option key={n} value={n}>Paper {n}</option>)}
+                  </select>
+                )}
             </div>
 
-            {/* Paper / Variant / Year */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: 6, fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Paper</label>
-                <select className="input" value={paperNumber} onChange={e => setPaperNumber(parseInt(e.target.value))} style={{ width: '100%' }}>
-                  {[1,2,3,4,5,6].map(n => <option key={n} value={n}>Paper {n}</option>)}
-                </select>
-              </div>
+            {/* Variant / Year */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
                 <label style={{ display: 'block', marginBottom: 6, fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Variant</label>
                 <select className="input" value={variant} onChange={e => setVariant(parseInt(e.target.value))} style={{ width: '100%' }}>
@@ -403,13 +664,13 @@ export function LogPaperModal({
               </div>
             </div>
 
-            {/* Session pills */}
+            {/* Session selection */}
             <div>
               <label style={{ display: 'block', marginBottom: 6, fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Session</label>
               <div style={{ display: 'flex', gap: 6, background: 'var(--bg-overlay)', padding: 4, borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
                 {(['feb_mar', 'may_jun', 'oct_nov'] as const).map(s => {
                   const avail = availableSessions.includes(s)
-                  const active = session === s
+                  const active = selectedSession === s
                   return (
                     <button key={s} onClick={() => avail && setSession(s)} disabled={!avail}
                       style={{
@@ -420,7 +681,6 @@ export function LogPaperModal({
                         opacity: avail ? 1 : 0.4, transition: 'all 150ms ease',
                       }}>
                       {SESSION_LABELS[s]}
-                      {!avail && <div style={{ fontSize: '0.6rem', marginTop: 2, opacity: 0.7 }}>Not yet</div>}
                     </button>
                   )
                 })}

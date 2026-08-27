@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import { setUsername, checkUsernameAvailability } from '@/lib/actions/onboarding'
@@ -14,30 +14,27 @@ export default function UsernameStep({ onNext }: Props) {
   const [availability, setAvailability] = useState<Availability>('idle')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
   // Debounced availability check
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    setError('')
-
-    if (value.length < 3) {
-      setAvailability('idle')
-      return
-    }
-
-    const valid = /^[a-zA-Z0-9_]+$/.test(value) && value.length <= 30
-    if (!valid) {
-      setAvailability('invalid')
-      return
-    }
-
-    setAvailability('checking')
-    debounceRef.current = setTimeout(async () => {
+    if (availability !== 'checking') return
+    const timeout = setTimeout(async () => {
       const ok = await checkUsernameAvailability(value)
       setAvailability(ok ? 'available' : 'taken')
     }, 500)
-  }, [value])
+    return () => clearTimeout(timeout)
+  }, [availability, value])
+
+  const handleValueChange = (nextValue: string) => {
+    setValue(nextValue)
+    setError('')
+    if (nextValue.length < 3) {
+      setAvailability('idle')
+    } else if (!/^[a-zA-Z0-9_]+$/.test(nextValue) || nextValue.length > 30) {
+      setAvailability('invalid')
+    } else {
+      setAvailability('checking')
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -103,7 +100,7 @@ export default function UsernameStep({ onNext }: Props) {
             type="text"
             placeholder="e.g. sweatchamp"
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => handleValueChange(e.target.value)}
             maxLength={30}
             autoComplete="off"
             autoFocus

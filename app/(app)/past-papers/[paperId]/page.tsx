@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Clock, Calendar, BookOpen, Target, FileText } from 'lucide-react'
+import { ArrowLeft, Clock, Calendar, BookOpen, FileText } from 'lucide-react'
 import { getPaperDetail } from '@/lib/actions/papers'
 import { formatDateOnly } from '@/lib/date'
 
@@ -45,10 +45,6 @@ export default async function PaperDetailPage(props: {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 6 }}>
-            <div style={{
-              width: 10, height: 10, borderRadius: '50%',
-              backgroundColor: paper.subjects.color_hex || 'var(--accent-primary)',
-            }} />
             <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-muted)' }}>
               {paper.subjects.name}
             </span>
@@ -72,24 +68,24 @@ export default async function PaperDetailPage(props: {
 
       {/* ── Meta row ──────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', fontSize: '0.875rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: '0.875rem' }}>
           <Calendar size={14} style={{ color: 'var(--text-muted)' }} />
           {date}
         </div>
         {paper.time_taken_mins && (
-          <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', fontSize: '0.875rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: '0.875rem' }}>
             <Clock size={14} style={{ color: 'var(--text-muted)' }} />
             {paper.time_taken_mins} minutes
           </div>
         )}
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', fontSize: '0.875rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: '0.875rem' }}>
           <FileText size={14} style={{ color: 'var(--text-muted)' }} />
           {sortedQuestions.length} question{sortedQuestions.length !== 1 ? 's' : ''} logged
         </div>
       </div>
 
       {paper.notes && (
-        <div className="card" style={{ padding: 'var(--space-4)', borderLeft: '3px solid var(--accent-primary)' }}>
+        <div className="card" style={{ padding: 'var(--space-4)' }}>
           <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Notes</div>
           <p style={{ margin: 0, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', fontSize: '0.9375rem' }}>{paper.notes}</p>
         </div>

@@ -1,4 +1,10 @@
-# Phase 4: Mission Engine + Dashboard
+# Phase 4: Mission Engine + Dashboard (Completed Archive)
+
+> [!NOTE]
+> **Historical Document (Archived)**: This document reflects early design notes prior to Migrations 020–024. For current schema, business logic, and API contracts, consult `docs/` and `supabase/migrations/`.
+
+> [!IMPORTANT]
+> This plan has been implemented and is not the current release checklist. Migration 024 was applied and verified on hosted Supabase on 2026-08-27; matching application deployment remains pending. Use `docs/roadmap.md` and `docs/deployment.md` for the current release sequence.
 
 ## Overview
 

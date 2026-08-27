@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Tag, Check } from 'lucide-react'
+import { Tag } from 'lucide-react'
 import { assignPaperStage } from '@/lib/actions/papers'
 import type { PaperWithSubject } from '@/types'
 

@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automatic browser-timezone detection for existing users and during onboarding.
 - Three small safety tests covering mission generation, mission completion, and local-midnight exam countdowns.
 - **AS/A2 Database Foundation (Migration 020):** Applied and verified database migration with `study_route`, `current_stage`, `a2_unlocked_at`, and `a2_unlock_method` columns on `user_subjects` with three consistency constraints; `stage` column on `chapters` (including `route_dependent` for Maths Mechanics & Statistics 1); `stage` column on `past_papers`; new `subject_paper_selections` table (structured paper combination, ownership via `user_subjects`); new `subject_stage_results` table (required series/year, score CHECK, carry-forward AS-only CHECK, dedup UNIQUE, `set_updated_at` trigger); RLS on both new tables via `user_subjects` join; five new enum types; indexes on `chapters.stage`, `subject_paper_selections.stage`, and `subject_stage_results` carry-forward; TypeScript types updated in `database.ts` and `index.ts`; all 23 rollback-only database tests passed.
-- **AS/A2 Application Flow & Migration 021 (Applied Locally):**
+- **AS/A2 Application Flow & Migration 021 (Applied to Hosted Supabase):**
   - Route selection UI (`RouteSelectionBanner`, `RouteSetupSheet`) and Onboarding Step 4 for choosing AS only, Staged A Level, or Full A Level per subject.
   - Paper combination selection (`PaperSelectionPanel`) for Mathematics (Pure 1/Pure 3/Mechanics/Statistics).
   - Stage-aware readiness calculation via PostgreSQL `compute_readiness_score(user_id, subject_id, stage)` RPC, removing application-side calculation entirely.
@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - A2 transition modal supporting standard AS result entry with carry-forward validation and early manual unlock.
   - Past paper logging with required stage selection and legacy paper tagger (`PaperStageTagger`).
   - Auth guards (`auth.uid() = p_user_id`) added to all security definer functions and chapter/paper RLS policies.
-- **AS/A2 Fixes & Gamification Accounting (Migration 022 — Prepared, Pending Hosted Application):**
+- **AS/A2 Fixes & Gamification Accounting (Migration 022 — Applied to Hosted Supabase):**
   - Mission completion attempts tracked via `daily_missions.completion_attempt`.
   - Detailed XP breakdown payload returned from `complete_mission` (`mission_xp`, `daily_bonus_xp`, `achievement_xp`, `total_xp_awarded`, `new_total_xp`) and displayed in dashboard toast stack.
   - Mission completion enforces user local calendar date match and rejects foreign-date missions.
@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Pure 2 Mathematics reclassified as `route_dependent`.
   - Declarative auth-independent migration backfill of `user_chapters` for existing confirmed enrollments.
   - 10 database tests in `migration_022_fixes.test.sql` and 10 tests in `undo_mission.test.sql`.
-- **Mission Quality, Workload & Variety Balancing (Migration 023 — Prepared, Pending Hosted Application):**
+- **Mission Quality, Workload & Variety Balancing (Migration 023 — Applied to Hosted Supabase):**
   - Added `estimated_minutes` column to `daily_missions` (CHECK 5–120 mins) and backfilled existing missions with sensible duration estimates (10–60 mins).
   - Constrained `user_settings.max_missions_per_day` to 1..3 (default 3) and backfilled existing settings > 3 to 3.
   - Overhauled `generate_daily_missions` algorithm:
@@ -50,15 +50,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Replaces mission atomically in place and maintains 3-mission active cap.
   - Quiet UI duration display with `<Clock /> ~X min` and secondary "Replace" button with specific loading state and propagation isolation.
   - 15 pgTAP database tests in `mission_quality.test.sql` and 4 Vitest unit tests in `mission-quality.test.ts`.
+- **Five-Subject MVP Syllabus Content & Subject Availability (Migration 024 — Applied and Hosted-Verified):**
+  - Gated syllabus onboarding and selection to exactly 5 MVP subjects via `subjects.is_available`: Mathematics 9709, Further Mathematics 9231, Physics 9702, Chemistry 9701, and Computer Science 9618.
+  - Preserved grandfathered user enrollments in non-MVP subjects while isolating modern onboarding routes.
+  - Added normalized catalogue tables: `subject_papers`, `subject_valid_routes`, `subject_route_papers`, and `chapter_papers`.
+  - Deprecated non-syllabus chapters with `chapters.is_active = FALSE` (Mathematics Pure 1 Vectors `number = 99`, Physics Electromagnetic Induction `number = 99`).
+  - Implemented scoped positive-number collision-safe staging (`+1000`) for legacy Mathematics, Physics, and Chemistry chapters during migration.
+  - Seeded complete official 37-topic Chemistry 9701 (topics 1–22 AS, 23–37 A2; Group 2 as topic 27, Transition Elements as topic 28).
+  - Seeded Physics 9702 chapter splits (Topic 8 Superposition, Topic 15 Ideal Gases).
+  - Seeded 24 Further Mathematics 9231 and 20 Computer Science 9618 official chapters with paper linkages.
+  - Added FK `subject_paper_id` on `daily_missions` (indexed), `subject_paper_selections`, and `past_papers`.
+  - Added database triggers: `validate_chapter_paper_subject`, `validate_subject_paper_selection`, and `validate_past_paper_entry` (with narrow legacy exception for unchanged legacy rows).
+  - Authored comprehensive pgTAP database tests in `mvp_syllabus_content.test.sql` and unit tests in `tests/mvp-syllabus.test.ts` and `tests/as-a2-flow.test.ts`.
+  - Completed a pre-migration logical backup, reconciled hosted migration history through 023, applied Migration 024 once, and recorded it in remote history on 2026-08-27.
+  - All 18 hosted catalogue and data-preservation checks passed; the remote migration dry run reports the database is up to date.
+  - Note: *The matching application deployment and production UI smoke checks remain pending.*
 
 ### Fixed
 - Replaced inconsistent application-side readiness calculation with database-level single source of truth.
 - Prevented unconfirmed and inaccessible subject chapters from generating daily missions.
 - Tightened `carry_forward = TRUE` constraint to require both `stage = 'as'` and `result_type = 'actual'`.
+- Corrected onboarding and subject settings so Further Mathematics requires a valid paper route and fixed-route subjects receive their canonical paper selections.
+- Replaced decorative gradients, glows, emoji icons, colour dots, and unnecessary card groups with a restrained neutral interface and one shared action accent.
+- Reconciled Migration 024 acceptance counts to 68 migration-specific and 173 total database tests.
 
 ### Known Issues & MVP Limitations
 - Mission undo in MVP reverses XP, daily bonus, and attempt-linked achievements, but does not modify streaks or `last_reviewed_at` timestamps.
-- Biology and Computer Science do not yet have seeded chapters.
+- Non-MVP subjects (such as Biology 9700) are flagged as unavailable (`is_available = FALSE`) for new onboarding while preserving grandfathered enrolments.
+- Current release-candidate verification: 173 database tests and 63 unit tests pass, as do type checking, production build, and whitespace checks. Lint has zero errors and one non-blocking Next.js warning for the existing external font stylesheet.
 
 
 ## [0.1.0] - Initial Commit

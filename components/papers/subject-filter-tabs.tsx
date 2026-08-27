@@ -1,7 +1,6 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { motion } from 'framer-motion'
 
 export interface SubjectFilterTabsProps {
   subjects: { id: string; name: string; color_hex: string }[]
@@ -28,19 +27,11 @@ export function SubjectFilterTabs({ subjects, activeId }: SubjectFilterTabsProps
         onClick={() => handleTabClick(null)}
         className={`btn ${activeId === null ? 'btn-primary' : 'btn-ghost'}`}
         style={{
-          position: 'relative',
-          background: activeId === null ? 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))' : undefined,
+          background: activeId === null ? 'var(--accent-strong)' : undefined,
           color: activeId === null ? '#fff' : 'var(--text-secondary)'
         }}
       >
         All
-        {activeId === null && (
-          <motion.div
-            layoutId="activeTab"
-            style={{ position: 'absolute', inset: 0, borderRadius: 'var(--radius-md)', zIndex: -1 }}
-            transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-          />
-        )}
       </button>
 
       {subjects.map((s) => (
@@ -49,19 +40,11 @@ export function SubjectFilterTabs({ subjects, activeId }: SubjectFilterTabsProps
           onClick={() => handleTabClick(s.id)}
           className={`btn ${activeId === s.id ? 'btn-primary' : 'btn-ghost'}`}
           style={{
-            position: 'relative',
-            background: activeId === s.id ? 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))' : undefined,
+            background: activeId === s.id ? 'var(--accent-strong)' : undefined,
             color: activeId === s.id ? '#fff' : 'var(--text-secondary)'
           }}
         >
           {s.name}
-          {activeId === s.id && (
-            <motion.div
-              layoutId="activeTab"
-              style={{ position: 'absolute', inset: 0, borderRadius: 'var(--radius-md)', zIndex: -1 }}
-              transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-            />
-          )}
         </button>
       ))}
     </div>

@@ -4,9 +4,10 @@ import { useState, useTransition } from 'react'
 import { X, BookOpen, Layers, Award } from 'lucide-react'
 import { configureSubjectRoute } from '@/lib/actions/route'
 import PaperSelectionPanel, {
-  getMathsCombinations,
-  matchSavedMathsCombination,
-  remapMathsSelectionsOnRouteChange,
+  getSubjectCombinations,
+  isElectiveSubject,
+  matchSavedCombination,
+  remapSelectionsOnRouteChange,
 } from './paper-selection-panel'
 import type { Subject, UserSubject, StudyRoute } from '@/types'
 import type { PaperSelectionInput } from '@/types'
@@ -60,13 +61,14 @@ export default function RouteSetupSheet({
     enrollment.study_route === 'unconfirmed' ? 'staged' : enrollment.study_route
   )
 
-  const isMaths = subject.code === '9709'
-  const defaultMathsSelections = isMaths
-    ? getMathsCombinations(selectedRoute)[0]?.selections ?? []
-    : []
+  const isElective = isElectiveSubject(subject.code)
+  const subjectCombinations = getSubjectCombinations(subject.code, selectedRoute)
+  const defaultSelections = isElective
+    ? []
+    : subjectCombinations[0]?.selections ?? []
 
   const [paperSelections, setPaperSelections] = useState<PaperSelectionInput[]>(
-    initialPaperSelections.length > 0 ? initialPaperSelections : defaultMathsSelections
+    initialPaperSelections.length > 0 ? initialPaperSelections : defaultSelections
   )
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -76,10 +78,8 @@ export default function RouteSetupSheet({
   const handleRouteChange = (route: StudyRoute) => {
     const prevRoute = selectedRoute
     setSelectedRoute(route)
-    if (isMaths) {
-      const remapped = remapMathsSelectionsOnRouteChange(prevRoute, route, paperSelections)
-      setPaperSelections(remapped)
-    }
+    const remapped = remapSelectionsOnRouteChange(subject.code, prevRoute, route, paperSelections)
+    setPaperSelections(remapped)
   }
 
   const handleSave = () => {
@@ -88,8 +88,8 @@ export default function RouteSetupSheet({
       return
     }
 
-    if (isMaths) {
-      const match = matchSavedMathsCombination(selectedRoute, paperSelections)
+    if (isElective) {
+      const match = matchSavedCombination(subject.code, selectedRoute, paperSelections)
       if (!match) {
         setError('Please select a valid paper combination for the chosen route')
         return
@@ -208,8 +208,8 @@ export default function RouteSetupSheet({
                     style={{
                       padding: '14px 16px',
                       borderRadius: 'var(--radius-md)',
-                      border: `1.5px solid ${isSelected ? subject.color_hex || 'var(--primary)' : 'var(--border-subtle)'}`,
-                      background: isSelected ? `${subject.color_hex}12` : 'var(--bg-elevated)',
+                      border: `1.5px solid ${isSelected ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
+                      background: isSelected ? 'var(--accent-soft)' : 'var(--bg-elevated)',
                       cursor: 'pointer',
                       transition: 'all 150ms ease',
                       display: 'flex',
@@ -222,11 +222,11 @@ export default function RouteSetupSheet({
                         width: 36,
                         height: 36,
                         borderRadius: 'var(--radius-md)',
-                        background: isSelected ? `${subject.color_hex}25` : 'var(--bg-card)',
+                        background: isSelected ? 'var(--accent-soft)' : 'var(--bg-card)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: isSelected ? subject.color_hex : 'var(--text-muted)',
+                        color: isSelected ? 'var(--accent-primary)' : 'var(--text-muted)',
                         flexShrink: 0,
                       }}
                     >
@@ -251,8 +251,8 @@ export default function RouteSetupSheet({
             </div>
           </div>
 
-          {/* Paper Selections for Maths */}
-          {isMaths && (
+          {/* Official paper configuration */}
+          {subjectCombinations.length > 0 && (
             <PaperSelectionPanel
               subjectCode={subject.code}
               route={selectedRoute}
@@ -294,7 +294,7 @@ export default function RouteSetupSheet({
             style={{
               padding: '8px 20px',
               borderRadius: 'var(--radius-md)',
-              background: subject.color_hex || 'var(--primary)',
+              background: 'var(--accent-primary)',
               border: 'none',
               color: '#fff',
               fontSize: '0.85rem',

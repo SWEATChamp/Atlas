@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { X, Unlock, AlertTriangle, CheckCircle2, ChevronRight } from 'lucide-react'
+import { X, Unlock, AlertTriangle, ChevronRight } from 'lucide-react'
 import { transitionToA2 } from '@/lib/actions/route'
 import type { Subject, UserSubject, ResultType, PaperSession } from '@/types'
 
@@ -19,7 +19,7 @@ export default function A2TransitionModal({
   subject,
 }: Props) {
   const [mode, setMode] = useState<'select' | 'normal' | 'manual'>('select')
-  const [resultType, setResultType] = useState<ResultType>('actual')
+  const resultType: ResultType = 'actual'
   const [scoreObtained, setScoreObtained] = useState<string>('')
   const [scoreMaximum, setScoreMaximum] = useState<string>('100')
   const [examSeries, setExamSeries] = useState<PaperSession>('may_jun')

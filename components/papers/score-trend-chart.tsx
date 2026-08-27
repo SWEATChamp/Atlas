@@ -11,6 +11,7 @@ import {
   ReferenceLine,
   Label,
 } from 'recharts'
+import type { TooltipContentProps } from 'recharts'
 import type { PaperWithSubject } from '@/types'
 import { formatDateOnly } from '@/lib/date'
 
@@ -21,6 +22,55 @@ interface ScoreTrendChartProps {
 
 const fmt = (d: string) =>
   formatDateOnly(d, { day: 'numeric', month: 'short', year: '2-digit' })
+
+type ChartDatum = Record<string, unknown> & {
+  attempted_at: string
+  paper_code?: string
+  accuracy_pct?: string | number
+}
+
+function CustomTooltip({ active, payload }: TooltipContentProps) {
+  if (!active || !payload.length) return null
+
+  const firstEntry = payload[0]
+  const data = firstEntry.payload as ChartDatum
+  const firstDataKey =
+    typeof firstEntry.dataKey === 'string' || typeof firstEntry.dataKey === 'number'
+      ? String(firstEntry.dataKey)
+      : ''
+  const fallbackCode = firstDataKey ? data[`${firstDataKey}_code`] : ''
+  const paperCode = data.paper_code ?? (typeof fallbackCode === 'string' ? fallbackCode : '')
+
+  return (
+    <div className="card" style={{ padding: '10px 14px', minWidth: 160 }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, marginBottom: 4 }}>
+        {paperCode}
+      </div>
+      <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: 4 }}>
+        {fmt(data.attempted_at)}
+      </div>
+      {payload.map((entry, index) => {
+        const dataKey =
+          typeof entry.dataKey === 'string' || typeof entry.dataKey === 'number'
+            ? String(entry.dataKey)
+            : ''
+        const raw = dataKey ? data[`${dataKey}_raw`] : undefined
+        const rawPaper = raw && typeof raw === 'object' ? raw as PaperWithSubject : null
+        const entryValue = Array.isArray(entry.value) ? entry.value[0] : entry.value
+        const value = rawPaper ? Number(rawPaper.accuracy_pct) : Number(entryValue)
+        const valueColor = value >= 80 ? 'var(--success)' : value >= 60 ? 'var(--warning)' : 'var(--danger)'
+
+        return (
+          <div key={dataKey || index} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.875rem' }}>
+            <div style={{ width: 8, height: 2, background: entry.stroke || entry.color }} />
+            {rawPaper ? `${rawPaper.paper_code}: ${rawPaper.score_raw}/${rawPaper.score_max}` : entry.name}
+            <span style={{ marginLeft: 'auto', fontWeight: 700, color: valueColor }}>{value.toFixed(1)}%</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 export function ScoreTrendChart({ papers, activeSubjectId }: ScoreTrendChartProps) {
   if (!papers || papers.length === 0) {
@@ -34,35 +84,6 @@ export function ScoreTrendChart({ papers, activeSubjectId }: ScoreTrendChartProp
   const sorted = [...papers].sort((a, b) => a.attempted_at.localeCompare(b.attempted_at))
   const avg = sorted.reduce((s, p) => s + Number(p.accuracy_pct), 0) / sorted.length
 
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null
-    const data = payload[0].payload
-    const pct = Number(data.accuracy_pct ?? payload[0].value)
-    const color = pct >= 80 ? 'var(--success)' : pct >= 60 ? 'var(--warning)' : 'var(--danger)'
-    return (
-      <div className="card" style={{ padding: '10px 14px', minWidth: 160 }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, marginBottom: 4 }}>
-          {data.paper_code ?? payload[0].payload[`${payload[0].dataKey}_code`] ?? ''}
-        </div>
-        <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: 4 }}>
-          {fmt(data.attempted_at ?? payload[0].payload.attempted_at)}
-        </div>
-        {payload.map((p: any, i: number) => {
-          const raw = p.payload[`${p.dataKey}_raw`]
-          const val = raw ? Number(raw.accuracy_pct) : Number(p.value)
-          const c = val >= 80 ? 'var(--success)' : val >= 60 ? 'var(--warning)' : 'var(--danger)'
-          return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.875rem' }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.stroke }} />
-              {raw ? `${raw.paper_code}: ${raw.score_raw}/${raw.score_max}` : p.name}
-              <span style={{ marginLeft: 'auto', fontWeight: 700, color: c }}>{val.toFixed(1)}%</span>
-            </div>
-          )
-        })}
-      </div>
-    )
-  }
-
   const axisStyle = { stroke: 'var(--text-muted)', fontSize: 11, tickLine: false, axisLine: false }
 
   // ── Single-subject view ───────────────────────────────────────────────────
@@ -74,7 +95,7 @@ export function ScoreTrendChart({ papers, activeSubjectId }: ScoreTrendChartProp
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
             <XAxis dataKey="attempted_at" tickFormatter={d => fmt(d)} {...axisStyle} />
             <YAxis tickFormatter={v => `${v}%`} domain={[0, 100]} {...axisStyle} />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={CustomTooltip} />
             <ReferenceLine y={avg} stroke="rgba(255,255,255,0.2)" strokeDasharray="4 3">
               <Label value={`Avg ${avg.toFixed(1)}%`} position="right" fill="var(--text-muted)" fontSize={11} />
             </ReferenceLine>
@@ -102,7 +123,7 @@ export function ScoreTrendChart({ papers, activeSubjectId }: ScoreTrendChartProp
 
   const allDates = Array.from(new Set(sorted.map(p => p.attempted_at))).sort()
   const unifiedData = allDates.map(date => {
-    const row: any = { attempted_at: date }
+    const row: ChartDatum = { attempted_at: date }
     sorted.filter(p => p.attempted_at === date).forEach(p => {
       row[p.subject_id] = Number(p.accuracy_pct)
       row[`${p.subject_id}_raw`] = p
@@ -129,7 +150,7 @@ export function ScoreTrendChart({ papers, activeSubjectId }: ScoreTrendChartProp
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
           <XAxis dataKey="attempted_at" tickFormatter={d => fmt(d)} {...axisStyle} />
           <YAxis tickFormatter={v => `${v}%`} domain={[0, 100]} {...axisStyle} />
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={CustomTooltip} />
           {/* Overall average reference line — same as single-subject view */}
           <ReferenceLine y={avg} stroke="rgba(255,255,255,0.2)" strokeDasharray="4 3">
             <Label value={`Avg ${avg.toFixed(1)}%`} position="right" fill="var(--text-muted)" fontSize={11} />

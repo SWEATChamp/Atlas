@@ -57,7 +57,6 @@ export default async function AppLayout({
           gap: 0,
           padding: '0 24px',
           background: 'var(--bg-elevated)',
-          backdropFilter: 'blur(12px)',
           position: 'sticky',
           top: 0,
           zIndex: 50,
@@ -75,7 +74,7 @@ export default async function AppLayout({
             flexShrink: 0,
           }}
         >
-          <span className="gradient-text">Atlas</span>
+          <span style={{ color: 'var(--text-primary)' }}>Atlas</span>
         </Link>
 
         {/* Nav links */}

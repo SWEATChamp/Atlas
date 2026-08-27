@@ -218,6 +218,7 @@ describe('Mission Quality & Daily Workload Calculation', () => {
         type: 'review_chapter',
         target_entity_type: 'chapter',
         target_entity_id: 'c-3',
+        subject_paper_id: null,
         title: 'Review Coordinate Geometry',
         description: 'Mathematics · Chapter 3',
         xp_reward: 30,

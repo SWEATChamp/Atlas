@@ -108,7 +108,7 @@ export default async function SubjectDetailPage({
           overflow: 'hidden',
         }}
       >
-        <div style={{ height: 5, background: `linear-gradient(90deg, ${subject.color_hex}, ${subject.color_hex}60)` }} />
+        <div style={{ height: 4, background: subject.color_hex }} />
         <div style={{ padding: '24px 28px' }}>
           {/* Title row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
@@ -179,8 +179,7 @@ export default async function SubjectDetailPage({
 
       {/* Chapter groups */}
       <ChapterGroups
-        subjectId={subject.id}
-        isMaths={subject.code === '9709'}
+        hasElectiveComponents={subject.code === '9709' || subject.code === '9231'}
         groups={groups}
         subjectColor={subject.color_hex}
         paperSelections={paperSelections}

@@ -33,20 +33,6 @@ export default function Error({
         overflow: 'hidden',
       }}
     >
-      {/* Ambient glow */}
-      <div
-        className="glow-orb"
-        style={{
-          width: 500,
-          height: 500,
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          background: 'radial-gradient(circle, rgba(248,113,113,0.15) 0%, transparent 70%)',
-          opacity: 0.6,
-        }}
-      />
-
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}

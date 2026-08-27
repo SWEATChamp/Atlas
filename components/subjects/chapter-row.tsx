@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useTransition } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircle2, Circle, Clock, Star, Lock } from 'lucide-react'
 import { updateChapterStatus, updateChapterConfidence } from '@/lib/actions/chapters'
@@ -236,11 +236,6 @@ export default function ChapterRow({
   const [status,     setStatus]     = useState<NotesStatus>(userChapter?.notes_status ?? 'none')
   const [confidence, setConfidence] = useState<number | null>(userChapter?.confidence_level ?? null)
   const [, startTransition] = useTransition()
-
-  useEffect(() => {
-    if (userChapter?.notes_status)                setStatus(userChapter.notes_status)
-    if (userChapter?.confidence_level !== undefined) setConfidence(userChapter.confidence_level ?? null)
-  }, [userChapter?.notes_status, userChapter?.confidence_level])
 
   const handleStatusClick = () => {
     if (!isAccessible) return

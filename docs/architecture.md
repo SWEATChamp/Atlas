@@ -1,29 +1,33 @@
 # Architecture Overview
 
 ## System Overview
-Atlas is a production-grade web application built to serve as a Revision Operating System for CAIE A-Level students. It replaces spreadsheet-based revision tracking with an intelligent dashboard, generating daily study missions to maximize exam performance.
+Atlas is an early private-pilot application designed as a revision operating system for Cambridge International AS & A Level students. It combines syllabus progress, paper performance, route-aware readiness, and daily study missions in one dashboard.
 
 ## Tech Stack
-- **Framework**: Next.js 15 App Router
+- **Framework**: Next.js 16 App Router
 - **Language**: TypeScript
-- **Styling**: TailwindCSS, Framer Motion (Animations)
-- **UI Components**: shadcn/ui, Recharts
-- **State Management**: Zustand (Client State), React Query (Server State)
-- **Forms & Validation**: React Hook Form, Zod
+- **Styling**: Tailwind CSS import, project CSS tokens, and Framer Motion
+- **UI Components**: Lucide icons and Recharts
+- **State Management**: React component state, Server Components, and Server Actions
+- **Validation**: Zod at application boundaries and PostgreSQL constraints at the database boundary
 - **Backend as a Service (BaaS)**: Supabase
 - **Database**: PostgreSQL (managed by Supabase)
 - **Deployment**: Vercel
 
+## Interface Direction
+
+Atlas uses a restrained, academic visual system: neutral dark surfaces, one muted-blue action accent, solid fills, and Lucide icons. Subject colours are reserved for subject identity and data visualisation. Cards are used for independently actionable or grouped content, not as a wrapper for every text block. Decorative gradients, glow effects, emoji icons, multicoloured navigation, and unlabeled status dots are excluded from the current interface.
+
 ## Data Flow
-The data flow follows a robust modern architecture:
-Client (React Components) → React Query / Next.js Server Actions → Supabase Client → PostgreSQL (Row Level Security protected).
+The current data flow is:
+Server or Client Component → Next.js Server Action or authenticated Supabase client → PostgreSQL with Row Level Security and guarded RPCs. Mutations revalidate affected routes; the current application does not depend on React Query caching.
 
 ## Timezone Handling
 
 The app detects the browser's IANA timezone during onboarding and when a signed-in user opens the app. PostgreSQL uses that saved timezone to decide the user's current calendar date. Daily missions, streaks, daily achievements, exam countdowns, and automatic exam archiving therefore change at the user's midnight rather than the database server's midnight. Invalid or missing values fall back to UTC.
 
 ## Authentication Flow
-Atlas utilizes Supabase Auth combined with Google OAuth. This dual approach allows standard email login and provides the necessary SSO integration for the Google Docs synchronization feature.
+Atlas currently uses Supabase Auth with Google OAuth. Email/password UI and Google Docs synchronisation are not part of the current MVP flow.
 
 ## Mission Engine
 A core component of Atlas is the Mission Engine. It generates up to 3 daily missions per user by calculating a weighted score across multiple dimensions:
@@ -79,5 +83,25 @@ Study route is configured per enrolled subject:
   - Preserves the ledger invariant: `profiles.total_xp = SUM(xp_events.xp_amount)`.
   - Preserves streaks and review timestamps (MVP design constraint).
 
-## Real-time Sync
-Supabase Realtime channels are utilized to subscribe to database changes, ensuring real-time updates for streak and XP changes across devices.
+## Five-Subject MVP Syllabus Architecture (Migration 024)
+> **Status**: Migration 024 was applied and verified on hosted Supabase on 2026-08-27. The matching application deployment remains pending.
+
+1. **Gated Subject Availability**:
+   - Exactly 5 subjects are available for new onboarding and selection:
+     - Mathematics (9709)
+     - Further Mathematics (9231)
+     - Physics (9702)
+     - Chemistry (9701)
+     - Computer Science (9618)
+   - Pre-existing enrollments in unsupported subjects remain preserved in the database (grandfathered).
+2. **Normalized Paper Components & Assessment Links**:
+   - `subject_papers` catalogues official components.
+   - `subject_valid_routes` defines valid combinations for each subject (e.g. Pure 1 + Mechanics for AS Mathematics; Staged sequences; Linear routes).
+   - `chapter_papers` maps chapters directly to their assessing paper components.
+   - For science practical papers (Papers 3 & 5), zero direct chapter links are registered (reflecting cross-cutting experimental skills).
+3. **Active Syllabus Filtering**:
+   - Deprecated non-syllabus chapters (e.g., Vectors in Pure 1, Electromagnetic Induction in Physics) are marked `is_active = FALSE` and filtered out of progress tracking and mission generation.
+
+## Data Refresh
+
+The current application uses Server Action revalidation and router refreshes after mutations. Supabase Realtime subscriptions are not currently implemented.

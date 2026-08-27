@@ -64,6 +64,7 @@ export interface ChapterAccuracy {
 export interface PaperSelectionInput {
   component_name: string
   paper_number?: number | null
+  subject_paper_id?: string | null
   stage: 'as' | 'a2'
 }
 

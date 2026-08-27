@@ -7,7 +7,6 @@ import type {
   PaperWithSubject, 
   PaperWithQuestions, 
   ChapterAccuracy,
-  PaperStage,
 } from '@/types'
 
 export async function getAllPapersWithSubjects(): Promise<PaperWithSubject[]> {
@@ -94,7 +93,13 @@ export async function getChapterAccuracy(subjectId: string): Promise<ChapterAccu
   if (error || !data) return []
 
   const stats: Record<string, ChapterAccuracy> = {}
-  for (const row of data as any[]) {
+  type AttemptRow = {
+    marks_available: number
+    marks_obtained: number
+    chapter_id: string | null
+    chapters: { title: string; component: string } | null
+  }
+  for (const row of (data as unknown as AttemptRow[])) {
     if (!row.chapter_id || !row.chapters) continue
     const cid = row.chapter_id
     if (!stats[cid]) {
@@ -119,6 +124,7 @@ export interface QuestionInput {
 
 export interface LogPaperInput {
   subjectId: string
+  subjectPaperId?: string | null
   year: number
   session: 'feb_mar' | 'may_jun' | 'oct_nov'
   paperNumber: number
@@ -132,6 +138,7 @@ export interface LogPaperInput {
 
 const LogPaperSchema = z.object({
   subjectId: z.string().uuid(),
+  subjectPaperId: z.string().uuid().nullable().optional(),
   year: z.number().int().min(1990).max(2100),
   session: z.enum(['feb_mar', 'may_jun', 'oct_nov']),
   paperNumber: z.number().int().min(1).max(9),
@@ -178,60 +185,54 @@ export async function logPaper(data: LogPaperInput): Promise<{ error?: string; p
 
   const { data: subject } = await supabase
     .from('subjects')
-    .select('code')
+    .select('code, is_available')
     .eq('id', data.subjectId)
     .single()
 
   if (!subject) return { error: 'Subject not found' }
 
-  const subjectCode = subject.code || 'UNKNOWN'
-  const sessionLetters = data.session === 'feb_mar' ? 'F/M' : data.session === 'may_jun' ? 'M/J' : 'O/N'
-  const yearShort = data.year.toString().slice(-2)
-  const combinedPaperNumber = data.paperNumber * 10 + data.variant
-  const paperCode = `${subjectCode}/${combinedPaperNumber}/${sessionLetters}/${yearShort}`
+  // Resolve subject_paper_id if not provided
+  let subjectPaperId = data.subjectPaperId
+  if (!subjectPaperId) {
+    const { data: sp } = await supabase
+      .from('subject_papers')
+      .select('id')
+      .eq('subject_id', data.subjectId)
+      .eq('paper_number', data.paperNumber)
+      .maybeSingle()
+    if (sp) {
+      subjectPaperId = sp.id
+    }
+  }
 
-  const scoreRaw = data.questions.reduce((sum, q) => sum + q.marksObtained, 0)
-  const scoreMax = data.questions.reduce((sum, q) => sum + q.marksAvailable, 0)
-
-  const { data: insertedPaper, error: paperError } = await supabase
-    .from('past_papers')
-    .insert({
-      user_id: user.id,
+  const { data: result, error: rpcError } = await supabase.rpc('log_past_paper_atomic', {
+    p_user_id: user.id,
+    p_paper: {
       subject_id: data.subjectId,
-      paper_code: paperCode,
+      subject_paper_id: subjectPaperId || null,
+      paper_number: data.paperNumber * 10 + data.variant,
+      stage: data.stage,
       year: data.year,
       session: data.session,
-      paper_number: combinedPaperNumber,
-      stage: data.stage,
-      attempted_at: data.attemptedAt,
-      score_raw: scoreRaw,
-      score_max: scoreMax,
+      variant: data.variant,
       time_taken_mins: data.timeTakenMins || null,
       notes: data.notes || null,
-    })
-    .select('id')
-    .single()
+      attempted_at: data.attemptedAt,
+    },
+    p_questions: data.questions.map((q) => ({
+      question_number: q.questionNumber,
+      chapter_id: q.chapterId,
+      marks_available: q.marksAvailable,
+      marks_obtained: q.marksObtained,
+    })),
+  })
 
-  if (paperError) return { error: paperError.message }
-
-  const qInserts = data.questions.map(q => ({
-    paper_id: insertedPaper.id,
-    chapter_id: q.chapterId,
-    question_number: q.questionNumber,
-    marks_available: q.marksAvailable,
-    marks_obtained: q.marksObtained,
-  }))
-
-  const { error: qError } = await supabase
-    .from('paper_question_attempts')
-    .insert(qInserts)
-
-  if (qError) return { error: qError.message }
+  if (rpcError) return { error: rpcError.message }
 
   revalidatePath('/past-papers')
   revalidatePath('/dashboard')
   revalidatePath(`/subjects/${data.subjectId}`)
-  return { paperId: insertedPaper.id }
+  return { paperId: (result as { id?: string })?.id }
 }
 
 export async function deletePaper(paperId: string): Promise<{ error?: string }> {
@@ -264,68 +265,61 @@ export async function updatePaper(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: subject } = await supabase
-    .from('subjects')
-    .select('code')
-    .eq('id', data.subjectId)
-    .single()
+  let subjectPaperId = data.subjectPaperId
+  if (!subjectPaperId) {
+    const { data: sp } = await supabase
+      .from('subject_papers')
+      .select('id')
+      .eq('subject_id', data.subjectId)
+      .eq('paper_number', data.paperNumber)
+      .maybeSingle()
+    if (sp) {
+      subjectPaperId = sp.id
+    }
+  }
 
-  if (!subject) return { error: 'Subject not found' }
-
-  const sessionLetters = data.session === 'feb_mar' ? 'F/M' : data.session === 'may_jun' ? 'M/J' : 'O/N'
-  const yearShort = data.year.toString().slice(-2)
-  const combinedPaperNumber = data.paperNumber * 10 + data.variant
-  const paperCode = `${subject.code}/${combinedPaperNumber}/${sessionLetters}/${yearShort}`
-
-  const scoreRaw = data.questions.reduce((s, q) => s + q.marksObtained, 0)
-  const scoreMax = data.questions.reduce((s, q) => s + q.marksAvailable, 0)
-
-  // Update the paper row
-  const { error: updateError } = await supabase
-    .from('past_papers')
-    .update({
+  const { error: rpcError } = await supabase.rpc('update_past_paper_atomic', {
+    p_user_id: user.id,
+    p_paper_id: paperId,
+    p_paper: {
       subject_id: data.subjectId,
-      paper_code: paperCode,
+      subject_paper_id: subjectPaperId || null,
+      paper_number: data.paperNumber * 10 + data.variant,
+      stage: data.stage,
       year: data.year,
       session: data.session,
-      paper_number: combinedPaperNumber,
-      stage: data.stage,
-      attempted_at: data.attemptedAt,
-      score_raw: scoreRaw,
-      score_max: scoreMax,
+      variant: data.variant,
       time_taken_mins: data.timeTakenMins || null,
       notes: data.notes || null,
-    })
-    .eq('id', paperId)
-    .eq('user_id', user.id)
-
-  if (updateError) return { error: updateError.message }
-
-  // Replace all question attempts
-  const { error: delError } = await supabase
-    .from('paper_question_attempts')
-    .delete()
-    .eq('paper_id', paperId)
-
-  if (delError) return { error: delError.message }
-
-  const { error: insError } = await supabase
-    .from('paper_question_attempts')
-    .insert(data.questions.map(q => ({
-      paper_id: paperId,
-      chapter_id: q.chapterId,
+      attempted_at: data.attemptedAt,
+    },
+    p_questions: data.questions.map((q) => ({
       question_number: q.questionNumber,
+      chapter_id: q.chapterId,
       marks_available: q.marksAvailable,
       marks_obtained: q.marksObtained,
-    })))
+    })),
+  })
 
-  if (insError) return { error: insError.message }
+  if (rpcError) return { error: rpcError.message }
 
   revalidatePath('/past-papers')
   revalidatePath(`/past-papers/${paperId}`)
   revalidatePath('/dashboard')
   revalidatePath(`/subjects/${data.subjectId}`)
   return {}
+}
+
+export async function getSubjectPapers(subjectId: string) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('subject_papers')
+    .select('*')
+    .eq('subject_id', subjectId)
+    .order('paper_number')
+
+  if (error) return []
+  return data
 }
 
 /**

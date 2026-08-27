@@ -41,8 +41,7 @@ export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZo
   return (
     <>
       <motion.div
-        whileHover={{ y: -2 }}
-        className="card"
+        className="card card-interactive"
         onClick={() => router.push(`/past-papers/${paper.id}`)}
         style={{
           cursor: 'pointer',
@@ -50,17 +49,11 @@ export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZo
           pointerEvents: isDeleting ? 'none' : 'auto',
           padding: '14px 16px',
           display: 'grid',
-          gridTemplateColumns: '14px 1fr auto auto',
+          gridTemplateColumns: '1fr auto auto',
           alignItems: 'center',
           gap: 12,
         }}
       >
-        {/* Subject colour dot */}
-        <div style={{
-          width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
-          backgroundColor: paper.subjects.color_hex || 'var(--accent-primary)',
-        }} />
-
         {/* Left: paper code + subject + stage */}
         <div style={{ minWidth: 0 }}>
           <div style={{
@@ -169,6 +162,7 @@ export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZo
             existingPaperId={paper.id}
             existingPaper={{
               subjectId: paper.subject_id,
+              subjectPaperId: paper.subject_paper_id ?? undefined,
               year: paper.year,
               session: paper.session,
               paperNumber: Math.floor(paper.paper_number / 10),

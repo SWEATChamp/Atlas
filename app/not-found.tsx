@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { Compass, ArrowLeft } from 'lucide-react'
 
@@ -20,19 +19,6 @@ export default function NotFound() {
         overflow: 'hidden',
       }}
     >
-      {/* Ambient glow */}
-      <div
-        className="glow-orb"
-        style={{
-          width: 600,
-          height: 600,
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          background: 'radial-gradient(circle, rgba(124,109,250,0.12) 0%, transparent 70%)',
-        }}
-      />
-
       <div
         className="glass-strong"
         style={{
@@ -57,10 +43,7 @@ export default function NotFound() {
             letterSpacing: '-0.04em',
             lineHeight: 1,
             marginBottom: 16,
-            background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
+            color: 'var(--accent-primary)',
           }}
         >
           404
@@ -72,8 +55,8 @@ export default function NotFound() {
             width: 56,
             height: 56,
             borderRadius: 'var(--radius-lg)',
-            background: 'rgba(124,109,250,0.12)',
-            border: '1px solid rgba(124,109,250,0.2)',
+            background: 'var(--accent-soft)',
+            border: '1px solid var(--border-accent)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -116,12 +99,11 @@ export default function NotFound() {
             padding: '0 28px',
             height: 48,
             borderRadius: 'var(--radius-md)',
-            background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))',
+            background: 'var(--accent-strong)',
             color: '#fff',
             fontWeight: 600,
             fontSize: '0.9375rem',
             textDecoration: 'none',
-            boxShadow: '0 4px 16px var(--accent-glow)',
             fontFamily: 'var(--font-sans)',
           }}
         >

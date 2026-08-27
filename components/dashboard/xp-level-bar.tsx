@@ -9,15 +9,9 @@ interface XpLevelBarProps {
   levelTitle: string
 }
 
-const LEVEL_COLORS = [
-  '#7c6dfa', '#5B7FFF', '#38D9F5', '#12E88A', '#FFD166',
-  '#FF7B35', '#FF4D6A', '#9D6EF8', '#38D9F5', '#FFD166',
-]
-
 export default function XpLevelBar({ totalXp, level, levelTitle }: XpLevelBarProps) {
   const { pct, xpInLevel, xpNeeded } = xpProgress(totalXp, level)
   const isMaxLevel = level >= 15
-  const barColor   = LEVEL_COLORS[(level - 1) % LEVEL_COLORS.length]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -27,7 +21,7 @@ export default function XpLevelBar({ totalXp, level, levelTitle }: XpLevelBarPro
           width: 40,
           height: 40,
           borderRadius: 'var(--radius-md)',
-          background: `linear-gradient(135deg, ${barColor}, ${barColor}99)`,
+          background: 'var(--accent-strong)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -36,7 +30,6 @@ export default function XpLevelBar({ totalXp, level, levelTitle }: XpLevelBarPro
           fontSize: '1.125rem',
           color: '#fff',
           flexShrink: 0,
-          boxShadow: `0 0 12px ${barColor}40`,
         }}>
           {level}
         </div>
@@ -49,7 +42,7 @@ export default function XpLevelBar({ totalXp, level, levelTitle }: XpLevelBarPro
           </div>
         </div>
         <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9rem', fontWeight: 700, color: barColor }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9rem', fontWeight: 700, color: 'var(--accent-primary)' }}>
             {totalXp.toLocaleString()}
           </div>
           <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Total XP</div>
@@ -72,27 +65,13 @@ export default function XpLevelBar({ totalXp, level, levelTitle }: XpLevelBarPro
             style={{
               height: '100%',
               borderRadius: 4,
-              background: `linear-gradient(90deg, ${barColor}, ${barColor}cc)`,
-              boxShadow: `0 0 8px ${barColor}60`,
-            }}
-          />
-          {/* Shimmer */}
-          <motion.div
-            initial={{ left: '-20%' }}
-            animate={{ left: '110%' }}
-            transition={{ duration: 1.5, ease: 'easeInOut', delay: 0.8 }}
-            style={{
-              position: 'absolute',
-              top: 0,
-              width: '20%',
-              height: '100%',
-              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)',
+              background: 'var(--accent-primary)',
             }}
           />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
           <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-            {isMaxLevel ? 'Max level reached 🏆' : `${xpInLevel} / ${xpNeeded} XP`}
+            {isMaxLevel ? 'Max level reached' : `${xpInLevel} / ${xpNeeded} XP`}
           </span>
           {!isMaxLevel && (
             <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>

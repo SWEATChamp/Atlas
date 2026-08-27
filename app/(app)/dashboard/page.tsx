@@ -1,4 +1,4 @@
-import { Zap, Flame, Target, TrendingUp } from 'lucide-react'
+import { Zap, Flame, Target, TrendingUp, AlertTriangle } from 'lucide-react'
 import { getDashboardData } from '@/lib/actions/dashboard'
 import MissionList from '@/components/dashboard/mission-list'
 import XpLevelBar from '@/components/dashboard/xp-level-bar'
@@ -83,10 +83,8 @@ export default async function DashboardPage() {
       {/* ── Hero greeting bar ──────────────────────────────────────────────── */}
       <div
         style={{
-          background: 'linear-gradient(135deg, rgba(124,109,250,0.12) 0%, rgba(167,139,250,0.06) 100%)',
-          border: '1px solid rgba(124,109,250,0.2)',
-          borderRadius: 'var(--radius-lg)',
-          padding: '20px 24px',
+          borderBottom: '1px solid var(--border-subtle)',
+          padding: '4px 0 20px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -104,7 +102,7 @@ export default async function DashboardPage() {
               fontFamily: 'var(--font-display)',
             }}
           >
-            {greeting(profile.timezone)}, {greetingName}! 👋
+            {greeting(profile.timezone)}, {greetingName}
           </h1>
           <p style={{ margin: '4px 0 0', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
             {totalMissions > 0
@@ -121,10 +119,7 @@ export default async function DashboardPage() {
               display: 'flex',
               alignItems: 'center',
               gap: 6,
-              padding: '8px 14px',
-              borderRadius: 'var(--radius-md)',
-              background: streakActive ? 'rgba(255,123,53,0.12)' : 'var(--bg-overlay)',
-              border: `1px solid ${streakActive ? 'rgba(255,123,53,0.25)' : 'var(--border-subtle)'}`,
+              padding: '4px 0',
             }}
           >
             <Flame size={16} color={streakActive ? '#FF7B35' : 'var(--text-muted)'} />
@@ -145,10 +140,7 @@ export default async function DashboardPage() {
               display: 'flex',
               alignItems: 'center',
               gap: 6,
-              padding: '8px 14px',
-              borderRadius: 'var(--radius-md)',
-              background: 'rgba(124,109,250,0.1)',
-              border: '1px solid rgba(124,109,250,0.2)',
+              padding: '4px 0',
             }}
           >
             <Zap size={16} color="var(--accent-primary)" />
@@ -176,7 +168,7 @@ export default async function DashboardPage() {
                 width: 32,
                 height: 32,
                 borderRadius: 8,
-                background: 'rgba(124,109,250,0.15)',
+                background: 'var(--accent-soft)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -186,7 +178,7 @@ export default async function DashboardPage() {
             </div>
             <div>
               <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, letterSpacing: '-0.01em' }}>
-                Today's Missions
+                Today&apos;s Missions
               </h2>
               <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
                 Complete missions to earn XP
@@ -207,6 +199,7 @@ export default async function DashboardPage() {
             )}
           </div>
           <MissionList
+            key={today_missions.map((mission) => `${mission.id}:${mission.status}:${mission.completed_at ?? ''}`).join('|')}
             missions={activeMissions}
             hasExamDates={has_exam_dates}
             hasChapterData={has_chapter_data}
@@ -251,21 +244,7 @@ export default async function DashboardPage() {
               Study Streak
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 'var(--radius-md)',
-                  background: streakActive ? 'rgba(255,123,53,0.12)' : 'var(--bg-overlay)',
-                  border: `1px solid ${streakActive ? 'rgba(255,123,53,0.25)' : 'var(--border-subtle)'}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '1.5rem',
-                }}
-              >
-                🔥
-              </div>
+              <Flame size={28} color={streakActive ? '#b98255' : 'var(--text-muted)'} />
               <div>
                 <div
                   style={{
@@ -295,7 +274,8 @@ export default async function DashboardPage() {
                   padding: '6px 10px',
                 }}
               >
-                ⚠️ Study today to keep your streak!
+                <AlertTriangle size={13} style={{ verticalAlign: -2, marginRight: 6 }} />
+                Study today to keep your streak.
               </div>
             )}
           </div>
@@ -304,7 +284,12 @@ export default async function DashboardPage() {
 
       {/* ── Subject readiness ──────────────────────────────────────────────── */}
       {subject_readiness.length > 0 && (
-        <div className="card" style={{ padding: 'var(--space-5)' }}>
+        <section
+          style={{
+            paddingTop: 'var(--space-5)',
+            borderTop: '1px solid var(--border-subtle)',
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
             <div
               style={{
@@ -329,7 +314,7 @@ export default async function DashboardPage() {
             </div>
           </div>
           <SubjectReadinessList subjects={subject_readiness} />
-        </div>
+        </section>
       )}
     </div>
   )

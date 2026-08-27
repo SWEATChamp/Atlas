@@ -6,6 +6,7 @@ import { ScoreTrendChart } from '@/components/papers/score-trend-chart'
 import { ChapterAccuracyChart } from '@/components/papers/chapter-accuracy-chart'
 import { PaperCard } from '@/components/papers/paper-card'
 import PaperStageTagger from '@/components/papers/paper-stage-tagger'
+import { FileText } from 'lucide-react'
 
 export default async function PastPapersPage(props: {
   searchParams?: Promise<{ subject?: string }>
@@ -28,8 +29,7 @@ export default async function PastPapersPage(props: {
   const timeZone = profileResult.data?.timezone ?? 'UTC'
 
   const subjects = (userSubjectsData.data || [])
-    .map((d: any) => d.subjects)
-    .filter(Boolean)
+    .flatMap((row) => row.subjects ?? [])
 
   const avgScore = papers.length > 0
     ? (papers.reduce((s, p) => s + Number(p.accuracy_pct), 0) / papers.length).toFixed(1)
@@ -38,6 +38,12 @@ export default async function PastPapersPage(props: {
   const bestScore = papers.length > 0
     ? Math.max(...papers.map(p => Number(p.accuracy_pct))).toFixed(1)
     : null
+
+  const summaryStats = [
+    { label: 'Papers logged', value: papers.length },
+    { label: 'Average score', value: avgScore != null ? `${avgScore}%` : '—' },
+    { label: 'Best score', value: bestScore != null ? `${bestScore}%` : '—' },
+  ]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
@@ -62,13 +68,9 @@ export default async function PastPapersPage(props: {
 
       {/* Stats row — only show when a subject is selected */}
       {activeSubjectId && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-4)' }}>
-          {[  
-            { label: 'Papers logged', value: papers.length },
-            { label: 'Average score', value: avgScore != null ? `${avgScore}%` : '—' },
-            { label: 'Best score', value: bestScore != null ? `${bestScore}%` : '—' },
-          ].map(stat => (
-            <div key={stat.label} className="card" style={{ padding: 'var(--space-5)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', borderBlock: '1px solid var(--border-subtle)' }}>
+          {summaryStats.map((stat, index) => (
+            <div key={stat.label} style={{ padding: 'var(--space-4) var(--space-5)', borderLeft: index > 0 ? '1px solid var(--border-subtle)' : undefined }}>
               <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
                 {stat.label}
               </div>
@@ -110,13 +112,9 @@ export default async function PastPapersPage(props: {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
           {/* Stats for All view */}
           {papers.length > 0 && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-4)' }}>
-              {[
-                { label: 'Papers logged', value: papers.length },
-                { label: 'Average score', value: avgScore != null ? `${avgScore}%` : '—' },
-                { label: 'Best score',    value: bestScore != null ? `${bestScore}%` : '—' },
-              ].map(stat => (
-                <div key={stat.label} className="card" style={{ padding: 'var(--space-5)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', borderBlock: '1px solid var(--border-subtle)' }}>
+              {summaryStats.map((stat, index) => (
+                <div key={stat.label} style={{ padding: 'var(--space-4) var(--space-5)', borderLeft: index > 0 ? '1px solid var(--border-subtle)' : undefined }}>
                   <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
                     {stat.label}
                   </div>
@@ -130,9 +128,9 @@ export default async function PastPapersPage(props: {
             {papers.map(p => <PaperCard key={p.id} paper={p} timeZone={timeZone} />)}
             {papers.length === 0 && (
               <div className="card" style={{ padding: 'var(--space-12)', textAlign: 'center', color: 'var(--text-muted)' }}>
-                <div style={{ fontSize: '2rem', marginBottom: 8 }}>📄</div>
+                <FileText size={30} style={{ marginBottom: 8, color: 'var(--text-muted)' }} />
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>No papers logged yet</div>
-                <div style={{ fontSize: '0.875rem' }}>Hit "+ Log Paper" to record your first attempt</div>
+                <div style={{ fontSize: '0.875rem' }}>Select Log Paper to record your first attempt</div>
               </div>
             )}
           </div>
