@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { Calendar, ChevronRight } from 'lucide-react'
 import type { SubjectReadiness } from '@/lib/actions/dashboard'
+import { formatExamCountdown } from '@/lib/dashboard-display'
 
 interface SubjectReadinessListProps {
   subjects: SubjectReadiness[]
@@ -17,9 +18,12 @@ export default function SubjectReadinessList({ subjects }: SubjectReadinessListP
       {subjects.map((s, i) => {
         const isUnconfirmed = s.study_route === 'unconfirmed'
         const hasSeparateStages = s.study_route === 'full_level' || (s.study_route === 'staged' && s.current_stage === 'a2')
-        const days = s.days_until
+        const days = typeof s.days_until === 'number' && Number.isFinite(s.days_until)
+          ? s.days_until
+          : null
+        const examCountdown = formatExamCountdown(days)
 
-        const examChip = days !== null ? (
+        const examChip = days !== null && examCountdown !== null ? (
           <div
             style={{
               display: 'flex',
@@ -45,7 +49,7 @@ export default function SubjectReadinessList({ subjects }: SubjectReadinessListP
             }}
           >
             <Calendar size={10} />
-            {days < 0 ? 'Exam passed' : days === 0 ? 'Today!' : `${days}d`}
+            {examCountdown}
           </div>
         ) : null
 

@@ -265,7 +265,7 @@ Authored in `supabase/migrations/20260826000023_mission_quality.sql`. Rollback-o
 
 ## Five-Subject MVP Syllabus Content & Availability (Migration 024) — Applied and Verified
 
-Authored in `supabase/migrations/20260826000024_mvp_syllabus_content.sql`. Rollback-only tests are defined in `supabase/tests/database/mvp_syllabus_content.test.sql` (68 tests across 10 sections; 173 database tests total across 7 test suites). Status: **Migration 024 was applied to hosted Supabase and recorded in remote migration history on 2026-08-27. All 18 hosted catalogue and data-preservation checks passed; matching application deployment remains pending.**
+Authored in `supabase/migrations/20260826000024_mvp_syllabus_content.sql`. Rollback-only tests are defined in `supabase/tests/database/mvp_syllabus_content.test.sql` (68 tests across 10 sections). Status: **Migration 024 was applied to hosted Supabase and recorded in remote migration history on 2026-08-27. All 18 hosted catalogue and data-preservation checks passed, and the matching application was deployed to Vercel.**
 
 ### Schema & Structural Additions
 
@@ -298,3 +298,44 @@ Authored in `supabase/migrations/20260826000024_mvp_syllabus_content.sql`. Rollb
    - `validate_chapter_paper_subject`: Ensures `chapter_papers` link chapters and papers of the same subject.
    - `validate_subject_paper_selection`: Ensures selections belong to the enrolled subject and match the route stage.
    - `validate_past_paper_entry`: Ensures past papers for MVP subjects reference valid `subject_paper_id`, align with the user's active stage, and belong to their selected route combination. Includes narrow legacy exception for unchanged legacy rows.
+
+---
+
+## Dashboard Statistics Hotfix (Migration 025) — Prepared Locally
+
+Authored in `supabase/migrations/20260827000025_dashboard_stats_hotfix.sql`. Rollback-only tests are defined in `supabase/tests/database/dashboard_stats_hotfix.test.sql` (7 tests). Status: **Prepared and verified locally only. Migration 025 has not been applied to hosted Supabase.**
+
+1. **Restored exam countdown contract**:
+   - `get_user_dashboard_stats(UUID)` again returns `days_until` for every enrolled subject.
+   - The value is calculated as `exam_date - get_user_local_date(user_id)`, preserving the user's calendar timezone.
+
+2. **Effective current streak display**:
+   - A stored streak remains current when its last activity is today or yesterday.
+   - A stored streak whose last activity predates yesterday is returned as zero on the dashboard.
+   - `longest_streak` and the stored activity history remain unchanged.
+
+3. **Security boundary preserved**:
+   - The RPC signature, owner/service-role guard, `SECURITY DEFINER` search path, and role privilege matrix remain unchanged.
+
+---
+
+## Subject Enrollment Management (Migration 026) — Prepared Locally
+
+Authored in `supabase/migrations/20260827000026_subject_enrollment_management.sql`. Rollback-only tests are defined in `supabase/tests/database/subject_enrollment_management.test.sql` (21 tests; 201 database tests total across 9 suites). Status: **Prepared and verified locally only. Migration 026 has not been applied to hosted Supabase.**
+
+1. **`add_subject_enrollment(UUID, UUID)`**:
+   - Accepts only available global MVP subjects.
+   - Serializes enrollment-count changes and enforces the five-active-subject limit.
+   - Restores an archived row in place, preserving its ID and existing data.
+   - Creates only missing accessible `user_chapters` rows for restored configured subjects.
+
+2. **`archive_subject_enrollment(UUID, UUID)`**:
+   - Requires ownership and refuses to archive the user's final active subject.
+   - Sets `is_archived = TRUE`; it never deletes progress or history.
+   - Skips pending chapter and paper missions for the archived subject with `skip_reason = 'subject_archived'`.
+
+3. **Preservation and access guarantees**:
+   - Chapter progress, past papers, paper selections, completed missions, XP events, and profile XP remain unchanged.
+   - Existing unsupported enrollments remain removable but cannot be newly added while unavailable.
+   - Archived subjects no longer grant chapter access or qualify for new paper logging.
+   - Direct client INSERT/DELETE and `is_archived` updates are revoked; clients retain only the narrow exam-date, target-grade, and priority updates required by the application.

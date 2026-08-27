@@ -1,13 +1,17 @@
 import type { Metadata } from 'next'
-import { getSubjectsWithProgress } from '@/lib/actions/subjects'
+import { getAvailableMvpSubjects, getSubjectsWithProgress } from '@/lib/actions/subjects'
 import SubjectCard from '@/components/subjects/subject-card'
+import SubjectManager from '@/components/subjects/subject-manager'
 import RouteSelectionBanner from '@/components/subjects/route-selection-banner'
 import { BookOpen } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Subjects' }
 
 export default async function SubjectsPage() {
-  const subjects = await getSubjectsWithProgress()
+  const [subjects, availableSubjects] = await Promise.all([
+    getSubjectsWithProgress(),
+    getAvailableMvpSubjects(),
+  ])
   const unconfirmed = subjects.filter((s) => s.enrollment.study_route === 'unconfirmed')
 
   return (
@@ -23,13 +27,16 @@ export default async function SubjectsPage() {
       )}
 
       {/* Header */}
-      <div>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 6 }}>
-          My Subjects
-        </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-          {subjects.length} subject{subjects.length !== 1 ? 's' : ''} enrolled
-        </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 6 }}>
+            My Subjects
+          </h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+            {subjects.length} subject{subjects.length !== 1 ? 's' : ''} enrolled
+          </p>
+        </div>
+        <SubjectManager activeSubjects={subjects} availableSubjects={availableSubjects} />
       </div>
 
       {subjects.length === 0 ? (

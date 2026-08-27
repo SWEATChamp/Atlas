@@ -81,10 +81,10 @@ Study route is configured per enrolled subject:
   - Reverses attempt-linked achievements unlocked during that completion and deletes their `user_achievements` row so the badges can be re-earned.
   - Supports multiple `complete → undo → complete → undo` cycles cleanly.
   - Preserves the ledger invariant: `profiles.total_xp = SUM(xp_events.xp_amount)`.
-  - Preserves streaks and review timestamps (MVP design constraint).
+  - Recalculates the current streak from remaining activity after undo; review timestamps remain unchanged in the MVP.
 
 ## Five-Subject MVP Syllabus Architecture (Migration 024)
-> **Status**: Migration 024 was applied and verified on hosted Supabase on 2026-08-27. The matching application deployment remains pending.
+> **Status**: Migration 024 and its matching application were released on 2026-08-27. Migrations 025–026 are prepared and locally verified but remain unapplied and undeployed.
 
 1. **Gated Subject Availability**:
    - Exactly 5 subjects are available for new onboarding and selection:
@@ -101,6 +101,21 @@ Study route is configured per enrolled subject:
    - For science practical papers (Papers 3 & 5), zero direct chapter links are registered (reflecting cross-cutting experimental skills).
 3. **Active Syllabus Filtering**:
    - Deprecated non-syllabus chapters (e.g., Vectors in Pure 1, Electromagnetic Induction in Physics) are marked `is_active = FALSE` and filtered out of progress tracking and mission generation.
+
+## Dashboard Statistics Boundary (Migration 025)
+
+- `get_user_dashboard_stats` remains the single server-side dashboard aggregate.
+- Subject countdowns are calculated from `exam_date` and the user's local date inside PostgreSQL.
+- The dashboard's effective current streak is zero when the last recorded activity predates yesterday; the longest streak remains historical and unchanged.
+- The client treats missing or non-numeric countdowns as absent rather than rendering invalid text.
+
+## Subject Enrollment Management Boundary (Migration 026)
+
+- New enrollment adds are restricted to global subjects with `is_available = TRUE` and a maximum of five active subjects.
+- Removal archives `user_subjects` instead of deleting it. Chapter progress, route selections, past papers, completed missions, XP events, and profile XP remain intact.
+- Archiving skips pending missions tied to the removed subject and immediately removes its chapter access.
+- The final active subject cannot be archived. Re-adding a supported archived subject restores the same enrollment ID and any existing configuration.
+- The Subjects page requires a second explicit confirmation step before removal and explains the preservation behavior.
 
 ## Data Refresh
 

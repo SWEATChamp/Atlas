@@ -19,8 +19,9 @@ Release status and known limitations:
 
 - Migrations 020–024 are applied to hosted Supabase and recorded in remote migration history.
 - Migration 024 was backed up, applied, and verified on 2026-08-27; all 18 hosted catalogue and data-preservation checks passed.
-- The matching application release remains pending pull-request approval and production smoke testing.
-- Mission undo reverses XP-related effects but intentionally leaves streak and chapter review timestamps unchanged in the MVP.
+- The matching application release was deployed to Vercel on 2026-08-27. Production smoke testing confirmed authentication, preserved enrolments, route-aware chapter access, paper-form component filtering, and mission completion/undo XP accounting.
+- Migrations 025–026 are prepared and locally verified, but are not yet applied to hosted Supabase or deployed. They fix dashboard streak/countdown regressions and add reversible subject enrollment management with confirmed removal.
+- Mission undo reverses attempt-linked XP and recalculates the streak from remaining activity; chapter review timestamps remain unchanged in the MVP.
 - Google Docs integration has not started.
 
 See [the roadmap](docs/roadmap.md) for the current plan.
