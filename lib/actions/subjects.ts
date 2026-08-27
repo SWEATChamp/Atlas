@@ -57,6 +57,12 @@ export interface SubjectDetailData {
   daysUntilExam: number | null
 }
 
+export interface SubjectEnrollmentMutationResult {
+  error?: string
+  enrollmentId?: string
+  skippedMissions?: number
+}
+
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
 /**
@@ -216,6 +222,27 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
 }
 
 /**
+ * Get the supported global subjects that may be added from the Subjects page.
+ */
+export async function getAvailableMvpSubjects(): Promise<Subject[]> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data, error } = await supabase
+    .from('subjects')
+    .select('*')
+    .eq('is_global', true)
+    .eq('is_available', true)
+    .order('name')
+
+  if (error || !data) return []
+  return data as Subject[]
+}
+
+/**
  * Get full detail for one subject including chapters grouped by component,
  * stage readiness scores, paper selections, and stage results.
  */
@@ -239,6 +266,7 @@ export async function getSubjectDetail(
       .select('*')
       .eq('user_id', user.id)
       .eq('subject_id', subjectId)
+      .eq('is_archived', false)
       .single(),
     supabase
       .from('profiles')
@@ -443,6 +471,7 @@ export async function updateTargetGrade(
     .update({ target_grade: grade })
     .eq('user_id', user.id)
     .eq('subject_id', subjectId)
+    .eq('is_archived', false)
 
   if (error) return { error: error.message }
 
@@ -477,6 +506,7 @@ export async function updateExamDate(
     .update({ exam_date: parsed.data.examDate })
     .eq('user_id', user.id)
     .eq('subject_id', parsed.data.subjectId)
+    .eq('is_archived', false)
     .select('id')
     .maybeSingle()
 
@@ -487,4 +517,62 @@ export async function updateExamDate(
   revalidatePath('/subjects')
   revalidatePath('/dashboard')
   return {}
+}
+
+const SubjectIdSchema = z.string().uuid('Invalid subject')
+
+/**
+ * Add a supported MVP subject or restore its archived enrollment.
+ */
+export async function addSubjectEnrollment(
+  subjectId: string
+): Promise<SubjectEnrollmentMutationResult> {
+  const parsed = SubjectIdSchema.safeParse(subjectId)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Please sign in again to add a subject.' }
+
+  const { data, error } = await supabase.rpc('add_subject_enrollment', {
+    p_user_id: user.id,
+    p_subject_id: parsed.data,
+  })
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/subjects')
+  revalidatePath('/dashboard')
+  revalidatePath('/past-papers')
+  return { enrollmentId: typeof data === 'string' ? data : undefined }
+}
+
+/**
+ * Archive an active subject after the client has shown an explicit confirmation.
+ */
+export async function archiveSubjectEnrollment(
+  userSubjectId: string
+): Promise<SubjectEnrollmentMutationResult> {
+  const parsed = SubjectIdSchema.safeParse(userSubjectId)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Please sign in again to remove a subject.' }
+
+  const { data, error } = await supabase.rpc('archive_subject_enrollment', {
+    p_user_id: user.id,
+    p_user_subject_id: parsed.data,
+  })
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/subjects')
+  revalidatePath('/dashboard')
+  revalidatePath('/past-papers')
+  return { skippedMissions: typeof data === 'number' ? data : undefined }
 }

@@ -526,9 +526,11 @@ Groups all low-cost, high-priority column additions and fixes that are needed fo
 
 ## Migration History Status (As of 2026-08-27)
 
-- **Migrations 000–024**: Applied to hosted Supabase and synchronized in remote migration history.
-- **Migration 024 (`20260826000024_mvp_syllabus_content.sql`)**: Hardened and verified locally across 173 database tests (68 in `mvp_syllabus_content.test.sql`), then applied on 2026-08-27 after a logical backup. All 18 hosted catalogue and data-preservation checks passed. Matching application deployment remains pending.
+- **Migrations 000–026**: Applied to hosted Supabase and synchronized in remote migration history.
+- **Migration 024 (`20260826000024_mvp_syllabus_content.sql`)**: Hardened and verified locally across 173 database tests (68 in `mvp_syllabus_content.test.sql`), then applied on 2026-08-27 after a logical backup. All 18 hosted catalogue and data-preservation checks passed, and the matching application was deployed to Vercel.
+- **Migration 025 (`20260827000025_dashboard_stats_hotfix.sql`)**: Verified locally across 180 database tests, including 7 focused dashboard-statistics tests, then applied and recorded on hosted Supabase on 2026-08-27 after a fresh logical backup.
+- **Migration 026 (`20260827000026_subject_enrollment_management.sql`)**: Verified locally across 201 database tests, including 21 focused subject-management tests, then applied after Migration 025 and recorded on hosted Supabase on 2026-08-27. All eight combined hosted boundary checks returned `true`.
 
 ---
 
-*Database audit complete. The hosted schema and preservation checks are verified for the MVP scope; production readiness now depends on deploying the matching application commit and completing application smoke testing.*
+*Database audit complete through hosted Migration 026. The matching Migrations 025–026 application hotfix and repeat production smoke testing remain pending.*

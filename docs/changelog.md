@@ -64,7 +64,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Authored comprehensive pgTAP database tests in `mvp_syllabus_content.test.sql` and unit tests in `tests/mvp-syllabus.test.ts` and `tests/as-a2-flow.test.ts`.
   - Completed a pre-migration logical backup, reconciled hosted migration history through 023, applied Migration 024 once, and recorded it in remote history on 2026-08-27.
   - All 18 hosted catalogue and data-preservation checks passed; the remote migration dry run reports the database is up to date.
-  - Note: *The matching application deployment and production UI smoke checks remain pending.*
+  - The matching application was deployed to Vercel on 2026-08-27 and its initial production smoke checks completed.
+- **Dashboard Statistics Hotfix (Migration 025 — Applied to Hosted Supabase):**
+  - Restores user-local `days_until` values in `get_user_dashboard_stats` after Migration 024 omitted the field.
+  - Returns an effective current streak of zero when the stored last-activity date is older than yesterday, without changing the historical longest streak.
+  - Adds defensive countdown formatting so missing or invalid values never render as `undefinedd`.
+  - Adds 7 pgTAP regression tests and 2 unit tests.
+  - Applied after a fresh logical backup and recorded in hosted migration history on 2026-08-27.
+- **Subject Enrollment Management (Migration 026 — Applied to Hosted Supabase):**
+  - Adds an “Add or remove” subject manager that offers only the five supported MVP subjects for new enrollment.
+  - Adds a required removal confirmation describing the exact preservation behavior.
+  - Archives removals rather than deleting enrollments, preserving chapter progress, paper history, completed missions, route configuration, and XP.
+  - Enforces a maximum of five active subjects and prevents removal of the final active subject at both application and database boundaries.
+  - Skips pending missions for archived subjects and restores the same enrollment ID when a supported subject is re-added.
+  - Restricts direct enrollment membership mutations so add/archive changes must pass through the guarded RPCs while exam-date, target-grade, and priority edits remain available.
+  - Adds 21 pgTAP regression tests and 3 unit tests.
+  - Applied after Migration 025 and recorded in hosted migration history on 2026-08-27; all eight combined hosted boundary checks returned `true`.
 
 ### Fixed
 - Replaced inconsistent application-side readiness calculation with database-level single source of truth.
@@ -73,11 +88,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Corrected onboarding and subject settings so Further Mathematics requires a valid paper route and fixed-route subjects receive their canonical paper selections.
 - Replaced decorative gradients, glows, emoji icons, colour dots, and unnecessary card groups with a restrained neutral interface and one shared action accent.
 - Reconciled Migration 024 acceptance counts to 68 migration-specific and 173 total database tests.
+- Corrected expired streaks being displayed as active until the next mission action recalculated them.
+- Corrected dashboard subject-readiness cards rendering `undefinedd` when `days_until` was absent.
 
 ### Known Issues & MVP Limitations
-- Mission undo in MVP reverses XP, daily bonus, and attempt-linked achievements, but does not modify streaks or `last_reviewed_at` timestamps.
+- The Migrations 025–026 application changes remain undeployed pending final review and production smoke testing; the database migrations are already applied and verified on hosted Supabase.
+- One transient failure was observed on the first production Google sign-in attempt; subsequent sign-ins succeeded and no browser console errors were recorded. Continue monitoring authentication logs.
 - Non-MVP subjects (such as Biology 9700) are flagged as unavailable (`is_available = FALSE`) for new onboarding while preserving grandfathered enrolments.
-- Current release-candidate verification: 173 database tests and 63 unit tests pass, as do type checking, production build, and whitespace checks. Lint has zero errors and one non-blocking Next.js warning for the existing external font stylesheet.
+- Current hotfix verification: 201 database tests and 68 unit tests pass, as do type checking, production build, and whitespace checks. Lint has zero errors and one non-blocking Next.js warning for the existing external font stylesheet.
 
 
 ## [0.1.0] - Initial Commit

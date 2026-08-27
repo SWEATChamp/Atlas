@@ -173,6 +173,7 @@ export async function logPaper(data: LogPaperInput): Promise<{ error?: string; p
     .select('study_route, current_stage')
     .eq('user_id', user.id)
     .eq('subject_id', data.subjectId)
+    .eq('is_archived', false)
     .single()
 
   if (!enrollment || enrollment.study_route === 'unconfirmed') {

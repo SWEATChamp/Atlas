@@ -4,14 +4,17 @@ Atlas uses Vercel for the Next.js application and Supabase for authentication an
 
 ## Current Release Boundary
 
-- Migrations 000–024 are applied to hosted Supabase and recorded in remote migration history.
+- Migrations 000–026 are applied to hosted Supabase and recorded in remote migration history.
 - A pre-migration logical backup was completed before Migration 024, and all 18 hosted catalogue and data-preservation checks passed afterward.
-- The Migration 024 application changes are not deployed.
-- Do not rerun Migration 024. Application deployment still requires pull-request approval and an explicit release decision.
+- The Migration 024 application changes were deployed to Vercel on 2026-08-27.
+- Initial production smoke checks passed for authentication retry, preserved enrolments, route-aware chapters, paper component filtering, and mission completion/undo XP accounting.
+- A fresh logical backup was completed before Migrations 025–026. Both migrations were applied in order on 2026-08-27, remote history was confirmed through 026, and all eight hosted boundary checks returned `true`.
+- The matching Migrations 025–026 application hotfix is not yet deployed; its production smoke checks remain pending.
+- Do not rerun Migrations 024–026. Any further production correction must use a reviewed forward-only migration.
 
 ## Migration 024 Release Order
 
-> **Release status (2026-08-27):** Steps 1–5 are complete for the hosted database. Migration history is synchronized through 024. Steps 6–8 remain pending for the application release.
+> **Release status (2026-08-27):** The Migration 024 database and application deployment steps are complete. Migrations 025–026 have also been backed up, applied, recorded, and verified on hosted Supabase. Their matching application hotfix and production smoke matrix remain pending.
 
 ### 1. Approve a single release candidate
 
@@ -94,6 +97,22 @@ If any check fails, do not deploy the application.
 ### 8. Reconcile release records
 
 After successful hosted verification and deployment, update the roadmap, database documentation, changelog, and this guide from “pending” to the exact deployed migration and commit. Never mark hosted work complete based only on local test results.
+
+## Migrations 025–026 Hotfix Release Order
+
+Migration 025 replaces `get_user_dashboard_stats(UUID)` without changing its signature. Migration 026 adds the guarded subject enrollment RPCs used by the matching application UI. Release both database migrations in order before deploying the application:
+
+> **Release status (2026-08-27):** Steps 1–6 are complete. The remote migration list matches local history through 026, the final dry run reports the database is up to date, and all eight hosted boundary verification values returned `true`. Steps 7–9 remain pending.
+
+1. Review both migration files, their 28 focused pgTAP tests, and the dashboard/subject-management unit tests.
+2. Confirm all 201 database tests, 68 unit tests, type checking, lint, production build, and whitespace checks pass.
+3. Create a fresh hosted logical backup and confirm remote migration history ends at 024.
+4. Apply Migration 025 and then Migration 026 exactly once; confirm remote history ends at 026.
+5. Verify the dashboard RPC returns numeric `days_until` values and an expired current streak as zero.
+6. Verify subject add/remove authorization, five-subject maximum, final-subject protection, and archive preservation checks.
+7. Merge and deploy the matching application hotfix.
+8. Confirm countdown chips no longer show `undefinedd`, the expired streak displays zero, and authentication still succeeds.
+9. On Subjects, open “Add or remove,” verify only available MVP subjects can be added, cancel one removal, then confirm one removal and re-add it. Check that progress, papers, XP, and completed missions remain unchanged.
 
 ## General Production Configuration
 

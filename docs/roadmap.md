@@ -13,8 +13,10 @@
 | Timezone handling | Complete; application and database verification passed |
 | Core safety tests | Complete; all three tests passed |
 | Phase 2.5 Database Foundation | Applied to hosted database (Migrations 020–023) |
-| Phase 2.6 Five-Subject MVP Syllabus Content | Migration 024 applied and hosted-verified; application deployment pending |
-| Release-candidate checks | 173 database tests and 63 unit tests pass; type check and production build pass |
+| Phase 2.6 Five-Subject MVP Syllabus Content | Migration 024 and matching application deployed; initial production smoke checks completed |
+| Phase 2.7 Dashboard Statistics Hotfix | Migration 025 applied and verified on hosted Supabase; application deployment pending |
+| Phase 2.8 Subject Enrollment Management | Migration 026 applied and verified on hosted Supabase; confirmed archive UI deployment pending |
+| Release-candidate checks | 201 database tests and 68 unit tests pass; type check and production build pass |
 | Google Docs integration | Not started |
 
 ## Phase 0: Foundation (Complete)
@@ -37,7 +39,7 @@
 - [x] AS/A2 foundation, readiness calculations, and mission quality hardening complete
 
 ## Phase 2.6: Five-Subject MVP Syllabus Content & Availability (Migration 024)
-- **Status**: Migration 024 was backed up, applied, recorded, and verified on hosted Supabase on 2026-08-27. Application deployment and production UI smoke checks remain pending.
+- **Status**: Migration 024 was backed up, applied, recorded, and verified on hosted Supabase on 2026-08-27. The matching application was deployed to Vercel and initial production smoke checks completed.
 - [x] Five MVP subjects gated via `is_available = TRUE`: Mathematics 9709, Further Mathematics 9231, Physics 9702, Chemistry 9701, Computer Science 9618.
 - [x] Normalized paper catalogue (`subject_papers`), valid routes (`subject_valid_routes`), and route components (`subject_route_papers`).
 - [x] Chapter to paper assessment mapping (`chapter_papers`).
@@ -49,8 +51,32 @@
 - [x] Create and verify a pre-migration logical database backup.
 - [x] Apply Migration 024 to hosted Supabase and synchronize remote migration history.
 - [x] Run hosted schema, catalogue, and data-preservation checks (18/18 passed).
-- [ ] Run application route, paper, mission, and XP smoke checks against the hosted schema.
-- [ ] Deploy the matching application commit and run production smoke checks.
+- [x] Run application route, paper-form, mission, and XP smoke checks against the hosted schema.
+- [x] Deploy the matching application commit and run initial production smoke checks.
+
+## Phase 2.7: Dashboard Statistics Hotfix (Migration 025)
+
+- **Status**: Applied to hosted Supabase and recorded in remote migration history on 2026-08-27; hosted boundary verification passed. The matching application deployment and smoke check remain pending.
+- [x] Restore user-local `days_until` in the dashboard RPC.
+- [x] Prevent expired stored streaks from displaying as active.
+- [x] Add a defensive UI fallback for missing countdown values.
+- [x] Add database and unit regression tests.
+- [x] Back up hosted Supabase and release together with Migration 026 using the combined database-first sequence in `docs/deployment.md`.
+- [ ] Deploy the matching application hotfix and repeat production smoke checks.
+
+## Phase 2.8: Subject Enrollment Management (Migration 026)
+
+- **Status**: Applied to hosted Supabase after Migration 025 and recorded in remote migration history on 2026-08-27; all eight combined hosted boundary checks returned `true`. The matching application deployment and smoke check remain pending.
+- [x] Add only currently available MVP subjects from the Subjects page.
+- [x] Require an explicit confirmation before removing a subject.
+- [x] Archive enrollment rows and preserve progress, paper history, completed missions, routes, and XP.
+- [x] Skip pending missions for removed subjects.
+- [x] Enforce a five-active-subject maximum and retain at least one active subject.
+- [x] Restore supported archived subjects with the same enrollment ID.
+- [x] Add database and unit regression tests.
+- [x] Review and commit the hotfix branch.
+- [x] Back up hosted Supabase and apply Migrations 025–026 in order.
+- [ ] Merge the application hotfix and repeat production smoke checks.
 
 
 
