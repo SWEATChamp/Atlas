@@ -75,9 +75,10 @@ Atlas uses a focused client state island on Past Papers (`components/papers/pape
 - **Responsive Navigation Header**: Uses explicit CSS Grid areas:
   - Desktop: `logo nav user` (logo → navigation → user controls)
   - Mobile (<640px): `logo user` on row 1, full-width `nav nav` on row 2
-- **2-Tier Responsive Daily Missions**:
-  - `≤640px`: 2-tier responsive layout (Row 1: checkbox, icon, wrapped title & description; Row 2: estimated time, action button, XP badge).
-  - `>640px`: compact single-row layout (`checkbox + icon + text + actions + badge`), verified on 768px tablet and desktop viewports with zero horizontal document overflow.
+- **Container-Responsive Daily Missions**:
+  - Each mission card is an inline-size query container, so its layout follows the card's actual dashboard-column width rather than the browser viewport alone.
+  - Card width `≤640px`: flexible 2-tier layout (Row 1: checkbox, icon, wrapped title & description; Row 2: estimated time, action button, XP badge).
+  - Card width `>640px`: compact single-row layout (`checkbox + icon + text + actions + badge`). This keeps cards fluid while resizing desktop and split-screen windows as well as on tablets and phones.
 - **Mobile Touch Targets**: All interactive elements (navigation links, sign out, filter tabs, tagging buttons, paper action icons, inputs, status toggles, mission actions, route selection buttons) enforce ≥44×44px touch targets on mobile and tablet (≤768px).
 - **Zero Horizontal Overflow**: Responsive layout system (`.dashboard-main-grid`, `.subjects-grid`, `.past-papers-2col`, `.paper-card-responsive`, `.mission-card-inner`) verified at 320px, 375px, 390px, 768px, and desktop widths.
 

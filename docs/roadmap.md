@@ -115,7 +115,7 @@
 
 ## Phase 2.12 / v1.1.0: Dashboard Mobile Compatibility & Update Notifications
 - **Status**: No database migration required. Changes are prepared on `codex/dashboard-mobile-hotfix` and locally verified; review, merge, deployment, post-deployment verification, and release tagging (`v1.1.0`) remain pending.
-- [x] Responsive 2-tier Daily Missions layout on mobile viewports (≤640px) and clean single-row layout on wider viewports (>640px, including 768px and desktop), eliminating mobile horizontal overflow across 320px, 375px, 390px, 768px, and desktop widths.
+- [x] Container-responsive Daily Mission cards that use their own available width: a flexible 2-tier layout at ≤640px and a compact single row above 640px, eliminating overflow on mobile and keeping cards fluid while resizing desktop or split-screen windows.
 - [x] Enforced `minmax(0, 1fr)` and `min-width: 0` constraints across `.dashboard-main-grid` and mission card containers.
 - [x] Header logo touch target enforced at ≥44px height; "Configure {subject}" route button enforced at ≥44×44px.
 - [x] Authoritative release metadata source (`lib/version.ts`) synchronised with `package.json` (`v1.1.0`).

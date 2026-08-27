@@ -19,7 +19,7 @@ The changes below target the upcoming **v1.1.0** release (locally prepared, depl
 - 14 new unit tests covering version synchronization, release notification state and safe storage access, and mission layout component structure (112 unit tests total).
 
 ### Fixed
-- Fixed populated Dashboard mission card horizontal overflow on narrow mobile screens (320px, 375px, 390px) by implementing a responsive 2-tier card layout (≤640px) and constraining `.dashboard-main-grid` with `minmax(0, 1fr)` and `min-width: 0`.
+- Fixed Dashboard mission cards failing to reflow while a desktop or split-screen window was resized. Cards now query their own available inline size, switch to a flexible 2-tier layout at ≤640px, and retain the existing mobile overflow protections.
 - Allowed long mission titles and descriptions to wrap cleanly (`overflow-wrap: break-word`) without overflowing the document.
 - Wrapped the Daily Missions header and "Generate / Refresh" controls cleanly on narrow viewports.
 - Enforced ≥44px touch height on the header Atlas logo link.

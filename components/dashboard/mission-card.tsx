@@ -117,8 +117,9 @@ export default function MissionCard({ mission, onComplete, onUndo, onReplace, on
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <div className="mission-card-shell" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <motion.div
+        className="mission-card-surface"
         layout
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -133,6 +134,10 @@ export default function MissionCard({ mission, onComplete, onUndo, onReplace, on
           transition: 'background 300ms ease, border-color 300ms ease',
           cursor: done ? 'default' : 'pointer',
           userSelect: 'none',
+          width: '100%',
+          minWidth: 0,
+          maxWidth: '100%',
+          boxSizing: 'border-box',
         }}
         onClick={handleComplete}
         whileHover={done ? {} : { scale: 1.005, borderColor: meta.color + '60' }}
@@ -212,6 +217,7 @@ export default function MissionCard({ mission, onComplete, onUndo, onReplace, on
           {/* Action / Time / XP row */}
           <div className="mission-card-bottom">
             <div
+              className="mission-card-time"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -225,7 +231,7 @@ export default function MissionCard({ mission, onComplete, onUndo, onReplace, on
               <span>~{mission.estimated_minutes ?? 30} min</span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <div className="mission-card-actions" style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
               {!done && mission.status === 'pending' && (
                 <button
                   type="button"
@@ -277,6 +283,7 @@ export default function MissionCard({ mission, onComplete, onUndo, onReplace, on
               )}
 
               <div
+                className="mission-card-xp"
                 style={{
                   display: 'flex',
                   alignItems: 'center',

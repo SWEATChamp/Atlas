@@ -518,6 +518,21 @@ body {
 }
 
 /* ─── Mission Card Responsive Layout ────────────────────────────────────────── */
+.mission-card-shell {
+  container-name: mission-card;
+  container-type: inline-size;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.mission-card-surface {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 .mission-card-inner {
   display: flex;
   align-items: center;
@@ -537,8 +552,14 @@ body {
 .mission-card-bottom {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
   flex-shrink: 0;
+  min-width: 0;
+}
+
+.mission-card-actions {
+  min-width: 0;
 }
 
 .mission-card-title {
@@ -557,7 +578,7 @@ body {
   word-break: break-word;
 }
 
-@media (max-width: 640px) {
+@container mission-card (max-width: 640px) {
   .mission-card-inner {
     flex-direction: column;
     align-items: stretch;
@@ -575,6 +596,18 @@ body {
     border-top: 1px solid rgba(255, 255, 255, 0.05);
     padding-top: 8px;
     margin-top: 2px;
+  }
+}
+
+@container mission-card (max-width: 360px) {
+  .mission-card-bottom {
+    flex-wrap: wrap;
+  }
+
+  .mission-card-actions {
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 }
 

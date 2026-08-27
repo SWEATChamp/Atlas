@@ -25,12 +25,15 @@ describe('MissionCard Markup & Structural Responsiveness', () => {
     generated_at: '2026-08-27T00:00:00Z',
   }
 
-  it('renders responsive 2-tier card structure (.mission-card-inner, .mission-card-top, .mission-card-bottom)', () => {
+  it('renders a container-responsive card shell and 2-tier content structure', () => {
     const html = renderToStaticMarkup(React.createElement(MissionCard, { mission: pendingMission }))
 
+    expect(html).toContain('mission-card-shell')
+    expect(html).toContain('mission-card-surface')
     expect(html).toContain('mission-card-inner')
     expect(html).toContain('mission-card-top')
     expect(html).toContain('mission-card-bottom')
+    expect(html).toContain('mission-card-actions')
   })
 
   it('renders long titles and descriptions within constrained text containers', () => {
@@ -47,6 +50,8 @@ describe('MissionCard Markup & Structural Responsiveness', () => {
 
     expect(html).toContain('~45 min')
     expect(html).toContain('+100 XP')
+    expect(html).toContain('mission-card-time')
+    expect(html).toContain('mission-card-xp')
   })
 
   it('renders Replace action button for pending missions', () => {

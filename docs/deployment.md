@@ -144,7 +144,7 @@ The performance and dashboard-polish release after Migration 026 does not change
 > **Release status (2026-08-27):** Prepared and verified locally on `codex/dashboard-mobile-hotfix`. Review, merge, Vercel deployment, production verification, and release tagging remain pending. This is an application-only release: no Supabase backup, database migration, or migration-history repair is required.
 
 1. Review the v1.1.0 diff:
-   - 2-tier responsive Daily Missions layout (≤640px) in `components/dashboard/mission-card.tsx` and `app/globals.css`, and clean single-row layout on wider viewports (>640px, including 768px and desktop), eliminating mobile horizontal overflow.
+   - Container-responsive Daily Mission cards in `components/dashboard/mission-card.tsx` and `app/globals.css`: a flexible 2-tier layout when the card itself is ≤640px wide and a clean single row above 640px, including fluid desktop and split-screen resizing.
    - `minmax(0, 1fr)` and `min-width: 0` constraints on `.dashboard-main-grid`.
    - Header logo touch target (≥44px height) and "Configure {subject}" button (≥44×44px).
    - Authoritative release metadata module (`lib/version.ts`) synchronised with `package.json` at version `1.1.0`.
@@ -155,7 +155,7 @@ The performance and dashboard-polish release after Migration 026 does not change
 3. Confirm there are no changes under `supabase/migrations/` or `supabase/tests/`. Do not create or apply Migration 027.
 4. Merge the reviewed branch and allow Vercel to deploy the application release.
 5. Production smoke checks:
-   - Verify Dashboard on mobile (320px, 375px, 390px, 768px): confirm mission cards wrap cleanly with zero horizontal document overflow (`document.documentElement.scrollWidth <= document.documentElement.clientWidth`).
+   - Verify Dashboard at 320px, 375px, 390px, 768px, desktop, and a gradually narrowed desktop window: confirm mission cards reflow according to their available column width with zero horizontal document overflow (`document.documentElement.scrollWidth <= document.documentElement.clientWidth`).
    - Verify "What's New" modal appears on initial post-release visit in browser, traps focus, dismisses cleanly on Escape/Got it, and does not reappear upon page refresh.
    - Confirm mission completion, XP awards, and undo operate normally without regression.
 6. **Release Tagging (Post-Deployment)**:
