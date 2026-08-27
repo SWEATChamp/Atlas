@@ -19,8 +19,8 @@
 | Phase 2.9 Application Performance & Dashboard Polish | Application-only changes deployed |
 | Phase 2.10 Application Performance Round 2 & State Reconciliation | Application-only changes deployed to production with active Speed Insights |
 | Phase 2.11 Production Performance & Mobile Responsiveness | Merged and deployed to production (v1.0.0 baseline, commit `39427dd`) |
-| Phase 2.12 / v1.1.0 Dashboard Mobile Compatibility & Update Notifications | Application-only changes locally prepared and verified; review and deployment pending |
-| Release-candidate checks | 201 database tests and 109 unit tests pass; type check, lint, production build, and whitespace checks pass |
+| Phase 2.12 / v1.1.0 Dashboard Mobile Compatibility & Update Notifications | Deployed and production-verified on 2026-08-28 (merge commit `7071fa0`); annotated tag pending |
+| Release-candidate checks | 201 database tests and 112 unit tests pass; type check, lint, production build, and whitespace checks pass |
 | Google Docs integration | Not started |
 
 ## Phase 0: Foundation (Complete)
@@ -114,7 +114,7 @@
 - [x] Passed all 98 unit tests, type checking, lint, Turbopack production build, and whitespace checks.
 
 ## Phase 2.12 / v1.1.0: Dashboard Mobile Compatibility & Update Notifications
-- **Status**: No database migration required. Changes are prepared on `codex/dashboard-mobile-hotfix` and locally verified; review, merge, deployment, post-deployment verification, and release tagging (`v1.1.0`) remain pending.
+- **Status**: Application-only changes were merged at `7071fa0`, deployed to Vercel production, and production-verified on 2026-08-28. No database migration was required. Only the annotated `v1.1.0` Git tag remains pending explicit approval.
 - [x] Container-responsive Daily Mission cards that use their own available width: a flexible 2-tier layout at ≤640px and a compact single row above 640px, eliminating overflow on mobile and keeping cards fluid while resizing desktop or split-screen windows.
 - [x] Enforced `minmax(0, 1fr)` and `min-width: 0` constraints across `.dashboard-main-grid` and mission card containers.
 - [x] Header logo touch target enforced at ≥44px height; "Configure {subject}" route button enforced at ≥44×44px.
@@ -124,8 +124,9 @@
 - [x] Agent workflow discipline rules added to `AGENTS.md`.
 - [x] Meaningful component structure tests for MissionCard in `tests/mission-layout.test.ts`.
 - [x] Passed all 112 unit tests (including version sync, release notification logic, and mission layout markup tests), type checking, lint, Turbopack production build, and whitespace checks.
-- [ ] Review, commit, push, merge, and deploy the application release.
-- [ ] Perform production verification and create annotated release tag `v1.1.0`.
+- [x] Review, commit, push, merge, and deploy the application release.
+- [x] Verify production authentication, responsive mission layout, mission actions, version display, and latest-only update dialog.
+- [ ] Create annotated release tag `v1.1.0` after explicit approval.
 
 ## Phase 3: Past Papers & Analytics
 - Past paper logging UI

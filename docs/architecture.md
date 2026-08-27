@@ -82,10 +82,11 @@ Atlas uses a focused client state island on Past Papers (`components/papers/pape
 - **Mobile Touch Targets**: All interactive elements (navigation links, sign out, filter tabs, tagging buttons, paper action icons, inputs, status toggles, mission actions, route selection buttons) enforce ≥44×44px touch targets on mobile and tablet (≤768px).
 - **Zero Horizontal Overflow**: Responsive layout system (`.dashboard-main-grid`, `.subjects-grid`, `.past-papers-2col`, `.paper-card-responsive`, `.mission-card-inner`) verified at 320px, 375px, 390px, 768px, and desktop widths.
 
-## Release Versioning & Update Notification Architecture (v1.1.0 — Locally Prepared, Deployment Pending)
+## Release Versioning & Update Notification Architecture (v1.1.0 — Deployed and Production-Verified)
 - **Authoritative Semantic Versioning (`lib/version.ts`)**:
   - `CURRENT_RELEASE` maintains product version, title, release date, and change highlights.
   - Synchronized with `package.json` at version `1.1.0`.
+  - Release date finalized as `2026-08-28` after production smoke testing of merge commit `7071fa0`.
   - Unobtrusive semantic version indicator displayed in the authenticated application footer shell (`Atlas v1.1.0`).
 - **Latest-Only "What's New" Dialog (`components/whats-new-modal.tsx`)**:
   - Client-rendered modal overlay rendered within the authenticated application layout.

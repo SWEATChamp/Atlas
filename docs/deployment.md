@@ -141,9 +141,9 @@ The performance and dashboard-polish release after Migration 026 does not change
 
 ## Phase 2.12 / v1.1.0: Dashboard Mobile Compatibility & Update Notifications
 
-> **Release status (2026-08-27):** Prepared and verified locally on `codex/dashboard-mobile-hotfix`. Review, merge, Vercel deployment, production verification, and release tagging remain pending. This is an application-only release: no Supabase backup, database migration, or migration-history repair is required.
+> **Release status (2026-08-28):** Merged at `7071fa0`, deployed to Vercel production, and production-verified. This was an application-only release: no Supabase backup, database migration, or migration-history repair was required. The annotated `v1.1.0` Git tag remains pending explicit approval.
 
-1. Review the v1.1.0 diff:
+1. Delivered v1.1.0 scope:
    - Container-responsive Daily Mission cards in `components/dashboard/mission-card.tsx` and `app/globals.css`: a flexible 2-tier layout when the card itself is ≤640px wide and a clean single row above 640px, including fluid desktop and split-screen resizing.
    - `minmax(0, 1fr)` and `min-width: 0` constraints on `.dashboard-main-grid`.
    - Header logo touch target (≥44px height) and "Configure {subject}" button (≥44×44px).
@@ -151,15 +151,13 @@ The performance and dashboard-polish release after Migration 026 does not change
    - Visible semantic version display in application footer (`Atlas v1.1.0`).
    - Accessible latest-only "What's New" release update modal overlay (`components/whats-new-modal.tsx`) with client-safe `localStorage` dismissal persistence, focus trap, Escape key handling, and background scroll locking.
    - Agent workflow discipline rules added to `AGENTS.md`.
-2. Confirm all 112 unit tests, TypeScript type checking, ESLint, the Next.js production build, and whitespace checks pass locally.
-3. Confirm there are no changes under `supabase/migrations/` or `supabase/tests/`. Do not create or apply Migration 027.
-4. Merge the reviewed branch and allow Vercel to deploy the application release.
-5. Production smoke checks:
-   - Verify Dashboard at 320px, 375px, 390px, 768px, desktop, and a gradually narrowed desktop window: confirm mission cards reflow according to their available column width with zero horizontal document overflow (`document.documentElement.scrollWidth <= document.documentElement.clientWidth`).
-   - Verify "What's New" modal appears on initial post-release visit in browser, traps focus, dismisses cleanly on Escape/Got it, and does not reappear upon page refresh.
-   - Confirm mission completion, XP awards, and undo operate normally without regression.
-6. **Release Tagging (Post-Deployment)**:
-   After production deployment and smoke verification are complete and explicitly approved by the user, create and push the annotated Git tag:
+2. Verification record:
+   - All 112 unit tests, TypeScript type checking, ESLint, the Next.js production build, and whitespace checks passed before merge.
+   - No files under `supabase/migrations/` or `supabase/tests/` changed.
+   - Vercel production deployment completed successfully for merge commit `7071fa0`.
+   - Production smoke testing confirmed authentication, responsive mission reflow without horizontal overflow, mission completion/undo, visible `Atlas v1.1.0`, and latest-only update-dialog behavior.
+3. **Release Tagging (Remaining)**:
+   After explicit user approval, create and push the annotated Git tag from the finalized release-closeout commit:
    ```bash
    git tag -a v1.1.0 -m "v1.1.0: Dashboard mobile compatibility and update notifications"
    git push origin v1.1.0
@@ -169,5 +167,6 @@ The performance and dashboard-polish release after Migration 026 does not change
 
 - Configure Supabase authentication providers, Site URL, and allowed redirect URLs for the production domain.
 - Keep service-role keys server-only and never expose them through `NEXT_PUBLIC_*` variables.
-- Set `NEXT_PUBLIC_APP_URL` to the production origin.
+- Scope `NEXT_PUBLIC_APP_URL` by Vercel environment: use the production origin for Production and the corresponding branch origin for each Preview deployment. A branch-specific value must target Preview only.
+- Keep the Supabase Site URL on the production origin and allow each reviewed Preview callback under Authentication → URL Configuration. Redeploy the matching Preview deployment after changing Vercel environment variables; do not promote a Preview merely to refresh its configuration.
 - Enable optional analytics or scheduled jobs only when their implementation and ownership are documented.
