@@ -18,8 +18,9 @@
 | Phase 2.8 Subject Enrollment Management | Migration 026 and confirmed archive UI deployed; non-destructive smoke check passed |
 | Phase 2.9 Application Performance & Dashboard Polish | Application-only changes deployed |
 | Phase 2.10 Application Performance Round 2 & State Reconciliation | Application-only changes deployed to production with active Speed Insights |
-| Phase 2.11 Production Performance & Mobile Responsiveness | Application-only changes prepared and locally verified; review and deployment pending |
-| Release-candidate checks | 201 database tests and 98 unit tests pass; type check, lint, production build, and whitespace checks pass |
+| Phase 2.11 Production Performance & Mobile Responsiveness | Merged and deployed to production (v1.0.0 baseline, commit `39427dd`) |
+| Phase 2.12 / v1.1.0 Dashboard Mobile Compatibility & Update Notifications | Application-only changes locally prepared and verified; review and deployment pending |
+| Release-candidate checks | 201 database tests and 109 unit tests pass; type check, lint, production build, and whitespace checks pass |
 | Google Docs integration | Not started |
 
 ## Phase 0: Foundation (Complete)
@@ -58,7 +59,6 @@
 - [x] Deploy the matching application commit and run initial production smoke checks.
 
 ## Phase 2.7: Dashboard Statistics Hotfix (Migration 025)
-
 - **Status**: Applied to hosted Supabase, recorded in remote migration history, and deployed with its matching application on 2026-08-27. The countdown regression smoke check passed.
 - [x] Restore user-local `days_until` in the dashboard RPC.
 - [x] Prevent expired stored streaks from displaying as active.
@@ -68,7 +68,6 @@
 - [x] Deploy the matching application hotfix and repeat production smoke checks.
 
 ## Phase 2.8: Subject Enrollment Management (Migration 026)
-
 - **Status**: Applied to hosted Supabase after Migration 025, recorded in remote migration history, and deployed with its matching application on 2026-08-27. All eight combined hosted boundary checks returned `true`; the production confirmation/cancel path passed a non-destructive smoke check.
 - [x] Add only currently available MVP subjects from the Subjects page.
 - [x] Require an explicit confirmation before removing a subject.
@@ -82,7 +81,6 @@
 - [x] Merge the application hotfix and repeat production smoke checks.
 
 ## Phase 2.9: Application Performance & Dashboard Polish (Complete)
-
 - [x] Tolerate small browser/database clock differences when showing mission Undo.
 - [x] Correct partial exam-date warning language.
 - [x] Reuse authenticated user and profile reads within a server render.
@@ -93,7 +91,6 @@
 - [x] Pass 72 unit tests, type checking, lint, production build, and whitespace checks.
 
 ## Phase 2.10: Application Performance Round 2 & State Reconciliation
-
 - **Status**: Completed and deployed to production on 2026-08-27.
 - [x] Single-source-of-truth client-side dashboard state management (`DashboardView`) with immediate atomic mission feedback and state reconciliation across missions, XP, levels, and streaks.
 - [x] Immediate error feedback with local rollback on RPC failure, preventing UI/database desynchronization.
@@ -106,8 +103,7 @@
 - [x] Passed 85 unit tests, type checking, lint, production build, and whitespace checks.
 
 ## Phase 2.11: Production Performance & Mobile Responsiveness
-
-- **Status**: No database migration required. Changes are prepared on `codex/performance-round-3` and locally verified; review, merge, deployment, and post-deployment timing checks remain pending.
+- **Status**: Merged and deployed to production as baseline `v1.0.0` (commit `39427dd`).
 - [x] Optimistic AS/A2 paper-stage tagging with synchronous in-flight duplicate prevention (`inFlightRef`), hardened Zod input validation, row update count verification, and automatic error rollback.
 - [x] Paper card action locking during save (disables navigation, edit, delete; passes `effectiveStage ?? 'as'` to modal).
 - [x] Minimal client state island (`PaperStageProvider` & `lib/papers-state.ts`) synchronising tagging prompt and attempts list while keeping charts and page shell server-rendered.
@@ -115,12 +111,21 @@
 - [x] Streamlined Past Papers data loading on the "All" view (deriving untagged papers from full paper list to save a database query), while preserving global untagged queries on filtered views.
 - [x] Responsive navigation header with explicit CSS Grid areas (desktop: logo → nav → user; mobile: logo + user row 1, nav row 2).
 - [x] Mobile touch targets audited and compliant (≥44×44px across navigation, sign-out, filter tabs, tagging buttons, paper actions, inputs, chapter toggles).
-- [x] Comprehensive mobile responsiveness eliminating horizontal overflow at 320px, 375px, 390px, 768px, and desktop widths across Dashboard, Subjects, Subject Details, and Past Papers.
-- [x] Passed all 98 unit tests (including 13 focused paper-tagging, card-locking, input validation, and in-flight guard tests), type checking, lint, Turbopack production build, and whitespace checks.
+- [x] Passed all 98 unit tests, type checking, lint, Turbopack production build, and whitespace checks.
+
+## Phase 2.12 / v1.1.0: Dashboard Mobile Compatibility & Update Notifications
+- **Status**: No database migration required. Changes are prepared on `codex/dashboard-mobile-hotfix` and locally verified; review, merge, deployment, post-deployment verification, and release tagging (`v1.1.0`) remain pending.
+- [x] Container-responsive Daily Mission cards that use their own available width: a flexible 2-tier layout at ≤640px and a compact single row above 640px, eliminating overflow on mobile and keeping cards fluid while resizing desktop or split-screen windows.
+- [x] Enforced `minmax(0, 1fr)` and `min-width: 0` constraints across `.dashboard-main-grid` and mission card containers.
+- [x] Header logo touch target enforced at ≥44px height; "Configure {subject}" route button enforced at ≥44×44px.
+- [x] Authoritative release metadata source (`lib/version.ts`) synchronised with `package.json` (`v1.1.0`).
+- [x] Visible semantic version display in authenticated app footer (`Atlas v1.1.0`).
+- [x] Accessible latest-only "What's New" release update modal overlay (`components/whats-new-modal.tsx`) with client-safe `localStorage` dismissal tracking, focus management, focus trap, Escape key handling, and background scroll locking.
+- [x] Agent workflow discipline rules added to `AGENTS.md`.
+- [x] Meaningful component structure tests for MissionCard in `tests/mission-layout.test.ts`.
+- [x] Passed all 112 unit tests (including version sync, release notification logic, and mission layout markup tests), type checking, lint, Turbopack production build, and whitespace checks.
 - [ ] Review, commit, push, merge, and deploy the application release.
-- [ ] Record post-deployment warm timings and production Speed Insights Core Web Vitals telemetry.
-
-
+- [ ] Perform production verification and create annotated release tag `v1.1.0`.
 
 ## Phase 3: Past Papers & Analytics
 - Past paper logging UI

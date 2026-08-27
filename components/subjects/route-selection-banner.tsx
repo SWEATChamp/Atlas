@@ -67,17 +67,21 @@ export default function RouteSelectionBanner({ unconfirmedSubjects }: Props) {
           {unconfirmedSubjects.map(({ enrollment, subject }) => (
             <button
               key={enrollment.id}
+              type="button"
+              className="touch-target-btn"
               onClick={() => setActiveSubject({ enrollment, subject })}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
-                padding: '8px 14px',
+                padding: '8px 16px',
+                minHeight: 44,
+                minWidth: 44,
                 borderRadius: 'var(--radius-md)',
                 background: subject.color_hex || 'var(--primary)',
                 color: '#fff',
                 border: 'none',
-                fontSize: '0.8rem',
+                fontSize: '0.8125rem',
                 fontWeight: 600,
                 cursor: 'pointer',
                 transition: 'opacity 150ms ease',

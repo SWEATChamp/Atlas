@@ -503,15 +503,111 @@ body {
 /* ─── Dashboard Responsive Grid ─────────────────────────────────────────────── */
 .dashboard-main-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
   align-items: start;
+  width: 100%;
+  min-width: 0;
 }
 
 @media (min-width: 860px) {
   .dashboard-main-grid {
-    grid-template-columns: 1fr 280px;
+    grid-template-columns: minmax(0, 1fr) 280px;
     gap: 24px;
+  }
+}
+
+/* ─── Mission Card Responsive Layout ────────────────────────────────────────── */
+.mission-card-shell {
+  container-name: mission-card;
+  container-type: inline-size;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.mission-card-surface {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.mission-card-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.mission-card-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mission-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.mission-card-actions {
+  min-width: 0;
+}
+
+.mission-card-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  transition: color 200ms;
+}
+
+.mission-card-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+@container mission-card (max-width: 640px) {
+  .mission-card-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .mission-card-top {
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .mission-card-bottom {
+    justify-content: space-between;
+    width: 100%;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 8px;
+    margin-top: 2px;
+  }
+}
+
+@container mission-card (max-width: 360px) {
+  .mission-card-bottom {
+    flex-wrap: wrap;
+  }
+
+  .mission-card-actions {
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 }
 
