@@ -88,7 +88,7 @@ describe('Mission Completion and Undo Breakdown Formatting', () => {
       daily_bonus_xp: 25,
       achievement_xp: 10,
       streak_bonus_xp: 150,
-    } as any
+    } as CompleteMissionResult
 
     expect(calculateCompletionTotalXp(result)).toBe(225)
   })

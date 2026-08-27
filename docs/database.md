@@ -265,7 +265,7 @@ Authored in `supabase/migrations/20260826000023_mission_quality.sql`. Rollback-o
 
 ## Five-Subject MVP Syllabus Content & Availability (Migration 024) — Prepared, Pending Hosted Review
 
-Authored in `supabase/migrations/20260826000024_mvp_syllabus_content.sql`. Rollback-only tests are defined in `supabase/tests/database/mvp_syllabus_content.test.sql` (67 tests across 10 sections; 172 database tests total across 7 test suites). Status: **Migration 024 is prepared and locally verified; hosted application pending review.**
+Authored in `supabase/migrations/20260826000024_mvp_syllabus_content.sql`. Rollback-only tests are defined in `supabase/tests/database/mvp_syllabus_content.test.sql` (68 tests across 10 sections; 173 database tests total across 7 test suites). Status: **Migration 024 is prepared and locally verified; hosted application pending review.**
 
 ### Schema & Structural Additions
 

@@ -13,7 +13,8 @@
 | Timezone handling | Complete; application and database verification passed |
 | Core safety tests | Complete; all three tests passed |
 | Phase 2.5 Database Foundation | Applied to hosted database (Migrations 020–023) |
-| Phase 2.6 Five-Subject MVP Syllabus Content | Migration 024 is prepared and locally verified; hosted application pending review |
+| Phase 2.6 Five-Subject MVP Syllabus Content | Release candidate under review; Migration 024 is locally verified and not hosted |
+| Release-candidate checks | 173 database tests and 63 unit tests pass; type check and production build pass |
 | Google Docs integration | Not started |
 
 ## Phase 0: Foundation (Complete)
@@ -36,7 +37,7 @@
 - [x] AS/A2 foundation, readiness calculations, and mission quality hardening complete
 
 ## Phase 2.6: Five-Subject MVP Syllabus Content & Availability (Migration 024)
-- **Status**: Migration 024 is prepared and locally verified; hosted application pending review.
+- **Status**: Release candidate under review. Migration 024 is prepared and locally verified but has not been applied to hosted Supabase. Application deployment must follow the hosted migration and production verification.
 - [x] Five MVP subjects gated via `is_available = TRUE`: Mathematics 9709, Further Mathematics 9231, Physics 9702, Chemistry 9701, Computer Science 9618.
 - [x] Normalized paper catalogue (`subject_papers`), valid routes (`subject_valid_routes`), and route components (`subject_route_papers`).
 - [x] Chapter to paper assessment mapping (`chapter_papers`).
@@ -44,6 +45,11 @@
 - [x] Complete 37-topic Chemistry 9701, 25-topic Physics 9702, 38-chapter Maths 9709, 24-chapter Further Maths 9231, and 20-chapter CS 9618 models.
 - [x] Database triggers protecting past-paper and route-selection integrity at the schema boundary.
 - [x] `daily_missions.subject_paper_id` component persistence across generation and replacement.
+- [x] Further Mathematics route setup and fixed-route paper summaries handled consistently in onboarding and subject settings.
+- [ ] Confirm a current hosted-database recovery point.
+- [ ] Apply Migration 024 to hosted Supabase after review approval.
+- [ ] Run hosted schema, data-preservation, route, and mission smoke checks.
+- [ ] Deploy the matching application commit and run production smoke checks.
 
 
 

@@ -7,21 +7,31 @@ import type { ComponentGroup } from '@/lib/actions/subjects'
 import type { SubjectPaperSelection } from '@/types'
 
 interface Props {
-  subjectId: string
-  isMaths: boolean
+  hasElectiveComponents: boolean
   groups: ComponentGroup[]
   subjectColor: string
   paperSelections?: SubjectPaperSelection[]
 }
 
+export function filterComponentGroups(
+  groups: ComponentGroup[],
+  selectedComponentNames: string[] | null,
+  hasElectiveComponents: boolean,
+  filterMode: 'selected' | 'all'
+): ComponentGroup[] {
+  if (!hasElectiveComponents || filterMode === 'all' || !selectedComponentNames?.length) {
+    return groups
+  }
+  return groups.filter((group) => selectedComponentNames.includes(group.name))
+}
+
 export default function ChapterGroups({
-  subjectId,
-  isMaths,
+  hasElectiveComponents,
   groups,
   subjectColor,
   paperSelections = [],
 }: Props) {
-  // If the student has chosen paper selections for Maths in the database,
+  // If the student has chosen an elective paper route in the database,
   // we default to showing their selected components, with a toggle to view all.
   const [filterMode, setFilterMode] = useState<'selected' | 'all'>('selected')
 
@@ -31,20 +41,13 @@ export default function ChapterGroups({
   }, [paperSelections])
 
   const filteredGroups = useMemo(() => {
-    if (isMaths && filterMode === 'selected' && selectedComponentNames?.length) {
-      return groups.filter((g) =>
-        selectedComponentNames.includes(g.name) ||
-        g.name === 'Pure 1' ||
-        g.name === 'Pure 3'
-      )
-    }
-    return groups
-  }, [groups, isMaths, filterMode, selectedComponentNames])
+    return filterComponentGroups(groups, selectedComponentNames, hasElectiveComponents, filterMode)
+  }, [groups, hasElectiveComponents, filterMode, selectedComponentNames])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* View filter toggle for Maths if paper selections are configured */}
-      {isMaths && selectedComponentNames && selectedComponentNames.length > 0 && (
+      {/* View filter toggle for subjects with elective paper components. */}
+      {hasElectiveComponents && selectedComponentNames && selectedComponentNames.length > 0 && (
         <div
           style={{
             display: 'flex',
@@ -161,6 +164,7 @@ export default function ChapterGroups({
                       }}
                     >
                       <ChapterRow
+                        key={`${cws.chapter.id}:${cws.userChapter?.notes_status ?? 'none'}:${cws.userChapter?.confidence_level ?? 'unset'}`}
                         chapter={cws.chapter}
                         userChapter={cws.userChapter}
                         avgScore={cws.avgScore}

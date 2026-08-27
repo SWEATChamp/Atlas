@@ -232,7 +232,7 @@ export function LogPaperModal({
   }
 }) {
   const isEditing = !!existingPaperId
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const localToday = dateInTimeZone(new Date(), timeZone)
   const currentYear = Number(localToday.slice(0, 4))
   const currentMonth = Number(localToday.slice(5, 7))
@@ -287,7 +287,7 @@ export function LogPaperModal({
       }
     }
     load()
-  }, [])
+  }, [isEditing, supabase])
 
   // In edit mode, load existing questions
   useEffect(() => {
@@ -314,7 +314,7 @@ export function LogPaperModal({
       setQuestionsLoading(false)
     }
     loadQuestions()
-  }, [existingPaperId, isEditing])
+  }, [existingPaperId, isEditing, supabase])
 
   // Fetch chapters, subject_papers, and chapter_papers when subject changes
   useEffect(() => {
@@ -388,7 +388,7 @@ export function LogPaperModal({
       }
     }
     load()
-  }, [subjectId, enrollments, isEditing, existingPaper])
+  }, [subjectId, enrollments, isEditing, existingPaper, subjects, supabase])
 
   // Current subject check
   const activeSubject = subjects.find(s => s.id === subjectId)

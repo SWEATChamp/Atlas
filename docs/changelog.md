@@ -68,10 +68,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced inconsistent application-side readiness calculation with database-level single source of truth.
 - Prevented unconfirmed and inaccessible subject chapters from generating daily missions.
 - Tightened `carry_forward = TRUE` constraint to require both `stage = 'as'` and `result_type = 'actual'`.
+- Corrected onboarding and subject settings so Further Mathematics requires a valid paper route and fixed-route subjects receive their canonical paper selections.
+- Replaced decorative gradients, glows, emoji icons, colour dots, and unnecessary card groups with a restrained neutral interface and one shared action accent.
+- Reconciled Migration 024 acceptance counts to 68 migration-specific and 173 total database tests.
 
 ### Known Issues & MVP Limitations
 - Mission undo in MVP reverses XP, daily bonus, and attempt-linked achievements, but does not modify streaks or `last_reviewed_at` timestamps.
 - Non-MVP subjects (such as Biology 9700) are flagged as unavailable (`is_available = FALSE`) for new onboarding while preserving grandfathered enrolments.
+- Current release-candidate verification: 173 database tests and 63 unit tests pass, as do type checking, production build, and whitespace checks. Lint has zero errors and one non-blocking Next.js warning for the existing external font stylesheet.
 
 
 ## [0.1.0] - Initial Commit

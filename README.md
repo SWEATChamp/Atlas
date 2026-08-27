@@ -9,30 +9,31 @@ This project is an early MVP intended for a small private pilot.
 Available now:
 
 - Google sign-in and guided onboarding
-- Subject enrolment, target grades, and editable exam dates
-- Chapter notes and confidence tracking
-- Past-paper and question-level result logging
-- Readiness, XP, levels, and streaks
-- Daily mission interface
+- Subject enrolment, target grades, editable exam dates, and AS/A2 study routes
+- Chapter notes, confidence tracking, and route-aware chapter access
+- Component-aware past-paper and question-level result logging
+- Separate AS/A2 readiness, XP, levels, streaks, mission completion, and undo
+- Realistic daily mission generation with workload and variety limits
 
-Known limitations:
+Release status and known limitations:
 
-- Mission generation currently has a date-calculation error.
-- Readiness is not yet separated into AS and A2 stages.
-- The subject page and dashboard currently calculate readiness differently.
-- Biology and Computer Science chapter data is not yet seeded.
+- Migrations 020–023 are applied to hosted Supabase.
+- Migration 024, which enables the five-subject syllabus catalogue, is prepared and fully verified locally but is not yet applied to hosted Supabase.
+- The five-subject release must be reviewed, backed up, migrated, verified, and then deployed in that order.
+- Mission undo reverses XP-related effects but intentionally leaves streak and chapter review timestamps unchanged in the MVP.
+- Google Docs integration has not started.
 
 See [the roadmap](docs/roadmap.md) for the current plan.
 
-## Planned study structure
+## Current study structure
 
-Each enrolled subject will support one of three routes:
+Each supported subject uses one of three routes:
 
 - AS only
 - Staged A Level: AS followed by A2
 - Full A Level in one examination session
 
-Atlas will show separate AS and A2 readiness values. Students following the staged route will be able to record an expected, forecast, or actual AS score for an overall A-Level projection. This work is designed but not yet implemented.
+Atlas shows separate AS and A2 readiness values. The current five-subject MVP catalogue is Mathematics 9709, Further Mathematics 9231, Physics 9702, Chemistry 9701, and Computer Science 9618. In this platform, “Additional Mathematics” means Further Mathematics 9231, never IGCSE 0606 or O Level 4037.
 
 ## Technology
 
@@ -61,13 +62,14 @@ npm install
 cp .env.local.example .env.local
 ```
 
-Add your local credentials to `.env.local`, then apply the database migrations:
+Add your local credentials to `.env.local`, then start and initialise the local database:
 
 ```bash
-supabase login
-supabase link --project-ref YOUR_PROJECT_REF
-supabase db push
+npx supabase start
+npx supabase db reset
 ```
+
+`db reset` deletes and recreates the local database. Production releases follow the reviewed database-first process in [the deployment guide](docs/deployment.md); do not point local setup commands at hosted Supabase.
 
 Start the development server:
 
@@ -99,6 +101,8 @@ Never commit `.env.local` or any real credentials.
 npm run dev    # Start local development
 npm run build  # Create and check a production build
 npm run lint   # Run code checks
+npm test       # Run unit tests
+npm run test:db # Run local database tests
 npm run start  # Run the production build locally
 ```
 

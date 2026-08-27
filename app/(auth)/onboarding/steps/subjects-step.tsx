@@ -21,8 +21,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
 }
 
 function SubjectIcon({ name, color }: { name: string; color: string }) {
-  const Icon = ICON_MAP[name]
-  if (!Icon) return <span style={{ fontSize: '1rem' }}>📚</span>
+  const Icon = ICON_MAP[name] ?? BookOpen
   return <Icon size={18} color={color} strokeWidth={2} />
 }
 
@@ -139,17 +138,16 @@ export default function SubjectsStep({ onNext }: Props) {
                 key={subject.id}
                 type="button"
                 onClick={() => toggle(subject.id)}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.96 }}
+                whileTap={{ scale: 0.98 }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 10,
                   padding: '12px 14px',
                   borderRadius: 'var(--radius-md)',
-                  border: `1px solid ${isSelected ? subject.color_hex : 'var(--border-subtle)'}`,
+                  border: `1px solid ${isSelected ? 'var(--border-accent)' : 'var(--border-subtle)'}`,
                   background: isSelected
-                    ? `${subject.color_hex}18`
+                    ? 'var(--accent-soft)'
                     : 'var(--bg-overlay)',
                   cursor: 'pointer',
                   transition: 'all 150ms ease',
@@ -157,12 +155,12 @@ export default function SubjectsStep({ onNext }: Props) {
                   position: 'relative',
                 }}
               >
-                <SubjectIcon name={subject.icon} color={isSelected ? subject.color_hex : 'var(--text-muted)'} />
+                <SubjectIcon name={subject.icon} color={subject.color_hex || 'var(--text-muted)'} />
                 <span
                   style={{
                     fontSize: '0.8125rem',
                     fontWeight: 500,
-                    color: isSelected ? subject.color_hex : 'var(--text-secondary)',
+                    color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
                     flex: 1,
                     fontFamily: 'var(--font-sans)',
                   }}
@@ -173,7 +171,7 @@ export default function SubjectsStep({ onNext }: Props) {
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    style={{ color: subject.color_hex }}
+                    style={{ color: 'var(--accent-primary)' }}
                   >
                     <Check size={14} />
                   </motion.span>
@@ -189,7 +187,7 @@ export default function SubjectsStep({ onNext }: Props) {
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          style={{ fontSize: '0.8125rem', color: 'var(--accent-secondary)', textAlign: 'center' }}
+          style={{ fontSize: '0.8125rem', color: 'var(--accent-primary)', textAlign: 'center' }}
         >
           {selected.length} subject{selected.length !== 1 ? 's' : ''} selected
         </motion.p>

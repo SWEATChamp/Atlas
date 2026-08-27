@@ -526,9 +526,9 @@ Groups all low-cost, high-priority column additions and fixes that are needed fo
 
 ## Migration History Status (As of 2026-08-27)
 
-- **Migrations 000–023**: Fully applied and verified against hosted Supabase production and staging.
-- **Migration 024 (`20260826000024_mvp_syllabus_content.sql`)**: Prepared, hardened, and verified locally across 172 database tests (67 in `mvp_syllabus_content.test.sql`) and 59 frontend tests. Hosted application pending user review.
+- **Migrations 000–023**: Applied and verified against the hosted Supabase project.
+- **Migration 024 (`20260826000024_mvp_syllabus_content.sql`)**: Prepared, hardened, and verified locally across 173 database tests (68 in `mvp_syllabus_content.test.sql`). Hosted application pending user review.
 
 ---
 
-*Audit complete. The schema is production-quality for an MVP.*
+*Audit complete. The release candidate is locally verified for the MVP scope; production readiness still depends on backup confirmation, hosted Migration 024 verification, and application smoke testing.*

@@ -31,30 +31,23 @@ const MISSION_META: Record<DailyMission['type'], {
 export default function MissionCard({ mission, onComplete, onUndo, onReplace, onError }: MissionCardProps) {
   const [done, setDone] = useState(mission.status === 'completed')
   const [completedAt, setCompletedAt] = useState<string | null>(mission.completed_at)
-  const [canUndo, setCanUndo] = useState(false)
+  const [canUndo, setCanUndo] = useState(() => {
+    if (mission.status !== 'completed' || !mission.completed_at) return false
+    const elapsed = Date.now() - new Date(mission.completed_at).getTime()
+    return elapsed >= 0 && elapsed <= 10 * 60 * 1000
+  })
   const [cardError, setCardError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [isReplacing, startReplaceTransition] = useTransition()
   const meta = MISSION_META[mission.type]
 
-  // Check if completion is within 10 minutes
+  // Close the undo window ten minutes after completion.
   useEffect(() => {
-    if (!done || !completedAt) {
-      setCanUndo(false)
-      return
-    }
-
-    const checkWindow = () => {
-      const completedTime = new Date(completedAt).getTime()
-      const now = Date.now()
-      const diffMins = (now - completedTime) / (1000 * 60)
-      setCanUndo(diffMins >= 0 && diffMins <= 10)
-    }
-
-    checkWindow()
-    const interval = setInterval(checkWindow, 15000)
-    return () => clearInterval(interval)
-  }, [done, completedAt])
+    if (!done || !completedAt || !canUndo) return
+    const remainingMs = new Date(completedAt).getTime() + 10 * 60 * 1000 - Date.now()
+    const timeout = setTimeout(() => setCanUndo(false), Math.max(remainingMs, 0))
+    return () => clearTimeout(timeout)
+  }, [done, completedAt, canUndo])
 
   const handleComplete = () => {
     if (done || isPending || isReplacing) return
@@ -62,12 +55,14 @@ export default function MissionCard({ mission, onComplete, onUndo, onReplace, on
     setDone(true) // optimistic
     const nowIso = new Date().toISOString()
     setCompletedAt(nowIso)
+    setCanUndo(true)
 
     startTransition(async () => {
       const { result, error } = await completeMission(mission.id)
       if (error) {
         setDone(false)
         setCompletedAt(null)
+        setCanUndo(false)
         setCardError(error)
         onError?.(`Completion failed: ${error}`)
         return
@@ -90,6 +85,7 @@ export default function MissionCard({ mission, onComplete, onUndo, onReplace, on
       }
       setDone(false)
       setCompletedAt(null)
+      setCanUndo(false)
       onUndo?.(mission.id, result!)
     })
   }

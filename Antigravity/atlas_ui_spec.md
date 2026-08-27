@@ -4,6 +4,9 @@
 > [!NOTE]
 > **Historical Document (Archived)**: This document reflects early design notes prior to Migrations 020–024. For current schema, business logic, and API contracts, consult `docs/` and `supabase/migrations/`.
 
+> [!IMPORTANT]
+> **Current UI direction (August 2026)**: The visual rules below are archival and must not drive new work. The implemented interface uses neutral dark surfaces, one muted-blue action accent, solid fills, Lucide icons, restrained motion, and cards only for independently actionable or meaningfully grouped content. Subject colours may identify subjects or chart series, but must not become multicoloured navigation. Do not add decorative gradients, glow effects, emoji UI icons, nested cards, or unlabeled status dots. The current source of truth is `app/globals.css` and the Interface Direction section of `docs/architecture.md`.
+
 > **Design Language**: Linear × Apple Fitness × Duolingo × Arc Browser  
 > Dark Mode First · Mission Control Aesthetic · Premium SaaS
 

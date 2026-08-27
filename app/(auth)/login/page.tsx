@@ -71,14 +71,14 @@ export default function LoginPage() {
       }}
     >
       <motion.div
-        initial={{ opacity: 0, y: 24 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
         className="glass-strong"
         style={{
           width: '100%',
           maxWidth: 420,
-          borderRadius: 'var(--radius-xl)',
+          borderRadius: 'var(--radius-lg)',
           padding: '48px 40px',
           display: 'flex',
           flexDirection: 'column',
@@ -88,19 +88,18 @@ export default function LoginPage() {
       >
         {/* Logo */}
         <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.1, duration: 0.4, ease: [0.34, 1.56, 0.64, 1] }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.1, duration: 0.3 }}
           style={{
             width: 64,
             height: 64,
-            borderRadius: 'var(--radius-lg)',
-            background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))',
+            borderRadius: 'var(--radius-md)',
+            background: 'var(--accent-strong)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             marginBottom: 24,
-            boxShadow: '0 8px 32px var(--accent-glow)',
             fontSize: 28,
             fontWeight: 800,
             color: '#fff',

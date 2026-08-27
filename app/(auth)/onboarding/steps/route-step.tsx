@@ -6,9 +6,10 @@ import { Loader2, BookOpen, Layers, Award } from 'lucide-react'
 import { setStudyRoutes, completeOnboarding } from '@/lib/actions/onboarding'
 import { createClient } from '@/lib/supabase/client'
 import PaperSelectionPanel, {
-  getMathsCombinations,
-  matchSavedMathsCombination,
-  remapMathsSelectionsOnRouteChange,
+  getSubjectCombinations,
+  isElectiveSubject,
+  matchSavedCombination,
+  remapSelectionsOnRouteChange,
 } from '@/components/subjects/paper-selection-panel'
 import type { UserSubjectWithSubject, StudyRoute, PaperSelectionInput } from '@/types'
 
@@ -80,15 +81,18 @@ export default function RouteStep({ subjectIds }: { subjectIds: string[] }) {
               ? r.study_route
               : 'staged'
 
-          const isMaths = r.subjects.code === '9709'
-          const defaultMathsSelections = isMaths && r.subject_paper_selections
-            ? matchSavedMathsCombination(defaultRoute, r.subject_paper_selections)?.selections ?? []
-            : []
+          const subjectCode = r.subjects.code
+          const savedSelections = r.subject_paper_selections ?? []
+          const savedMatch = matchSavedCombination(subjectCode, defaultRoute, savedSelections)
+          const defaultSelections = savedMatch?.selections
+            ?? (isElectiveSubject(subjectCode)
+              ? []
+              : getSubjectCombinations(subjectCode, defaultRoute)[0]?.selections ?? [])
 
           initial[r.subject_id] = {
             subjectId: r.subject_id,
             route: defaultRoute,
-            paperSelections: defaultMathsSelections,
+            paperSelections: defaultSelections,
           }
         })
         setEntries(initial)
@@ -98,13 +102,9 @@ export default function RouteStep({ subjectIds }: { subjectIds: string[] }) {
   }, [subjectIds])
 
   const handleRouteChange = (subjectId: string, route: StudyRoute, subjectCode?: string | null) => {
-    const isMaths = subjectCode === '9709'
-    let selections: PaperSelectionInput[] = []
-    if (isMaths) {
-      const prevRoute = entries[subjectId]?.route ?? 'unconfirmed'
-      const current = entries[subjectId]?.paperSelections ?? []
-      selections = remapMathsSelectionsOnRouteChange(prevRoute, route, current)
-    }
+    const prevRoute = entries[subjectId]?.route ?? 'unconfirmed'
+    const current = entries[subjectId]?.paperSelections ?? []
+    const selections = remapSelectionsOnRouteChange(subjectCode, prevRoute, route, current)
 
     setEntries((prev) => ({
       ...prev,
@@ -126,20 +126,22 @@ export default function RouteStep({ subjectIds }: { subjectIds: string[] }) {
     }))
   }
 
-  const hasMathsWithoutSelection = userSubjects.some((us) => {
-    if (us.subjects.code === '9709') {
+  const electiveWithoutSelection = userSubjects.find((us) => {
+    if (isElectiveSubject(us.subjects.code)) {
       const entry = entries[us.subject_id]
       if (!entry) return true
-      const match = matchSavedMathsCombination(entry.route, entry.paperSelections)
+      const match = matchSavedCombination(us.subjects.code, entry.route, entry.paperSelections)
       return !match
     }
     return false
   })
 
+  const hasElectiveWithoutSelection = Boolean(electiveWithoutSelection)
+
   const handleSubmit = async () => {
     setError('')
-    if (hasMathsWithoutSelection) {
-      setError('Please choose a paper combination for Mathematics before continuing.')
+    if (electiveWithoutSelection) {
+      setError(`Please choose a paper combination for ${electiveWithoutSelection.subjects.name} before continuing.`)
       return
     }
 
@@ -185,7 +187,7 @@ export default function RouteStep({ subjectIds }: { subjectIds: string[] }) {
             route: 'staged',
             paperSelections: [],
           }
-          const isMaths = subject.code === '9709'
+          const hasPaperConfiguration = getSubjectCombinations(subject.code, entry.route).length > 0
 
           return (
             <motion.div
@@ -203,17 +205,8 @@ export default function RouteStep({ subjectIds }: { subjectIds: string[] }) {
                 border: `1px solid ${subject.color_hex}30`,
               }}
             >
-              {/* Subject Title */}
+              {/* Subject title */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div
-                  style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: '50%',
-                    background: subject.color_hex,
-                    flexShrink: 0,
-                  }}
-                />
                 <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                   {subject.name} {subject.code ? `(${subject.code})` : ''}
                 </span>
@@ -231,8 +224,8 @@ export default function RouteStep({ subjectIds }: { subjectIds: string[] }) {
                       style={{
                         padding: '10px 12px',
                         borderRadius: 'var(--radius-md)',
-                        border: `1.5px solid ${isSelected ? subject.color_hex : 'var(--border-subtle)'}`,
-                        background: isSelected ? `${subject.color_hex}15` : 'var(--bg-base)',
+                        border: `1.5px solid ${isSelected ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
+                        background: isSelected ? 'var(--accent-soft)' : 'var(--bg-base)',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
@@ -245,11 +238,11 @@ export default function RouteStep({ subjectIds }: { subjectIds: string[] }) {
                           width: 28,
                           height: 28,
                           borderRadius: 'var(--radius-sm)',
-                          background: isSelected ? `${subject.color_hex}25` : 'var(--bg-overlay)',
+                          background: isSelected ? 'var(--accent-soft)' : 'var(--bg-overlay)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          color: isSelected ? subject.color_hex : 'var(--text-muted)',
+                          color: isSelected ? 'var(--accent-primary)' : 'var(--text-muted)',
                           flexShrink: 0,
                         }}
                       >
@@ -270,8 +263,8 @@ export default function RouteStep({ subjectIds }: { subjectIds: string[] }) {
                 })}
               </div>
 
-              {/* Paper Selection (Maths) */}
-              {isMaths && (
+              {/* Official paper configuration */}
+              {hasPaperConfiguration && (
                 <PaperSelectionPanel
                   subjectCode={subject.code}
                   route={entry.route}
@@ -297,23 +290,23 @@ export default function RouteStep({ subjectIds }: { subjectIds: string[] }) {
       <motion.button
         type="button"
         onClick={handleSubmit}
-        disabled={submitting || hasMathsWithoutSelection}
+        disabled={submitting || hasElectiveWithoutSelection}
         className="btn btn-primary"
-        whileHover={hasMathsWithoutSelection ? {} : { scale: 1.02, y: -1 }}
-        whileTap={hasMathsWithoutSelection ? {} : { scale: 0.97 }}
+        whileHover={hasElectiveWithoutSelection ? {} : { y: -1 }}
+        whileTap={hasElectiveWithoutSelection ? {} : { scale: 0.98 }}
         style={{
           width: '100%',
           height: 52,
           fontSize: '1rem',
           marginTop: 4,
-          opacity: hasMathsWithoutSelection ? 0.6 : 1,
-          cursor: hasMathsWithoutSelection ? 'not-allowed' : 'pointer',
+          opacity: hasElectiveWithoutSelection ? 0.6 : 1,
+          cursor: hasElectiveWithoutSelection ? 'not-allowed' : 'pointer',
         }}
       >
         {submitting ? (
           <Loader2 size={18} style={{ animation: 'spin 0.8s linear infinite' }} />
         ) : (
-          '🚀  Launch Atlas'
+          'Start using Atlas'
         )}
       </motion.button>
 

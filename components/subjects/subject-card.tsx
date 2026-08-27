@@ -68,32 +68,17 @@ export default function SubjectCard({ data }: { data: SubjectWithProgress }) {
       style={{ textDecoration: 'none', display: 'block' }}
     >
       <div
+        className="card card-interactive"
         style={{
-          background: 'var(--bg-card)',
-          border: `1px solid var(--border-subtle)`,
-          borderRadius: 'var(--radius-lg)',
           overflow: 'hidden',
-          transition: 'border-color 200ms ease, transform 200ms ease, box-shadow 200ms ease',
           cursor: 'pointer',
-        }}
-        onMouseEnter={(e) => {
-          const el = e.currentTarget
-          el.style.borderColor = `${subject.color_hex}50`
-          el.style.transform = 'translateY(-3px)'
-          el.style.boxShadow = `0 8px 32px ${subject.color_hex}18`
-        }}
-        onMouseLeave={(e) => {
-          const el = e.currentTarget
-          el.style.borderColor = 'var(--border-subtle)'
-          el.style.transform = 'translateY(0)'
-          el.style.boxShadow = 'none'
         }}
       >
         {/* Colour accent bar */}
         <div
           style={{
             height: 4,
-            background: `linear-gradient(90deg, ${subject.color_hex}, ${subject.color_hex}80)`,
+            background: subject.color_hex,
           }}
         />
 

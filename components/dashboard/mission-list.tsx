@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Zap, PartyPopper, RefreshCw, Calendar, BookOpen, AlertCircle, RotateCcw, Clock } from 'lucide-react'
@@ -63,11 +63,6 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
   const [missions, setMissions]     = useState<DailyMission[]>(initialMissions)
   const [toasts, setToasts]         = useState<XpToast[]>([])
   const [generating, setGenerating] = useState(false)
-  const [genError, setGenError]     = useState<string | null>(null)
-
-  useEffect(() => {
-    setMissions(initialMissions)
-  }, [initialMissions])
 
   const activeMissions = missions.filter(m => m.status !== 'skipped')
   const completedCount = activeMissions.filter(m => m.status === 'completed').length
@@ -152,10 +147,8 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
 
   const handleGenerate = async () => {
     setGenerating(true)
-    setGenError(null)
     const { error } = await generateMissions()
     if (error) {
-      setGenError(error)
       handleError(`Generation failed: ${error}`)
       setGenerating(false)
       return
@@ -197,8 +190,8 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
             gap: 10,
             padding: '10px 14px',
             borderRadius: 'var(--radius-md)',
-            background: 'rgba(124,109,250,0.08)',
-            border: '1px solid rgba(124,109,250,0.15)',
+            background: 'var(--accent-soft)',
+            border: '1px solid var(--border-accent)',
           }}>
             <BookOpen size={15} color="var(--accent-primary)" style={{ flexShrink: 0, marginTop: 1 }} />
             <div>
@@ -229,7 +222,7 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
               transition={{ type: 'spring', stiffness: 400, damping: 25 }}
               style={{
                 background: t.levelUp
-                  ? 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))'
+                  ? 'var(--accent-strong)'
                   : t.type === 'error'
                   ? 'rgba(239, 68, 68, 0.92)'
                   : 'var(--bg-card)',
@@ -242,7 +235,7 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
                 color: t.levelUp || t.type === 'error' ? '#fff' : 'var(--text-primary)',
                 fontSize: '0.875rem',
                 fontWeight: 700,
-                boxShadow: t.levelUp ? '0 0 20px rgba(124,109,250,0.4)' : 'var(--shadow-md)',
+                boxShadow: 'var(--shadow-md)',
                 pointerEvents: 'none',
               }}
             >
@@ -354,8 +347,8 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
             animate={{ opacity: 1, height: 'auto', marginBottom: 16 }}
             exit={{ opacity: 0, height: 0, marginBottom: 0 }}
             style={{
-              background: 'linear-gradient(135deg, rgba(124,109,250,0.12), rgba(56,217,245,0.08))',
-              border: '1px solid rgba(124,109,250,0.25)',
+              background: 'var(--accent-soft)',
+              border: '1px solid var(--border-accent)',
               borderRadius: 'var(--radius-md)',
               padding: '12px 16px',
               display: 'flex',
@@ -366,7 +359,7 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
             <PartyPopper size={20} color="var(--accent-primary)" style={{ flexShrink: 0 }} />
             <div>
               <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                All missions complete for today! 🎉
+                All missions complete for today
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 1 }}>
                 Great work! Missions refresh tomorrow, or attempt a past paper for bonus XP.

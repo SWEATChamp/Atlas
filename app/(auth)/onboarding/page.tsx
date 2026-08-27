@@ -35,10 +35,8 @@ function StepIndicator({ current }: { current: number }) {
           <motion.div
             animate={{
               background:
-                step.id < current
-                  ? 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))'
-                  : step.id === current
-                  ? 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))'
+                step.id <= current
+                  ? 'var(--accent-strong)'
                   : 'var(--bg-overlay)',
               borderColor:
                 step.id <= current ? 'var(--accent-primary)' : 'var(--border-subtle)',

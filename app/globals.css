@@ -4,41 +4,45 @@
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    ATLAS DESIGN SYSTEM
-   Dark-first. Inspired by Linear × Apple Fitness × Arc Browser.
-   8px base grid. CSS custom properties for all tokens.
+   Calm, academic, and deliberately restrained. Colour communicates action or
+   state; typography, spacing, and surface levels carry the hierarchy.
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 /* ─── Design Tokens ─────────────────────────────────────────────────────────── */
 :root {
   /* Surfaces */
-  --bg-base:       #08080f;
-  --bg-elevated:   #0f0f1a;
-  --bg-overlay:    #15152a;
-  --bg-card:       #1a1a2e;
-  --bg-hover:      #1e1e38;
-  --bg-active:     #252545;
+  --bg-base:       #101216;
+  --bg-elevated:   #15181d;
+  --bg-overlay:    #1a1e24;
+  --bg-card:       #1d2229;
+  --bg-hover:      #232931;
+  --bg-active:     #29323c;
 
   /* Borders */
-  --border-subtle: rgba(255,255,255,0.06);
-  --border-muted:  rgba(255,255,255,0.10);
-  --border-strong: rgba(255,255,255,0.18);
+  --border-subtle: #292f37;
+  --border-muted:  #343c46;
+  --border-strong: #46515e;
 
   /* Text */
-  --text-primary:   #f0f0ff;
-  --text-secondary: #9090b8;
-  --text-muted:     #5a5a80;
-  --text-disabled:  #3a3a55;
+  --text-primary:   #f1eee8;
+  --text-secondary: #b2b8c0;
+  --text-muted:     #7d8691;
+  --text-disabled:  #555e69;
 
   /* Brand / Accent */
-  --accent-primary:  #7c6dfa;
-  --accent-secondary:#a78bfa;
-  --accent-glow:     rgba(124, 109, 250, 0.25);
+  --accent-primary:  #7f9fbe;
+  --accent-secondary:#7f9fbe;
+  --accent-strong:   #4c7094;
+  --accent-soft:     rgba(127, 159, 190, 0.12);
+  --accent-glow:     rgba(127, 159, 190, 0.18);
+  --primary:         var(--accent-primary);
+  --primary-subtle:  var(--accent-soft);
 
   /* Status */
-  --success:  #34d399;
-  --warning:  #fbbf24;
-  --danger:   #f87171;
-  --info:     #60a5fa;
+  --success:  #79a98b;
+  --warning:  #c4a05d;
+  --danger:   #c77b7b;
+  --info:     #7f9fbe;
 
   /* Subject Colours (from seed data) */
   --subject-math:    #3b82f6;
@@ -53,8 +57,8 @@
   --subject-geog:    #4ade80;
 
   /* XP / Level */
-  --xp-bar-bg:   rgba(124, 109, 250, 0.15);
-  --xp-bar-fill: linear-gradient(90deg, #7c6dfa, #a78bfa);
+  --xp-bar-bg:   #29313a;
+  --xp-bar-fill: var(--accent-primary);
 
   /* Rarity */
   --rarity-common:   #6b7280;
@@ -80,17 +84,18 @@
   --space-16: 64px;
 
   /* Radius */
-  --radius-sm:  6px;
-  --radius-md:  10px;
-  --radius-lg:  16px;
-  --radius-xl:  24px;
+  --radius-sm:  4px;
+  --radius-md:  8px;
+  --radius-lg:  12px;
+  --radius-xl:  16px;
   --radius-full: 9999px;
 
   /* Shadows */
-  --shadow-sm:  0 1px 3px rgba(0,0,0,0.4);
-  --shadow-md:  0 4px 16px rgba(0,0,0,0.5);
-  --shadow-lg:  0 8px 32px rgba(0,0,0,0.6);
-  --shadow-glow:0 0 32px var(--accent-glow);
+  --shadow-sm:  0 1px 2px rgba(0,0,0,0.24);
+  --shadow-md:  0 8px 24px rgba(0,0,0,0.22);
+  --shadow-lg:  0 16px 40px rgba(0,0,0,0.28);
+  --shadow-xl:  0 24px 56px rgba(0,0,0,0.32);
+  --shadow-glow:none;
 
   /* Transitions */
   --ease-default: cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -165,16 +170,12 @@ body {
 
 /* ─── Glassmorphism ─────────────────────────────────────────────────────────── */
 .glass {
-  background: rgba(26, 26, 46, 0.6);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: var(--bg-card);
   border: 1px solid var(--border-subtle);
 }
 
 .glass-strong {
-  background: rgba(26, 26, 46, 0.85);
-  backdrop-filter: blur(40px) saturate(200%);
-  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  background: var(--bg-elevated);
   border: 1px solid var(--border-muted);
 }
 
@@ -185,14 +186,12 @@ body {
   border-radius: var(--radius-lg);
   padding: var(--space-6);
   transition: border-color var(--duration-base) var(--ease-default),
-              transform var(--duration-base) var(--ease-default),
-              box-shadow var(--duration-base) var(--ease-default);
+              background var(--duration-base) var(--ease-default);
 }
 
-.card:hover {
+.card-interactive:hover {
   border-color: var(--border-muted);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  background: var(--bg-hover);
 }
 
 /* ─── Buttons ───────────────────────────────────────────────────────────────── */
@@ -222,15 +221,12 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  background: var(--accent-strong);
   color: #fff;
-  box-shadow: 0 4px 16px var(--accent-glow);
 }
 
 .btn-primary:not(:disabled):hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 24px var(--accent-glow);
-  filter: brightness(1.08);
+  background: #587da3;
 }
 
 .btn-primary:not(:disabled):active { transform: scale(0.97); }
@@ -277,7 +273,7 @@ body {
 
 .input:focus {
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .input--error {
@@ -292,28 +288,12 @@ body {
 
 /* ─── Gradient Text ─────────────────────────────────────────────────────────── */
 .gradient-text {
-  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--accent-primary);
 }
 
 /* ─── Gradient Border ───────────────────────────────────────────────────────── */
 .gradient-border {
-  position: relative;
-}
-
-.gradient-border::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
+  border: 1px solid var(--border-muted);
 }
 
 /* ─── XP Bar ────────────────────────────────────────────────────────────────── */
@@ -393,9 +373,5 @@ body {
 
 /* ─── Glow Orb (decorative background) ─────────────────────────────────────── */
 .glow-orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  pointer-events: none;
-  opacity: 0.35;
+  display: none;
 }

@@ -377,14 +377,14 @@ export function remapSelectionsOnRouteChange(
   toRoute: StudyRoute,
   currentSelections: PaperSelectionInput[]
 ): PaperSelectionInput[] {
-  if (!currentSelections || currentSelections.length === 0) return []
-  if (fromRoute === toRoute) return currentSelections
-
   // Fixed subjects auto-remap to the canonical set for toRoute
   if (subjectCode === '9702' || subjectCode === '9701' || subjectCode === '9618') {
     const fixedCombos = getFixedSubjectCombinations(subjectCode, toRoute)
     return fixedCombos[0]?.selections ?? []
   }
+
+  if (!currentSelections || currentSelections.length === 0) return []
+  if (fromRoute === toRoute) return currentSelections
 
   // Maths 9709
   if (subjectCode === '9709') {

@@ -3,12 +3,16 @@ import {
   getMathsCombinations,
   getFurtherMathsCombinations,
   getFixedSubjectCombinations,
+  getSubjectCombinations,
+  matchSavedCombination,
   matchSavedMathsCombination,
+  remapSelectionsOnRouteChange,
   remapMathsSelectionsOnRouteChange,
   isElectiveSubject,
 } from '../components/subjects/paper-selection-panel'
 import { filterSubjectsByQuery } from '../app/(auth)/onboarding/steps/subjects-step'
 import { filterChaptersForPaper, matchPaperOption } from '../components/papers/log-paper-modal'
+import { filterComponentGroups } from '../components/subjects/chapter-groups'
 import { StudyRouteStepSchema, SubjectEnrollSchema } from '../lib/validators/onboarding'
 import type { Subject, StudyRoute } from '../types/database'
 import type { PaperSelectionInput } from '../types'
@@ -117,6 +121,31 @@ describe('AS/A2 Mathematics Combinations', () => {
     // Incompatible when route changes to staged
     const stagedMatch = matchSavedMathsCombination('staged', savedP1M1)
     expect(stagedMatch).toBeNull()
+  })
+})
+
+describe('Elective subject chapter-group display', () => {
+  const groups = [
+    { name: 'Further Pure 1', chapters: [] },
+    { name: 'Further Pure 2', chapters: [] },
+    { name: 'Further Mechanics', chapters: [] },
+    { name: 'Further Probability & Statistics', chapters: [] },
+  ]
+
+  test('Further Mathematics selected view keeps only components in the saved route', () => {
+    const filtered = filterComponentGroups(
+      groups,
+      ['Further Pure 1', 'Further Mechanics'],
+      true,
+      'selected'
+    )
+
+    expect(filtered.map((group) => group.name)).toEqual(['Further Pure 1', 'Further Mechanics'])
+  })
+
+  test('all-components view remains available without altering the source groups', () => {
+    expect(filterComponentGroups(groups, ['Further Pure 1'], true, 'all')).toEqual(groups)
+    expect(groups).toHaveLength(4)
   })
 })
 
@@ -583,6 +612,20 @@ describe('Universal Route & Search Helpers', () => {
     expect(isElectiveSubject('9701')).toBe(false)
     expect(isElectiveSubject('9618')).toBe(false)
     expect(isElectiveSubject(null)).toBe(false)
+  })
+
+  test('Further Mathematics requires a valid explicit route combination', () => {
+    expect(matchSavedCombination('9231', 'staged', [])).toBeNull()
+    const selection = getSubjectCombinations('9231', 'staged')[0].selections
+    expect(matchSavedCombination('9231', 'staged', selection)?.id).toBe('fm_fps')
+  })
+
+  test('fixed subjects receive their canonical papers even when the prior selection is empty', () => {
+    const physics = remapSelectionsOnRouteChange('9702', 'unconfirmed', 'staged', [])
+    expect(physics.map((paper) => paper.paper_number)).toEqual([1, 2, 3, 4, 5])
+
+    const computerScience = remapSelectionsOnRouteChange('9618', 'unconfirmed', 'as_only', [])
+    expect(computerScience.map((paper) => paper.paper_number)).toEqual([1, 2])
   })
 
   test('filterSubjectsByQuery resolves Additional Mathematics / Add Maths aliases to 9231', () => {

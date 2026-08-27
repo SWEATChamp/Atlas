@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect } from 'react'
+import { AlertTriangle } from 'lucide-react'
+import Link from 'next/link'
 
 /**
  * app/global-error.tsx — catches errors thrown inside the root layout.
@@ -25,8 +27,8 @@ export default function GlobalError({
         style={{
           margin: 0,
           minHeight: '100dvh',
-          background: '#08080f',
-          color: '#f0f0ff',
+          background: '#101216',
+          color: '#f4f2ed',
           fontFamily: 'system-ui, sans-serif',
           display: 'flex',
           alignItems: 'center',
@@ -38,9 +40,9 @@ export default function GlobalError({
           style={{
             width: '100%',
             maxWidth: 440,
-            background: 'rgba(26,26,46,0.85)',
+            background: '#1d2229',
             border: '1px solid rgba(248,113,113,0.2)',
-            borderRadius: 20,
+            borderRadius: 12,
             padding: '48px 36px',
             textAlign: 'center',
           }}
@@ -56,10 +58,9 @@ export default function GlobalError({
               alignItems: 'center',
               justifyContent: 'center',
               margin: '0 auto 20px',
-              fontSize: 26,
             }}
           >
-            ⚠️
+            <AlertTriangle size={26} color="#d17676" />
           </div>
 
           <h1
@@ -75,7 +76,7 @@ export default function GlobalError({
 
           <p
             style={{
-              color: '#9090b8',
+              color: '#a6abb3',
               fontSize: '0.9rem',
               lineHeight: 1.7,
               margin: '0 0 28px',
@@ -99,7 +100,7 @@ export default function GlobalError({
                 flex: 1,
                 height: 48,
                 borderRadius: 10,
-                background: 'linear-gradient(135deg, #7c6dfa, #a78bfa)',
+                background: '#4c7094',
                 border: 'none',
                 color: '#fff',
                 fontSize: '0.9375rem',
@@ -109,7 +110,7 @@ export default function GlobalError({
             >
               Try again
             </button>
-            <a
+            <Link
               href="/"
               style={{
                 flex: 1,
@@ -117,7 +118,7 @@ export default function GlobalError({
                 borderRadius: 10,
                 background: 'transparent',
                 border: '1px solid rgba(255,255,255,0.1)',
-                color: '#9090b8',
+                color: '#a6abb3',
                 fontSize: '0.9375rem',
                 fontWeight: 500,
                 cursor: 'pointer',
@@ -128,7 +129,7 @@ export default function GlobalError({
               }}
             >
               Go home
-            </a>
+            </Link>
           </div>
         </div>
       </body>
