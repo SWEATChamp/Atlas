@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createProxyClient } from '@/lib/supabase/proxy'
+import { evaluateProxyRouteRule } from '@/lib/auth/route-guard'
 
 /**
  * Atlas Route Guard — proxy.ts
@@ -7,68 +8,46 @@ import { createProxyClient } from '@/lib/supabase/proxy'
  * NOTE: In Next.js 16, middleware.ts is deprecated. This file is proxy.ts.
  *
  * Rules:
- *   1. Unauthenticated users visiting protected routes → /login
- *   2. Authenticated + not onboarded → /onboarding (from any app route)
- *   3. Authenticated + onboarded visiting auth pages → /dashboard
- *   4. Everything else → passthrough
+ *   1. Unauthenticated users visiting protected routes → /login?next=...
+ *   2. Authenticated users visiting auth pages (/login) → /dashboard
+ *   3. Everything else → passthrough
+ *
+ * Uses supabase.auth.getClaims() for fast, token-based identity verification
+ * in proxy, avoiding database roundtrips on ordinary app navigation.
+ * All Supabase cookie updates (e.g. refreshed session) are preserved on the response.
  */
-
-const AUTH_ROUTES = ['/login']
-const ONBOARDING_ROUTE = '/onboarding'
-const DASHBOARD_ROUTE = '/dashboard'
-
-// Routes that require authentication
-const PROTECTED_PREFIXES = [
-  '/dashboard',
-  '/subjects',
-  '/notes',
-  '/past-papers',
-  '/progress',
-  '/achievements',
-  '/settings',
-  '/onboarding',  // requires a valid session — middleware handles unauthenticated access
-]
 
 export async function proxy(request: NextRequest) {
   const { supabase, response } = createProxyClient(request)
   const pathname = request.nextUrl.pathname
 
-  // IMPORTANT: Always call getUser() (not getSession()) in proxy.
-  // getUser() validates the token server-side; getSession() only reads the cookie.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Retrieve claims to protect routes.
+  // Handle getClaims() errors explicitly and require a valid claims.sub.
+  const { data, error } = await supabase.auth.getClaims()
+  const hasValidClaims = Boolean(
+    !error &&
+    data?.claims?.sub &&
+    typeof data.claims.sub === 'string'
+  )
 
-  const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))
-  const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r))
-  const isOnboarding = pathname.startsWith(ONBOARDING_ROUTE)
+  const decision = evaluateProxyRouteRule({
+    pathname,
+    hasValidClaims,
+  })
 
-  // ── Rule 1: unauthenticated + protected → /login ──────────────────────────
-  if (!user && isProtected) {
-    const loginUrl = new URL('/login', request.nextUrl.origin)
-    loginUrl.searchParams.set('next', pathname)
-    return NextResponse.redirect(loginUrl)
-  }
-
-  if (user) {
-    // Fetch onboarding status — lightweight single-column read
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('onboarding_completed')
-      .eq('id', user.id)
-      .single()
-
-    const onboarded = profile?.onboarding_completed ?? false
-
-    // ── Rule 2: authenticated + not onboarded → /onboarding ───────────────
-    if (!onboarded && !isOnboarding && !isAuthRoute) {
-      return NextResponse.redirect(new URL(ONBOARDING_ROUTE, request.nextUrl.origin))
+  if (decision.action === 'redirect' && decision.destination) {
+    const url = new URL(decision.destination, request.nextUrl.origin)
+    if (decision.searchParams) {
+      Object.entries(decision.searchParams).forEach(([k, v]) => {
+        url.searchParams.set(k, v)
+      })
     }
-
-    // ── Rule 3: authenticated + onboarded visiting auth pages → /dashboard ─
-    if (onboarded && (isAuthRoute || isOnboarding)) {
-      return NextResponse.redirect(new URL(DASHBOARD_ROUTE, request.nextUrl.origin))
-    }
+    const redirectResponse = NextResponse.redirect(url)
+    // Preserve any cookie mutations (such as refreshed tokens) set by createProxyClient
+    response.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie)
+    })
+    return redirectResponse
   }
 
   return response

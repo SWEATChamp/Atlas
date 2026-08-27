@@ -88,7 +88,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removes render-blocking third-party font requests in favour of a deterministic system-font stack.
   - Adds clock-skew tolerance to the mission Undo control while leaving PostgreSQL as the authority for the 10-minute rule.
   - Distinguishes “some subjects are missing exam dates” from the true no-dates state.
-  - Adds four focused unit assertions; 72/72 unit tests, type checking, lint, production build, and whitespace checks pass locally.
+  - Adds four focused unit assertions; 72/72 unit tests, type checking, lint, production build, and whitespace checks passed before deployment.
+- **Application Performance Round 2 & State Reconciliation (no database migration):**
+  - Replaced `supabase.auth.getUser()` in the proxy with `supabase.auth.getClaims()`, removing the per-request PostgREST profile lookup from proxy routing while retaining explicit verified-claims validation (`claims.sub`).
+  - Implemented server-side onboarding layout guard (`app/(auth)/onboarding/layout.tsx`), preserving Client Component architecture for `app/(auth)/onboarding/page.tsx`.
+  - Created single authoritative client-side dashboard state owner (`DashboardView`), eliminating competing mission arrays in `MissionList` and `MissionCard`.
+  - Added immediate local visual feedback on mission completion, undo, and replacement with instant atomic reconciliation across missions, XP, level, level title, and streak.
+  - Added instant error feedback with automatic local state rollback on RPC failure.
+  - Strictly preserved historical longest streak during mission Undo operations.
+  - Added pure piecewise `computeLevel()` and Level 15 title `Mythic` in `lib/xp.ts` matching PostgreSQL definitions.
+  - Removed redundant post-completion profile query in `completeMission` action, deriving level-ups via pure TypeScript calculation.
+  - Converted Past Papers subject filter tabs to Next.js `Link` components with automatic prefetching and `aria-current`.
+  - Added `@vercel/speed-insights` for real-user Core Web Vitals performance telemetry (locally prepared and verified; deployment pending).
+  - Added 11 new unit tests covering pure route guards, XP piecewise thresholds, and dashboard reconciliation; 85/85 unit tests, type check, lint, production build, and whitespace checks pass locally.
 
 ### Fixed
 - Replaced inconsistent application-side readiness calculation with database-level single source of truth.

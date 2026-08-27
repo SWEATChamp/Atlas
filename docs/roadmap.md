@@ -16,8 +16,9 @@
 | Phase 2.6 Five-Subject MVP Syllabus Content | Migration 024 and matching application deployed; initial production smoke checks completed |
 | Phase 2.7 Dashboard Statistics Hotfix | Migration 025 and matching application deployed; smoke check passed |
 | Phase 2.8 Subject Enrollment Management | Migration 026 and confirmed archive UI deployed; non-destructive smoke check passed |
-| Phase 2.9 Application Performance & Dashboard Polish | Application-only changes prepared and locally verified; review and deployment pending |
-| Release-candidate checks | 201 database tests and 72 unit tests pass; type check, lint, production build, and whitespace checks pass |
+| Phase 2.9 Application Performance & Dashboard Polish | Application-only changes deployed |
+| Phase 2.10 Application Performance Round 2 & State Reconciliation | Application-only changes prepared and locally verified; review and deployment pending |
+| Release-candidate checks | 201 database tests and 85 unit tests pass; type check, lint, production build, and whitespace checks pass |
 | Google Docs integration | Not started |
 
 ## Phase 0: Foundation (Complete)
@@ -79,9 +80,8 @@
 - [x] Back up hosted Supabase and apply Migrations 025–026 in order.
 - [x] Merge the application hotfix and repeat production smoke checks.
 
-## Phase 2.9: Application Performance & Dashboard Polish
+## Phase 2.9: Application Performance & Dashboard Polish (Complete)
 
-- **Status**: No database migration is required. Changes are prepared on `codex/performance-polish` and locally verified; review, merge, deployment, and post-deployment timing checks remain pending.
 - [x] Tolerate small browser/database clock differences when showing mission Undo.
 - [x] Correct partial exam-date warning language.
 - [x] Reuse authenticated user and profile reads within a server render.
@@ -90,8 +90,21 @@
 - [x] Add route loading skeletons and defer heavy Past Papers UI.
 - [x] Remove third-party font requests.
 - [x] Pass 72 unit tests, type checking, lint, production build, and whitespace checks.
+
+## Phase 2.10: Application Performance Round 2 & State Reconciliation
+
+- **Status**: No database migration is required. Changes are prepared on `codex/performance-round-2` and locally verified; review, merge, deployment, and post-deployment timing checks remain pending.
+- [x] Single-source-of-truth client-side dashboard state management (`DashboardView`) with immediate atomic mission feedback and state reconciliation across missions, XP, levels, and streaks.
+- [x] Immediate error feedback with local rollback on RPC failure, preventing UI/database desynchronization.
+- [x] Replaced `getUser()` in the proxy with `getClaims()` and explicit JWT claims validation, preserving Supabase cookies across redirects and removing the per-request profile lookup.
+- [x] Server-side onboarding layout guard (`app/(auth)/onboarding/layout.tsx`), preserving Client Component architecture in `app/(auth)/onboarding/page.tsx`.
+- [x] Eliminated redundant post-completion profile query in `completeMission` action, deriving level-ups via pure TypeScript piecewise `computeLevel()`.
+- [x] Added Level 15 title `Mythic` in `lib/xp.ts` matching PostgreSQL `compute_level_title`.
+- [x] Switched Past Papers subject filter tabs to Next.js `Link` elements with automatic prefetching and `aria-current`.
+- [x] Integrated `@vercel/speed-insights` in `app/layout.tsx` (locally prepared and verified; deployment pending).
+- [x] Pass 85 unit tests (including 11 new proxy route-guard, XP piecewise, and dashboard reconciliation tests), type checking, lint, production build, and whitespace checks.
 - [ ] Review, commit, push, merge, and deploy the application-only release.
-- [ ] Repeat production smoke tests and compare route timings after deployment.
+- [ ] Repeat production smoke tests and measure real-user Core Web Vitals telemetry.
 
 
 

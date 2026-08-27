@@ -1,11 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Zap, PartyPopper, RefreshCw, Calendar, BookOpen, AlertCircle, RotateCcw, Clock } from 'lucide-react'
+import { Zap, PartyPopper, RefreshCw, Calendar, BookOpen, Clock } from 'lucide-react'
 import MissionCard from './mission-card'
-import { generateMissions } from '@/lib/actions/dashboard'
 import type { DailyMission, CompleteMissionResult } from '@/lib/actions/dashboard'
 import type { UndoMissionResult, ReplaceMissionResult } from '@/types/database'
 import type { ExamDateCoverage } from '@/lib/dashboard-display'
@@ -14,14 +11,12 @@ interface MissionListProps {
   missions: DailyMission[]
   examDateCoverage: ExamDateCoverage
   hasChapterData: boolean
-}
-
-interface XpToast {
-  id: string
-  text: string
-  type?: 'success' | 'reversal' | 'error'
-  levelUp?: boolean
-  levelTitle?: string
+  onComplete: (id: string, result: CompleteMissionResult) => void
+  onUndo: (id: string, result: UndoMissionResult) => void
+  onReplace: (id: string, result: ReplaceMissionResult) => void
+  onError: (errorMsg: string) => void
+  onGenerate: () => Promise<void>
+  generating: boolean
 }
 
 export function calculateCompletionTotalXp(result: CompleteMissionResult): number {
@@ -59,104 +54,24 @@ export function formatUndoBreakdown(result: UndoMissionResult): string {
     : `-${result.xp_reversed} XP (Reversed)`
 }
 
-export default function MissionList({ missions: initialMissions, examDateCoverage, hasChapterData }: MissionListProps) {
-  const router = useRouter()
-  const [missions, setMissions]     = useState<DailyMission[]>(initialMissions)
-  const [toasts, setToasts]         = useState<XpToast[]>([])
-  const [generating, setGenerating] = useState(false)
-
-  const activeMissions = missions.filter(m => m.status !== 'skipped')
-  const completedCount = activeMissions.filter(m => m.status === 'completed').length
+export default function MissionList({
+  missions,
+  examDateCoverage,
+  hasChapterData,
+  onComplete,
+  onUndo,
+  onReplace,
+  onError,
+  onGenerate,
+  generating,
+}: MissionListProps) {
+  const activeMissions = missions.filter((m) => m.status !== 'skipped')
+  const completedCount = activeMissions.filter((m) => m.status === 'completed').length
   const allDone = completedCount === activeMissions.length && activeMissions.length > 0
-  const totalEstimatedMinutes = activeMissions.reduce((acc, m) => acc + (m.estimated_minutes || 30), 0)
-
-  const handleComplete = (id: string, result: CompleteMissionResult) => {
-    setMissions(prev =>
-      prev.map(m => (m.id === id ? { ...m, status: 'completed', completed_at: new Date().toISOString() } : m))
-    )
-
-    const breakdownText = formatCompletionBreakdown(result)
-
-    const toastId = crypto.randomUUID()
-    setToasts(prev => [
-      ...prev,
-      {
-        id: toastId,
-        text: breakdownText,
-        type: 'success',
-        levelUp: result.levelled_up,
-        levelTitle: result.level_title,
-      },
-    ])
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toastId)), 3500)
-
-    router.refresh()
-  }
-
-  const handleUndo = (id: string, result: UndoMissionResult) => {
-    setMissions(prev =>
-      prev.map(m => (m.id === id ? { ...m, status: 'pending', completed_at: null } : m))
-    )
-
-    const breakdownText = formatUndoBreakdown(result)
-
-    const toastId = crypto.randomUUID()
-    setToasts(prev => [
-      ...prev,
-      {
-        id: toastId,
-        text: breakdownText,
-        type: 'reversal',
-      },
-    ])
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toastId)), 3500)
-
-    router.refresh()
-  }
-
-  const handleReplace = (id: string, result: ReplaceMissionResult) => {
-    setMissions(prev =>
-      prev.map(m => (m.id === id ? result.new_mission : m))
-    )
-
-    const toastId = crypto.randomUUID()
-    setToasts(prev => [
-      ...prev,
-      {
-        id: toastId,
-        text: `Replaced with "${result.new_mission.title}"`,
-        type: 'success',
-      },
-    ])
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toastId)), 3500)
-
-    router.refresh()
-  }
-
-  const handleError = (errorMsg: string) => {
-    const toastId = crypto.randomUUID()
-    setToasts(prev => [
-      ...prev,
-      {
-        id: toastId,
-        text: errorMsg,
-        type: 'error',
-      },
-    ])
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toastId)), 4000)
-  }
-
-  const handleGenerate = async () => {
-    setGenerating(true)
-    const { error } = await generateMissions()
-    if (error) {
-      handleError(`Generation failed: ${error}`)
-      setGenerating(false)
-      return
-    }
-    router.refresh()
-    setGenerating(false)
-  }
+  const totalEstimatedMinutes = activeMissions.reduce(
+    (acc, m) => acc + (m.estimated_minutes || 30),
+    0
+  )
 
   // ── Pre-requisite warnings ──────────────────────────────────────────────
   const renderBlockers = () => {
@@ -164,18 +79,27 @@ export default function MissionList({ missions: initialMissions, examDateCoverag
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
         {examDateCoverage !== 'all' && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 10,
-            padding: '10px 14px',
-            borderRadius: 'var(--radius-md)',
-            background: 'rgba(251,191,36,0.08)',
-            border: '1px solid rgba(251,191,36,0.2)',
-          }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 10,
+              padding: '10px 14px',
+              borderRadius: 'var(--radius-md)',
+              background: 'rgba(251,191,36,0.08)',
+              border: '1px solid rgba(251,191,36,0.2)',
+            }}
+          >
             <Calendar size={15} color="var(--warning)" style={{ flexShrink: 0, marginTop: 1 }} />
             <div>
-              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--warning)', marginBottom: 2 }}>
+              <div
+                style={{
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  color: 'var(--warning)',
+                  marginBottom: 2,
+                }}
+              >
                 {examDateCoverage === 'some'
                   ? 'Some subjects are missing exam dates'
                   : 'No exam dates set'}
@@ -189,18 +113,27 @@ export default function MissionList({ missions: initialMissions, examDateCoverag
           </div>
         )}
         {!hasChapterData && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 10,
-            padding: '10px 14px',
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--accent-soft)',
-            border: '1px solid var(--border-accent)',
-          }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 10,
+              padding: '10px 14px',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--accent-soft)',
+              border: '1px solid var(--border-accent)',
+            }}
+          >
             <BookOpen size={15} color="var(--accent-primary)" style={{ flexShrink: 0, marginTop: 1 }} />
             <div>
-              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--accent-primary)', marginBottom: 2 }}>
+              <div
+                style={{
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  color: 'var(--accent-primary)',
+                  marginBottom: 2,
+                }}
+              >
                 No chapter activity yet
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
@@ -215,53 +148,25 @@ export default function MissionList({ missions: initialMissions, examDateCoverag
 
   return (
     <div style={{ position: 'relative' }}>
-      {/* XP Toast stack */}
-      <div style={{ position: 'fixed', top: 80, right: 24, zIndex: 1000, display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'none' }}>
-        <AnimatePresence>
-          {toasts.map(t => (
-            <motion.div
-              key={t.id}
-              initial={{ opacity: 0, x: 40, scale: 0.8 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 40, scale: 0.8 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-              style={{
-                background: t.levelUp
-                  ? 'var(--accent-strong)'
-                  : t.type === 'error'
-                  ? 'rgba(239, 68, 68, 0.92)'
-                  : 'var(--bg-card)',
-                border: `1px solid ${t.levelUp ? 'var(--accent-primary)' : t.type === 'error' ? 'var(--danger)' : 'var(--border-subtle)'}`,
-                borderRadius: 'var(--radius-md)',
-                padding: '10px 16px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                color: t.levelUp || t.type === 'error' ? '#fff' : 'var(--text-primary)',
-                fontSize: '0.875rem',
-                fontWeight: 700,
-                boxShadow: 'var(--shadow-md)',
-                pointerEvents: 'none',
-              }}
-            >
-              {t.type === 'error' ? (
-                <AlertCircle size={16} color="#fff" strokeWidth={2.5} />
-              ) : t.type === 'reversal' || t.text.startsWith('-') ? (
-                <RotateCcw size={16} color="var(--warning)" strokeWidth={2.5} />
-              ) : (
-                <Zap size={16} strokeWidth={2.5} />
-              )}
-              {t.levelUp ? `Level Up — ${t.levelTitle}!` : t.text}
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
-
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 16,
+        }}
+      >
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+            <h2
+              style={{
+                fontSize: '1.125rem',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                margin: 0,
+              }}
+            >
               Daily Missions
             </h2>
             {activeMissions.length > 0 && (
@@ -303,7 +208,7 @@ export default function MissionList({ missions: initialMissions, examDateCoverag
 
         {/* Generate / Refresh button */}
         <button
-          onClick={handleGenerate}
+          onClick={onGenerate}
           disabled={generating}
           style={{
             display: 'inline-flex',
@@ -385,7 +290,14 @@ export default function MissionList({ missions: initialMissions, examDateCoverag
             border: '1px dashed var(--border-subtle)',
           }}
         >
-          <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+          <div
+            style={{
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              color: 'var(--text-secondary)',
+              marginBottom: 4,
+            }}
+          >
             No missions generated for today yet
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 12 }}>
@@ -395,7 +307,7 @@ export default function MissionList({ missions: initialMissions, examDateCoverag
           </div>
           {examDateCoverage === 'all' && hasChapterData && (
             <button
-              onClick={handleGenerate}
+              onClick={onGenerate}
               disabled={generating}
               style={{
                 display: 'inline-flex',
@@ -418,14 +330,14 @@ export default function MissionList({ missions: initialMissions, examDateCoverag
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {activeMissions.map(m => (
+          {activeMissions.map((m) => (
             <MissionCard
               key={m.id}
               mission={m}
-              onComplete={handleComplete}
-              onUndo={handleUndo}
-              onReplace={handleReplace}
-              onError={handleError}
+              onComplete={onComplete}
+              onUndo={onUndo}
+              onReplace={onReplace}
+              onError={onError}
             />
           ))}
         </div>

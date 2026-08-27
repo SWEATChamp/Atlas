@@ -21,6 +21,7 @@ Release status and known limitations:
 - Migration 024 was backed up, applied, and verified on 2026-08-27; all 18 hosted catalogue and data-preservation checks passed.
 - The matching application release was deployed to Vercel on 2026-08-27. Production smoke testing confirmed authentication, preserved enrolments, route-aware chapter access, paper-form component filtering, and mission completion/undo XP accounting.
 - Migrations 025–026 were backed up, applied, recorded, and verified on hosted Supabase on 2026-08-27; all eight hosted boundary checks returned `true`. The matching dashboard and subject-management application changes are deployed. Production smoke testing confirmed valid readiness countdowns, the five active MVP subjects, and the required removal confirmation flow.
+- Phase 2.10 (Application Performance Round 2 & Speed Insights): Streamlined proxy authentication via `getClaims()`, server-side onboarding layout guard, authoritative reactive dashboard state management with instant atomic mission feedback, XP progression and the Level 15 Mythic title, Past Papers navigation, and Speed Insights telemetry are locally prepared and verified; deployment pending.
 - Mission undo reverses attempt-linked XP and recalculates the streak from remaining activity; chapter review timestamps remain unchanged in the MVP.
 - Google Docs integration has not started.
 
