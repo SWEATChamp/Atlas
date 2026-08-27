@@ -1,6 +1,9 @@
 # Atlas — Complete Supabase Database
 ### Production-Ready SQL · v1.0 · July 2026
 
+> [!NOTE]
+> **Historical Document (Archived)**: This document reflects early design notes prior to Migrations 020–024. For current schema, business logic, and API contracts, consult `docs/` and `supabase/migrations/`.
+
 > **11 migration files** · PostgreSQL 15 · Supabase  
 > Optimized for: performance, RLS security, future expansion
 

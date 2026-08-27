@@ -28,6 +28,17 @@ function SubjectIcon({ name, color }: { name: string; color: string }) {
 
 interface Props { onNext: (subjectIds: string[]) => void }
 
+export function filterSubjectsByQuery(subjects: Subject[], query: string): Subject[] {
+  const q = query.toLowerCase().trim()
+  if (!q) return subjects
+  return subjects.filter((s) => {
+    if (s.name.toLowerCase().includes(q)) return true
+    if (s.code && s.code.toLowerCase().includes(q)) return true
+    if ((q.includes('additional') || q.includes('add math')) && s.code === '9231') return true
+    return false
+  })
+}
+
 export default function SubjectsStep({ onNext }: Props) {
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [selected, setSelected] = useState<string[]>([])
@@ -39,20 +50,23 @@ export default function SubjectsStep({ onNext }: Props) {
   useEffect(() => {
     const supabase = createClient()
     Promise.all([
-      supabase.from('subjects').select('*').eq('is_global', true).order('name'),
+      supabase.from('subjects').select('*').eq('is_global', true).eq('is_available', true).order('name'),
       supabase.from('user_subjects').select('subject_id').eq('is_archived', false),
     ]).then(([subjectsRes, userSubjectsRes]) => {
-      setSubjects(subjectsRes.data ?? [])
+      const availableSubjects = subjectsRes.data ?? []
+      setSubjects(availableSubjects)
       if (userSubjectsRes.data && userSubjectsRes.data.length > 0) {
-        setSelected(userSubjectsRes.data.map((us) => us.subject_id))
+        const availableSubjectIds = new Set(availableSubjects.map((s) => s.id))
+        const preselectedMvpIds = userSubjectsRes.data
+          .map((us) => us.subject_id)
+          .filter((id) => availableSubjectIds.has(id))
+        setSelected(preselectedMvpIds)
       }
       setLoading(false)
     })
   }, [])
 
-  const filtered = subjects.filter((s) =>
-    s.name.toLowerCase().includes(query.toLowerCase())
-  )
+  const filtered = filterSubjectsByQuery(subjects, query)
 
   const toggle = (id: string) => {
     setSelected((prev) =>

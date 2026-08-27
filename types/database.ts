@@ -109,6 +109,7 @@ export interface Subject {
   color_hex: string
   icon: string
   is_global: boolean
+  is_available: boolean // Migration 024: true only for MVP subjects
   created_by: string | null
   created_at: string
 }
@@ -143,6 +144,7 @@ export interface Chapter {
   component: string | null
   description: string | null
   is_global: boolean
+  is_active: boolean // Migration 024: false for deprecated chapters
   stage: ChapterStage | null  // null = not yet classified (Migration 020)
   created_at: string
 }
@@ -167,6 +169,7 @@ export interface PastPaper {
   id: string
   user_id: string
   subject_id: string
+  subject_paper_id: string | null // Migration 024: FK to subject_papers
   paper_code: string
   year: number
   session: PaperSession
@@ -215,6 +218,7 @@ export interface DailyMission {
   type: MissionType
   target_entity_type: 'chapter' | 'subject' | 'paper' | 'user'
   target_entity_id: string | null
+  subject_paper_id: string | null // Migration 024: FK to subject_papers for attempt_paper
   title: string
   description: string | null
   xp_reward: number
@@ -385,6 +389,7 @@ export interface LeaderboardEntry {
 export interface SubjectPaperSelection {
   id: string
   user_subject_id: string  // FK → user_subjects.id (no user_id column)
+  subject_paper_id: string | null // Migration 024: FK to subject_papers
   component_name: string
   paper_number: number | null
   stage: PaperStage        // 'as' | 'a2' — 'full' is not valid
@@ -408,4 +413,44 @@ export interface SubjectStageResult {
   carry_forward: boolean
   created_at: string
   updated_at: string
+}
+
+// ─── Normalized Paper & Route Tables (Migration 024) ─────────────────────────
+
+export type StageBehavior = 'fixed_as' | 'fixed_a2' | 'route_dependent'
+
+export interface SubjectPaper {
+  id: string
+  subject_id: string
+  paper_number: number
+  name: string
+  code_suffix: string
+  stage_behavior: StageBehavior
+  default_stage: 'as' | 'a2' | null
+  created_at: string
+}
+
+export interface SubjectValidRoute {
+  id: string
+  subject_id: string
+  route: StudyRoute
+  combination_key: string
+  label: string
+  description: string
+  created_at: string
+}
+
+export interface SubjectRoutePaper {
+  id: string
+  route_id: string
+  subject_paper_id: string
+  stage: 'as' | 'a2'
+  created_at: string
+}
+
+export interface ChapterPaper {
+  id: string
+  chapter_id: string
+  subject_paper_id: string
+  created_at: string
 }

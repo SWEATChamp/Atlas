@@ -1,6 +1,9 @@
 # Atlas — Complete UI Specification
 ### High-Fidelity Page Design · v1.0 · July 2026
 
+> [!NOTE]
+> **Historical Document (Archived)**: This document reflects early design notes prior to Migrations 020–024. For current schema, business logic, and API contracts, consult `docs/` and `supabase/migrations/`.
+
 > **Design Language**: Linear × Apple Fitness × Duolingo × Arc Browser  
 > Dark Mode First · Mission Control Aesthetic · Premium SaaS
 

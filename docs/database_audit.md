@@ -1,4 +1,7 @@
 # Atlas Database Architecture Audit
+> [!NOTE]
+> **Historical Audit Document (Archived)**: This document records a snapshot audit conducted on 2026-07-05. For current database architecture and migrations, see `docs/database.md` and `supabase/migrations/`.
+
 > A full gap analysis comparing the existing schema against the complete product vision in `ideas.md`.
 > Generated: 2026-07-05
 
@@ -521,4 +524,11 @@ Groups all low-cost, high-priority column additions and fixes that are needed fo
 
 ---
 
-*Audit complete. The schema is production-quality for an MVP. The 6 migrations above represent the full pre-launch hardening roadmap.*
+## Migration History Status (As of 2026-08-27)
+
+- **Migrations 000–023**: Fully applied and verified against hosted Supabase production and staging.
+- **Migration 024 (`20260826000024_mvp_syllabus_content.sql`)**: Prepared, hardened, and verified locally across 172 database tests (67 in `mvp_syllabus_content.test.sql`) and 59 frontend tests. Hosted application pending user review.
+
+---
+
+*Audit complete. The schema is production-quality for an MVP.*

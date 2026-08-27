@@ -96,7 +96,8 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
     supabase
       .from('chapters')
       .select('id, subject_id')
-      .in('subject_id', subjectIds),
+      .in('subject_id', subjectIds)
+      .eq('is_active', true),
     supabase
       .from('past_papers')
       .select('subject_id, accuracy_pct')
@@ -259,6 +260,7 @@ export async function getSubjectDetail(
       .from('chapters')
       .select('*')
       .eq('subject_id', subjectId)
+      .eq('is_active', true)
       .order('number'),
     supabase
       .from('subject_paper_selections')

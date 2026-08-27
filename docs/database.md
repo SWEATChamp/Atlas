@@ -145,9 +145,9 @@ Stores expected, forecast, or actual AS/A2 results. No `user_id` column — owne
 
 `compute_readiness_score` is not modified in Migration 020. Stage-aware readiness calculations, mission filtering by stage, access control based on `study_route`, and the result-entry UI are implemented in Migration 021.
 
-## AS/A2 Readiness, Route Management & Safety (Migration 021) — Applied Locally
+## AS/A2 Readiness, Route Management & Safety (Migration 021) — Applied to Hosted Supabase
 
-Authored in `supabase/migrations/20260826000021_as_a2_readiness.sql`. Rollback-only tests are defined in `supabase/tests/database/as_a2_readiness.test.sql` (27 tests) and `supabase/tests/database/undo_mission.test.sql` (10 tests).
+Authored in `supabase/migrations/20260826000021_as_a2_readiness.sql`. Rollback-only tests are defined in `supabase/tests/database/as_a2_readiness.test.sql` (27 tests) and `supabase/tests/database/undo_mission.test.sql` (10 tests). Status: **Applied to hosted Supabase**.
 
 ### Key Functions & Logic
 
@@ -178,9 +178,9 @@ Authored in `supabase/migrations/20260826000021_as_a2_readiness.sql`. Rollback-o
 
 ---
 
-## AS/A2 Fixes & Gamification Accounting Hardening (Migration 022) — Prepared, Pending Hosted Application
+## AS/A2 Fixes & Gamification Accounting Hardening (Migration 022) — Applied to Hosted Supabase
 
-Authored in `supabase/migrations/20260826000022_as_a2_fixes.sql`. Rollback-only tests are defined in `supabase/tests/database/migration_022_fixes.test.sql` (10 tests) and `supabase/tests/database/undo_mission.test.sql` (10 tests). Status: **prepared — pending hosted application**.
+Authored in `supabase/migrations/20260826000022_as_a2_fixes.sql`. Rollback-only tests are defined in `supabase/tests/database/migration_022_fixes.test.sql` (10 tests) and `supabase/tests/database/undo_mission.test.sql` (10 tests). Status: **Applied to hosted Supabase**.
 
 ### Schema & Function Updates
 
@@ -225,9 +225,9 @@ Authored in `supabase/migrations/20260826000022_as_a2_fixes.sql`. Rollback-only 
 
 ---
 
-## Mission Quality, Workload & Variety Balancing (Migration 023) — Prepared, Pending Hosted Application
+## Mission Quality, Workload & Variety Balancing (Migration 023) — Applied to Hosted Supabase
 
-Authored in `supabase/migrations/20260826000023_mission_quality.sql`. Rollback-only tests are defined in `supabase/tests/database/mission_quality.test.sql` (24 tests). Status: **prepared — pending hosted application**.
+Authored in `supabase/migrations/20260826000023_mission_quality.sql`. Rollback-only tests are defined in `supabase/tests/database/mission_quality.test.sql` (24 tests). Status: **Applied to hosted Supabase**.
 
 ### Schema & Function Updates
 
@@ -260,3 +260,41 @@ Authored in `supabase/migrations/20260826000023_mission_quality.sql`. Rollback-o
    - Selects and validates replacement candidate *before* skipping the old mission.
    - If no suitable candidate exists, aborts with `P0002: No suitable replacement available` without modifying the original mission.
    - Replaces mission in place and enforces active cap of 3.
+
+---
+
+## Five-Subject MVP Syllabus Content & Availability (Migration 024) — Prepared, Pending Hosted Review
+
+Authored in `supabase/migrations/20260826000024_mvp_syllabus_content.sql`. Rollback-only tests are defined in `supabase/tests/database/mvp_syllabus_content.test.sql` (67 tests across 10 sections; 172 database tests total across 7 test suites). Status: **Migration 024 is prepared and locally verified; hosted application pending review.**
+
+### Schema & Structural Additions
+
+1. **`subjects.is_available`**:
+   - `BOOLEAN NOT NULL DEFAULT FALSE`.
+   - Set to `TRUE` exclusively for the 5 MVP subjects: Mathematics 9709, Further Mathematics 9231, Physics 9702, Chemistry 9701, Computer Science 9618.
+   - All other pre-seeded subjects are marked `is_available = FALSE`.
+   - Grandfathered user enrolments in unsupported subjects are strictly preserved and excluded from modern onboarding routes.
+
+2. **`chapters.is_active`**:
+   - `BOOLEAN NOT NULL DEFAULT TRUE`.
+   - Deprecated non-syllabus chapters (Mathematics Pure 1 Vectors `number = 99`, Physics Electromagnetic Induction `number = 99`) are marked `is_active = FALSE`.
+   - All active application and readiness queries filter `is_active = TRUE`.
+
+3. **Normalized Paper & Route Tables**:
+   - `subject_papers`: Catalogues all official CAIE exam components (e.g. Pure 1, Mechanics, Paper 1 Multiple Choice, Paper 4 A Level Structured).
+   - `subject_valid_routes`: Catalogues valid study route options and paper combinations per subject.
+   - `subject_route_papers`: Junction table mapping each valid route to its constituent `subject_papers` and their associated `stage` ('as' | 'a2').
+   - `chapter_papers`: Explicit mapping from syllabus chapters/topics to the paper component where they are assessed. Practical papers (Physics/Chemistry Papers 3 & 5) have 0 direct chapter links.
+
+4. **Foreign Key Links on Operational Tables**:
+   - `daily_missions.subject_paper_id`: Added and indexed FK to `subject_papers` for `attempt_paper` missions.
+   - `subject_paper_selections.subject_paper_id`: Added FK to `subject_papers`. Backfilled for all existing 5-subject selections; nullable to preserve legacy unsupported subject rows.
+   - `past_papers.subject_paper_id`: Added FK to `subject_papers`. Strictly required for all new MVP past-paper entries via trigger.
+
+5. **Collision-Safe Renumbering Staging**:
+   - Scoped per subject using positive temporary numbers (`+1000`) within a scoped migration transaction, guaranteeing `CHECK (number > 0)` and `UNIQUE (subject_id, number)` are never violated.
+
+6. **Boundary Integrity Triggers**:
+   - `validate_chapter_paper_subject`: Ensures `chapter_papers` link chapters and papers of the same subject.
+   - `validate_subject_paper_selection`: Ensures selections belong to the enrolled subject and match the route stage.
+   - `validate_past_paper_entry`: Ensures past papers for MVP subjects reference valid `subject_paper_id`, align with the user's active stage, and belong to their selected route combination. Includes narrow legacy exception for unchanged legacy rows.

@@ -4,17 +4,12 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import type {
-  StudyRoute,
-  A2UnlockMethod,
-  ResultType,
-  PaperSession,
   SubjectPaperSelection,
   SubjectStageResult,
 } from '@/types/database'
 import type {
   SubjectRouteConfigInput,
   A2TransitionInput,
-  PaperSelectionInput,
 } from '@/types'
 
 const PaperSelectionSchema = z.object({

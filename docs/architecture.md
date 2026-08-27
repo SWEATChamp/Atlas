@@ -79,5 +79,24 @@ Study route is configured per enrolled subject:
   - Preserves the ledger invariant: `profiles.total_xp = SUM(xp_events.xp_amount)`.
   - Preserves streaks and review timestamps (MVP design constraint).
 
+## Five-Subject MVP Syllabus Architecture (Migration 024)
+> **Status**: Migration 024 is prepared and locally verified; hosted application pending review.
+
+1. **Gated Subject Availability**:
+   - Exactly 5 subjects are available for new onboarding and selection:
+     - Mathematics (9709)
+     - Further Mathematics (9231)
+     - Physics (9702)
+     - Chemistry (9701)
+     - Computer Science (9618)
+   - Pre-existing enrollments in unsupported subjects remain preserved in the database (grandfathered).
+2. **Normalized Paper Components & Assessment Links**:
+   - `subject_papers` catalogues official components.
+   - `subject_valid_routes` defines valid combinations for each subject (e.g. Pure 1 + Mechanics for AS Mathematics; Staged sequences; Linear routes).
+   - `chapter_papers` maps chapters directly to their assessing paper components.
+   - For science practical papers (Papers 3 & 5), zero direct chapter links are registered (reflecting cross-cutting experimental skills).
+3. **Active Syllabus Filtering**:
+   - Deprecated non-syllabus chapters (e.g., Vectors in Pure 1, Electromagnetic Induction in Physics) are marked `is_active = FALSE` and filtered out of progress tracking and mission generation.
+
 ## Real-time Sync
 Supabase Realtime channels are utilized to subscribe to database changes, ensuring real-time updates for streak and XP changes across devices.

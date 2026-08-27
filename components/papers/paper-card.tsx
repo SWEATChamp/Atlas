@@ -169,6 +169,7 @@ export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZo
             existingPaperId={paper.id}
             existingPaper={{
               subjectId: paper.subject_id,
+              subjectPaperId: paper.subject_paper_id ?? undefined,
               year: paper.year,
               session: paper.session,
               paperNumber: Math.floor(paper.paper_number / 10),

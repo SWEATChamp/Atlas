@@ -105,24 +105,21 @@ DECLARE
   v_p3     UUID;
   v_m1     UUID;
 BEGIN
-  SELECT user_id, subj_maths, subj_physics, ch_p1, ch_p2, ch_p3, ch_m1
-  INTO   v_user, v_math, v_phys, v_p1, v_p2, v_p3, v_m1
+  SELECT user_id
+  INTO   v_user
   FROM   m22_ctx;
 
-  INSERT INTO public.subjects (id, name, code, is_global, created_by)
-  VALUES
-    (v_math, 'Mathematics', '9709', FALSE, v_user),
-    (v_phys, 'Physics',     '9702', FALSE, v_user);
+  SELECT id INTO v_math FROM public.subjects WHERE code = '9709' AND is_available = TRUE;
+  SELECT id INTO v_phys FROM public.subjects WHERE code = '9702' AND is_available = TRUE;
 
-  INSERT INTO public.chapters (id, subject_id, title, number, component, is_global, stage)
-  VALUES
-    (v_p1, v_math, 'Pure 1 Algebra',   1, 'Pure 1',    FALSE, 'as'),
-    (v_p2, v_math, 'Pure 2 Functions', 1, 'Pure 2',    FALSE, 'route_dependent'),
-    (v_p3, v_math, 'Pure 3 Vectors',   1, 'Pure 3',    FALSE, 'a2'),
-    (v_m1, v_math, 'Mechanics Kinem',  1, 'Mechanics', FALSE, 'route_dependent'),
-    (gen_random_uuid(), v_phys, 'Physics Mechanics', 1, 'Core', FALSE, 'as'),
-    (gen_random_uuid(), v_phys, 'Physics Waves',     2, 'Core', FALSE, 'as'),
-    (gen_random_uuid(), v_phys, 'Physics Electric',  3, 'Core', FALSE, 'as');
+  SELECT id INTO v_p1 FROM public.chapters WHERE subject_id = v_math AND component = 'Pure 1' AND number = 1;
+  SELECT id INTO v_p2 FROM public.chapters WHERE subject_id = v_math AND component = 'Pure 2' AND number = 1;
+  SELECT id INTO v_p3 FROM public.chapters WHERE subject_id = v_math AND component = 'Pure 3' AND number = 1;
+  SELECT id INTO v_m1 FROM public.chapters WHERE subject_id = v_math AND component = 'Mechanics' AND number = 1;
+
+  UPDATE m22_ctx
+  SET subj_maths = v_math, subj_physics = v_phys,
+      ch_p1 = v_p1, ch_p2 = v_p2, ch_p3 = v_p3, ch_m1 = v_m1;
 END;
 $$;
 
@@ -163,8 +160,7 @@ DECLARE
 BEGIN
   SELECT user_id, subj_maths, subj_physics INTO v_user, v_math, v_phys FROM m22_ctx;
 
-  INSERT INTO public.subjects (id, name, code, is_global, created_by)
-  VALUES (v_extra, 'Biology', '9700', FALSE, v_user);
+  SELECT id INTO v_extra FROM public.subjects WHERE code = '9701' AND is_available = TRUE;
 
   SET LOCAL ROLE authenticated;
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_user::text)::text, true);
@@ -250,7 +246,7 @@ BEGIN
   WHERE  uc.user_id = v_user
     AND  c.component IN ('Pure 1', 'Mechanics');
 
-  UPDATE m22_ctx SET t3_auto_uc_create = (v_count = 2);
+  UPDATE m22_ctx SET t3_auto_uc_create = (v_count >= 2);
 END;
 $$;
 

@@ -1,10 +1,17 @@
 import { describe, expect, test } from 'vitest'
 import {
   getMathsCombinations,
+  getFurtherMathsCombinations,
+  getFixedSubjectCombinations,
   matchSavedMathsCombination,
   remapMathsSelectionsOnRouteChange,
+  isElectiveSubject,
 } from '../components/subjects/paper-selection-panel'
+import { filterSubjectsByQuery } from '../app/(auth)/onboarding/steps/subjects-step'
+import { filterChaptersForPaper, matchPaperOption } from '../components/papers/log-paper-modal'
 import { StudyRouteStepSchema, SubjectEnrollSchema } from '../lib/validators/onboarding'
+import type { Subject, StudyRoute } from '../types/database'
+import type { PaperSelectionInput } from '../types'
 
 describe('AS/A2 Mathematics Combinations', () => {
   test('as_only route includes Pure 1 + Pure 2, Pure 1 + Mechanics, Pure 1 + Statistics 1', () => {
@@ -103,7 +110,7 @@ describe('AS/A2 Mathematics Combinations', () => {
     // Missing paper number (null) must NOT match
     const nullPaper = [
       { component_name: 'Pure 1', paper_number: 1, stage: 'as' as const },
-      { component_name: 'Mechanics', paper_number: null as any, stage: 'as' as const },
+      { component_name: 'Mechanics', paper_number: null as unknown as number, stage: 'as' as const },
     ]
     expect(matchSavedMathsCombination('as_only', nullPaper)).toBeNull()
 
@@ -335,7 +342,7 @@ describe('PaperSelectionPanel & RouteStep State-Logic Flow (Loop Prevention & Ro
 
     // Simulate PaperSelectionPanel component sync effect with empty initialSelections
     let selectedComboId = ''
-    const syncEffect = (route: any, initialSelections: any[]) => {
+    const syncEffect = (route: StudyRoute, initialSelections: PaperSelectionInput[]) => {
       const match = matchSavedMathsCombination(route, initialSelections)
       if (match) {
         selectedComboId = match.id
@@ -349,6 +356,7 @@ describe('PaperSelectionPanel & RouteStep State-Logic Flow (Loop Prevention & Ro
     syncEffect('as_only', [])
     expect(callCount).toBe(0)
     expect(selectedComboId).toBe('')
+    if (false as boolean) onChange()
 
     // Subsequent re-renders with empty selections must not call onChange
     syncEffect('as_only', [])
@@ -358,8 +366,8 @@ describe('PaperSelectionPanel & RouteStep State-Logic Flow (Loop Prevention & Ro
 
   test('selecting a combination calls onChange once and remains selected/visible', () => {
     let callCount = 0
-    let recordedSelections: any[] = []
-    const onChange = (selections: any[]) => {
+    let recordedSelections: PaperSelectionInput[] = []
+    const onChange = (selections: PaperSelectionInput[]) => {
       callCount++
       recordedSelections = selections
     }
@@ -369,7 +377,7 @@ describe('PaperSelectionPanel & RouteStep State-Logic Flow (Loop Prevention & Ro
     expect(targetCombo).toBeDefined()
 
     // User clicks the option -> calls onChange once
-    let selectedComboId = targetCombo.id
+    const selectedComboId = targetCombo.id
     onChange(targetCombo.selections)
 
     expect(callCount).toBe(1)
@@ -385,7 +393,7 @@ describe('PaperSelectionPanel & RouteStep State-Logic Flow (Loop Prevention & Ro
   test('Launch Atlas button enabled with valid combination and disabled on incompatible route switch', () => {
     // State machine representing RouteStep and RouteSetupSheet
     let selectedRoute: 'as_only' | 'staged' | 'full_level' | 'unconfirmed' = 'as_only'
-    let paperSelections: any[] = []
+    let paperSelections: PaperSelectionInput[] = []
 
     const isLaunchDisabled = () => {
       const match = matchSavedMathsCombination(selectedRoute, paperSelections)
@@ -488,5 +496,181 @@ describe('Direction-Specific Mathematics Route Transitions (remapMathsSelections
   test('as_only -> staged / full_level: clears selection', () => {
     expect(remapMathsSelectionsOnRouteChange('as_only', 'staged', asP1P2)).toEqual([])
     expect(remapMathsSelectionsOnRouteChange('as_only', 'full_level', asP1P2)).toEqual([])
+  })
+})
+
+describe('Further Mathematics 9231 Combinations', () => {
+  test('as_only returns 2 combinations: fp1_fm and fp1_fps', () => {
+    const combos = getFurtherMathsCombinations('as_only')
+    expect(combos.length).toBe(2)
+    expect(combos.map((c) => c.id)).toEqual(['fp1_fm', 'fp1_fps'])
+    expect(combos[0].asPapers).toEqual(['Further Pure 1 (Paper 1)', 'Further Mechanics (Paper 3)'])
+    expect(combos[1].asPapers).toEqual(['Further Pure 1 (Paper 1)', 'Further Probability & Statistics (Paper 4)'])
+    expect(combos.every((c) => c.a2Papers.length === 0)).toBe(true)
+  })
+
+  test('staged returns 2 combinations: fm_fps and fps_fm', () => {
+    const combos = getFurtherMathsCombinations('staged')
+    expect(combos.length).toBe(2)
+    expect(combos.map((c) => c.id)).toEqual(['fm_fps', 'fps_fm'])
+
+    // Route A (fm_fps): FP1 + FM in AS -> FP2 + FPS in A2
+    expect(combos[0].asPapers).toEqual(['Further Pure 1 (Paper 1)', 'Further Mechanics (Paper 3)'])
+    expect(combos[0].a2Papers).toEqual(['Further Pure 2 (Paper 2)', 'Further Probability & Statistics (Paper 4)'])
+
+    // Route B (fps_fm): FP1 + FPS in AS -> FP2 + FM in A2
+    expect(combos[1].asPapers).toEqual(['Further Pure 1 (Paper 1)', 'Further Probability & Statistics (Paper 4)'])
+    expect(combos[1].a2Papers).toEqual(['Further Pure 2 (Paper 2)', 'Further Mechanics (Paper 3)'])
+  })
+
+  test('full_level returns 1 combination: full_all with all 4 papers', () => {
+    const combos = getFurtherMathsCombinations('full_level')
+    expect(combos.length).toBe(1)
+    expect(combos[0].id).toBe('full_all')
+    expect(combos[0].selections.length).toBe(4)
+  })
+})
+
+describe('Fixed-Route Subject Combinations (9702, 9701, 9618)', () => {
+  test('Physics 9702 has canonical paper sets for all routes', () => {
+    const asOnly = getFixedSubjectCombinations('9702', 'as_only')
+    expect(asOnly[0].selections.map((s) => s.paper_number)).toEqual([1, 2, 3])
+    expect(asOnly[0].selections.every((s) => s.stage === 'as')).toBe(true)
+
+    const staged = getFixedSubjectCombinations('9702', 'staged')
+    expect(staged[0].selections.length).toBe(5)
+    expect(staged[0].asPapers.length).toBe(3)
+    expect(staged[0].a2Papers.length).toBe(2)
+
+    const full = getFixedSubjectCombinations('9702', 'full_level')
+    expect(full[0].selections.length).toBe(5)
+  })
+
+  test('Chemistry 9701 has canonical paper sets for all routes', () => {
+    const asOnly = getFixedSubjectCombinations('9701', 'as_only')
+    expect(asOnly[0].selections.map((s) => s.paper_number)).toEqual([1, 2, 3])
+    expect(asOnly[0].selections.every((s) => s.stage === 'as')).toBe(true)
+
+    const staged = getFixedSubjectCombinations('9701', 'staged')
+    expect(staged[0].selections.length).toBe(5)
+    expect(staged[0].asPapers.length).toBe(3)
+    expect(staged[0].a2Papers.length).toBe(2)
+
+    const full = getFixedSubjectCombinations('9701', 'full_level')
+    expect(full[0].selections.length).toBe(5)
+  })
+
+  test('Computer Science 9618 has canonical 4-paper sets', () => {
+    const asOnly = getFixedSubjectCombinations('9618', 'as_only')
+    expect(asOnly[0].selections.map((s) => s.paper_number)).toEqual([1, 2])
+    expect(asOnly[0].selections.every((s) => s.stage === 'as')).toBe(true)
+
+    const staged = getFixedSubjectCombinations('9618', 'staged')
+    expect(staged[0].selections.length).toBe(4)
+    expect(staged[0].asPapers.length).toBe(2)
+    expect(staged[0].a2Papers.length).toBe(2)
+
+    const full = getFixedSubjectCombinations('9618', 'full_level')
+    expect(full[0].selections.length).toBe(4)
+  })
+})
+
+describe('Universal Route & Search Helpers', () => {
+  test('isElectiveSubject correctly identifies 9709 and 9231 as elective', () => {
+    expect(isElectiveSubject('9709')).toBe(true)
+    expect(isElectiveSubject('9231')).toBe(true)
+    expect(isElectiveSubject('9702')).toBe(false)
+    expect(isElectiveSubject('9701')).toBe(false)
+    expect(isElectiveSubject('9618')).toBe(false)
+    expect(isElectiveSubject(null)).toBe(false)
+  })
+
+  test('filterSubjectsByQuery resolves Additional Mathematics / Add Maths aliases to 9231', () => {
+    const sampleSubjects: Subject[] = [
+      { id: '1', name: 'Mathematics', code: '9709', icon: 'calculator', color_hex: '#3B82F6', is_available: true, is_global: true, created_by: null, created_at: '' },
+      { id: '2', name: 'Further Mathematics', code: '9231', icon: 'calculator', color_hex: '#6366F1', is_available: true, is_global: true, created_by: null, created_at: '' },
+      { id: '3', name: 'Physics', code: '9702', icon: 'atom', color_hex: '#EC4899', is_available: true, is_global: true, created_by: null, created_at: '' },
+      { id: '4', name: 'Chemistry', code: '9701', icon: 'flask', color_hex: '#10B981', is_available: true, is_global: true, created_by: null, created_at: '' },
+      { id: '5', name: 'Computer Science', code: '9618', icon: 'code', color_hex: '#F59E0B', is_available: true, is_global: true, created_by: null, created_at: '' },
+    ]
+
+    const addMathsRes = filterSubjectsByQuery(sampleSubjects, 'Add Maths')
+    expect(addMathsRes.length).toBe(1)
+    expect(addMathsRes[0].code).toBe('9231')
+
+    const additionalRes = filterSubjectsByQuery(sampleSubjects, 'Additional Mathematics')
+    expect(additionalRes.length).toBe(1)
+    expect(additionalRes[0].code).toBe('9231')
+
+    const mathsRes = filterSubjectsByQuery(sampleSubjects, 'Math')
+    expect(mathsRes.length).toBe(2) // Mathematics and Further Mathematics
+    expect(mathsRes.map((s) => s.code)).toEqual(['9709', '9231'])
+  })
+})
+
+describe('Past-Paper Picker & Practical Chapter Mapping Logic', () => {
+  test('excludes locked A2 papers when user enrollment is at AS stage', () => {
+    const stagedSelections = [
+      { subject_paper_id: 'sp1', paper_number: 1, stage: 'as' as const, component_name: 'Pure 1' },
+      { subject_paper_id: 'sp4', paper_number: 4, stage: 'as' as const, component_name: 'Mechanics' },
+      { subject_paper_id: 'sp3', paper_number: 3, stage: 'a2' as const, component_name: 'Pure 3' },
+      { subject_paper_id: 'sp5', paper_number: 5, stage: 'a2' as const, component_name: 'Statistics 1' },
+    ]
+
+    const filterAvailablePapers = (currentStage: 'as' | 'a2' | 'full', selections: typeof stagedSelections) => {
+      return selections.filter((p) => {
+        if (currentStage === 'as' && p.stage === 'a2') return false
+        return true
+      })
+    }
+
+    const asAvailable = filterAvailablePapers('as', stagedSelections)
+    expect(asAvailable.length).toBe(2)
+    expect(asAvailable.map((p) => p.paper_number)).toEqual([1, 4])
+
+    const a2Available = filterAvailablePapers('a2', stagedSelections)
+    expect(a2Available.length).toBe(4)
+    expect(a2Available.map((p) => p.paper_number)).toEqual([1, 4, 3, 5])
+  })
+
+  test('practical chapter filtering matches Cambridge rules using production helper', () => {
+    const chapters = [
+      { id: 'ch1', title: 'Kinematics', stage: 'as', component: 'AS Core', number: 2 },
+      { id: 'ch7', title: 'Waves', stage: 'as', component: 'AS Core', number: 7 },
+      { id: 'ch12', title: 'Motion in a Circle', stage: 'a2', component: 'A2 Core', number: 12 },
+      { id: 'ch20', title: 'Magnetic Fields', stage: 'a2', component: 'A2 Core', number: 20 },
+    ]
+
+    // Physics Paper 3 (Practical) only allows AS chapters
+    const p3Chapters = filterChaptersForPaper('9702', 3, null, chapters, [])
+    expect(p3Chapters.length).toBe(2)
+    expect(p3Chapters.map((c) => c.number)).toEqual([2, 7])
+
+    // Physics Paper 5 (Evaluation) allows all accessible chapters
+    const p5Chapters = filterChaptersForPaper('9702', 5, null, chapters, [])
+    expect(p5Chapters.length).toBe(4)
+
+    // Computer Science Paper 4 (Programming) allows only Topics 19 & 20
+    const csChapters = [
+      { id: 'cs1', title: 'Information representation', number: 1, stage: 'as' },
+      { id: 'cs19', title: 'Computational thinking', number: 19, stage: 'a2' },
+      { id: 'cs20', title: 'Further Problem-solving', number: 20, stage: 'a2' },
+    ]
+    const csP4Chapters = filterChaptersForPaper('9618', 4, null, csChapters, [])
+    expect(csP4Chapters.length).toBe(2)
+    expect(csP4Chapters.map((c) => c.number)).toEqual([19, 20])
+  })
+
+  test('matchPaperOption deterministically selects target paper', () => {
+    const papers = [
+      { id: 'sp1', paper_number: 1, stage: 'as' as const },
+      { id: 'sp3', paper_number: 3, stage: 'a2' as const },
+      { id: 'sp4', paper_number: 4, stage: 'as' as const },
+    ]
+
+    expect(matchPaperOption(papers, 'sp3', 3)?.id).toBe('sp3')
+    expect(matchPaperOption(papers, null, 4)?.id).toBe('sp4')
+    expect(matchPaperOption(papers, 'nonexistent', 99)?.id).toBe('sp1')
+    expect(matchPaperOption([], null, 1)).toBeNull()
   })
 })

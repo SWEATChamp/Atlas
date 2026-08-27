@@ -1,5 +1,8 @@
 # Phase 2 Task List
 
+> [!NOTE]
+> **Historical Document (Archived)**: This document reflects early design notes prior to Migrations 020–024. For current schema, business logic, and API contracts, consult `docs/` and `supabase/migrations/`.
+
 ## Data Layer
 - [ ] `lib/actions/subjects.ts`
 - [ ] `lib/actions/chapters.ts`

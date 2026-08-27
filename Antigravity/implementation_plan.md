@@ -1,5 +1,8 @@
 # Phase 4: Mission Engine + Dashboard
 
+> [!NOTE]
+> **Historical Document (Archived)**: This document reflects early design notes prior to Migrations 020–024. For current schema, business logic, and API contracts, consult `docs/` and `supabase/migrations/`.
+
 ## Overview
 
 The DB backend is **fully complete** — `generate_daily_missions`, `complete_mission`, `get_user_dashboard_stats`, `award_xp`, `update_streak`, `compute_level` RPCs all exist. This phase is purely frontend wiring.

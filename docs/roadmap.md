@@ -12,7 +12,8 @@
 | Gamification | Built; XP, streak, and achievement award flow verified |
 | Timezone handling | Complete; application and database verification passed |
 | Core safety tests | Complete; all three tests passed |
-| Phase 2.5 Database Foundation | Applied and verified; all 23 database tests passed |
+| Phase 2.5 Database Foundation | Applied to hosted database (Migrations 020–023) |
+| Phase 2.6 Five-Subject MVP Syllabus Content | Migration 024 is prepared and locally verified; hosted application pending review |
 | Google Docs integration | Not started |
 
 ## Phase 0: Foundation (Complete)
@@ -30,31 +31,20 @@
 - Chapter progress tracking (Notes status, Confidence)
 - Subject and Chapter detail views
 
-## Phase 2.5: Study Routes & Readiness Correction
+## Phase 2.5: Study Routes & Readiness Correction (Migrations 020–023)
+- [x] Applied to hosted database (Migrations 020–023)
+- [x] AS/A2 foundation, readiness calculations, and mission quality hardening complete
 
-### Database Foundation (Applied and verified — Migration 020)
-- [x] Add `study_route` column to `user_subjects` (`unconfirmed`, `as_only`, `staged`, `full_level`)
-- [x] Add `current_stage` column to `user_subjects` with route↔stage consistency constraint
-- [x] Add `a2_unlocked_at` and `a2_unlock_method` with pair-consistency and staged-A2 constraints
-- [x] Add `stage` column to `chapters` (`as`, `a2`, `shared`, `route_dependent`); backfill confirmed & route-dependent mappings for Maths/Physics/Chemistry
-- [x] Add `stage` column to `past_papers` (CHECK excludes `'full'`)
-- [x] Create `subject_paper_selections` table (structured, one row per component; no `user_id`)
-- [x] Create `subject_stage_results` table with required series/year, score constraint, carry-forward AS-only constraint, and dedup UNIQUE
-- [x] RLS on both new tables via `user_subjects` join (no `user_id` column in either table)
-- [x] All 23 rollback-only database tests passed (covering positive/negative RLS, stage restrictions, duplicates, score validation, carry-forward rules, and unlock consistency)
-- [x] TypeScript types updated in `database.ts` and `index.ts`
+## Phase 2.6: Five-Subject MVP Syllabus Content & Availability (Migration 024)
+- **Status**: Migration 024 is prepared and locally verified; hosted application pending review.
+- [x] Five MVP subjects gated via `is_available = TRUE`: Mathematics 9709, Further Mathematics 9231, Physics 9702, Chemistry 9701, Computer Science 9618.
+- [x] Normalized paper catalogue (`subject_papers`), valid routes (`subject_valid_routes`), and route components (`subject_route_papers`).
+- [x] Chapter to paper assessment mapping (`chapter_papers`).
+- [x] Scoped collision-safe renumbering (+1000 staging) for legacy chapters with `is_active = FALSE` deprecation for non-syllabus rows.
+- [x] Complete 37-topic Chemistry 9701, 25-topic Physics 9702, 38-chapter Maths 9709, 24-chapter Further Maths 9231, and 20-chapter CS 9618 models.
+- [x] Database triggers protecting past-paper and route-selection integrity at the schema boundary.
+- [x] `daily_missions.subject_paper_id` component persistence across generation and replacement.
 
-### Application Layer & Migration 021 (Prepared — Not Yet Applied)
-- [x] UI: Route selection banner and RouteSetupSheet for unconfirmed and existing enrolments
-- [x] UI: Paper combination selector (`PaperSelectionPanel`) for Mathematics 9709
-- [x] UI: Stage-aware result entry & A2 transition modal (`A2TransitionModal`) supporting normal transition and manual unlock
-- [x] UI: Separate AS and A2 readiness bars (`StageReadinessPanel`, `SubjectCard`, `SubjectReadinessList`)
-- [x] UI: Onboarding Step 4 for choosing study routes and paper combinations
-- [x] UI: Past paper logging with required stage selection (`LogPaperModal`) and legacy paper tagger (`PaperStageTagger`)
-- [x] UI: 10-minute mission undo action with countdown timer and XP reversal notifications
-- [x] Database: Migration 021 SQL authored with 3-arg `compute_readiness_score`, atomic `configure_subject_route`, `transition_to_a2`, `undo_mission_completion`, mission filtering, and RLS guards
-- [x] Database Tests: 25 tests in `as_a2_readiness.test.sql` and 9 tests in `undo_mission.test.sql` authored
-- [x] TypeScript unit tests: `tests/as-a2-flow.test.ts` (13 tests) passed
 
 
 ## Phase 3: Past Papers & Analytics
@@ -78,9 +68,7 @@
     - [x] Strict mission relevance (`complete_notes` requires `notes_status != 'complete'`, `revisit_weak_topic` requires real attempts with <70% accuracy)
     - [x] Atomic, pre-validated `replace_mission` RPC with row locking and zero side-effects on exhaustion
     - [x] 24 pgTAP database tests in `mission_quality.test.sql` and 4 Vitest tests in `mission-quality.test.ts` passed
-  - **Pending**:
-    - [ ] Hosted Supabase Migration 023 application pending
-    - [ ] Manual end-to-end user verification on production environment pending
+    - [x] Applied to hosted database (Migration 023)
 
 ## Phase 5: Gamification
 - XP awards, Levelling system
