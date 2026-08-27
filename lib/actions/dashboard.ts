@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getAuthenticatedContext } from '@/lib/supabase/authenticated'
+import { computeLevel } from '@/lib/xp'
 import type {
   StudyRoute,
   SubjectStage,
@@ -27,6 +28,7 @@ export interface DailyMission {
   type: MissionType
   target_entity_type: 'chapter' | 'subject' | 'paper' | 'user'
   target_entity_id: string | null
+  subject_paper_id?: string | null
   title: string
   description: string | null
   xp_reward: number
@@ -168,18 +170,20 @@ export async function completeMission(
 
   if (error) return { error: error.message }
 
-  revalidatePath('/dashboard')
+  // Derive previous level from atomic RPC return values.
+  // total_xp_awarded includes mission XP, daily all-complete bonus, achievement XP, and streak milestone bonuses.
+  const totalAwarded = Number(data.total_xp_awarded ?? data.xp_awarded ?? 0)
+  const newTotalXp = Number(data.new_total_xp ?? 0)
+  const oldTotalXp = Math.max(0, newTotalXp - totalAwarded)
+  const oldLevel = computeLevel(oldTotalXp)
+  const newLevel = Number(data.new_level ?? computeLevel(newTotalXp))
+  const levelledUp = newLevel > oldLevel
 
-  // Check if the user levelled up
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('current_level')
-    .eq('id', user.id)
-    .single()
+  revalidatePath('/dashboard')
 
   const result: CompleteMissionResult = {
     ...data,
-    levelled_up: (profile?.current_level ?? 0) > data?.new_level ? false : (data?.new_level ?? 0) > (profile?.current_level ?? 0),
+    levelled_up: levelledUp,
   }
 
   return { result }

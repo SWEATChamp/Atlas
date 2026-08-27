@@ -1,0 +1,50 @@
+import { describe, expect, test } from 'vitest'
+import { computeLevel, computeLevelTitle, LEVEL_TITLES } from '../lib/xp'
+
+describe('XP level piecewise mapping', () => {
+  test('correctly maps XP to level according to XP_THRESHOLDS', () => {
+    expect(computeLevel(0)).toBe(1)
+    expect(computeLevel(50)).toBe(1)
+    expect(computeLevel(99)).toBe(1)
+    expect(computeLevel(100)).toBe(2)
+    expect(computeLevel(249)).toBe(2)
+    expect(computeLevel(250)).toBe(3)
+    expect(computeLevel(499)).toBe(3)
+    expect(computeLevel(500)).toBe(4)
+    expect(computeLevel(899)).toBe(4)
+    expect(computeLevel(900)).toBe(5)
+    expect(computeLevel(1399)).toBe(5)
+    expect(computeLevel(1400)).toBe(6)
+    expect(computeLevel(1999)).toBe(6)
+    expect(computeLevel(2000)).toBe(7)
+    expect(computeLevel(2799)).toBe(7)
+    expect(computeLevel(2800)).toBe(8)
+    expect(computeLevel(3799)).toBe(8)
+    expect(computeLevel(3800)).toBe(9)
+    expect(computeLevel(4999)).toBe(9)
+    expect(computeLevel(5000)).toBe(10)
+    expect(computeLevel(6999)).toBe(10)
+    expect(computeLevel(7000)).toBe(11)
+    expect(computeLevel(9999)).toBe(11)
+    expect(computeLevel(10000)).toBe(12)
+    expect(computeLevel(13999)).toBe(12)
+    expect(computeLevel(14000)).toBe(13)
+    expect(computeLevel(18999)).toBe(13)
+    expect(computeLevel(19000)).toBe(14)
+    expect(computeLevel(24999)).toBe(14)
+    expect(computeLevel(25000)).toBe(15)
+    expect(computeLevel(50000)).toBe(15)
+  })
+
+  test('handles negative XP defensively as level 1', () => {
+    expect(computeLevel(-10)).toBe(1)
+  })
+
+  test('provides full titles for Level 1 through Level 15 including Mythic', () => {
+    expect(LEVEL_TITLES[1]).toBe('Initiate')
+    expect(LEVEL_TITLES[14]).toBe('Legend')
+    expect(LEVEL_TITLES[15]).toBe('Mythic')
+    expect(computeLevelTitle(15)).toBe('Mythic')
+    expect(computeLevelTitle(16)).toBe('Mythic')
+  })
+})

@@ -124,6 +124,21 @@ The performance and dashboard-polish release after Migration 026 does not change
 4. Confirm dashboard, Subjects, subject detail, Past Papers, paper logging, mission completion, and mission Undo still work in production.
 5. Compare production navigation timings after the deployment. Create a forward-only Migration 027 only if the Subjects aggregate remains a measured bottleneck after the application changes and Sydney function-region configuration.
 
+## Phase 2.10 Application Performance Round 2
+
+> **Release status (2026-08-27):** Prepared and verified locally on `codex/performance-round-2`. Review, merge, Vercel deployment, and production measurement remain pending. This is an application-only release: no Supabase backup, database migration, or migration-history repair is required.
+
+1. Review the Phase 2.10 diff, including proxy authentication, the onboarding guard, dashboard state reconciliation, Past Papers navigation, and Speed Insights integration.
+2. Confirm all 85 unit tests, TypeScript type checking, ESLint, the Next.js production build, and whitespace checks pass.
+3. Confirm there are no changes under `supabase/migrations/` or `supabase/tests/`. Do not create or apply Migration 027 as part of this release.
+4. Enable Speed Insights for the Atlas project in Vercel. The integration does not require a new environment variable.
+5. Merge the reviewed branch and allow Vercel to deploy the application release.
+6. Smoke-test unauthenticated redirects, Google OAuth, returning-user login, incomplete onboarding, and the already-onboarded redirect.
+7. Smoke-test dashboard mission completion, Undo, replacement, XP, level, and streak updates; then verify Subjects and Past Papers filtering, paper logging, modals, and charts.
+8. Confirm Supabase session-cookie updates survive redirects and that protected routes remain unavailable without a valid session.
+9. After representative production traffic, review Speed Insights and compare Dashboard and Past Papers timings with the pre-release baseline.
+10. Propose a forward-only Migration 027 only if production measurements show a remaining database bottleneck. Treat it as a separate reviewed database release and create a fresh hosted backup before applying it.
+
 ## General Production Configuration
 
 - Configure Supabase authentication providers, Site URL, and allowed redirect URLs for the production domain.

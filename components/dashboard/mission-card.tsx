@@ -30,40 +30,48 @@ const MISSION_META: Record<DailyMission['type'], {
 }
 
 export default function MissionCard({ mission, onComplete, onUndo, onReplace, onError }: MissionCardProps) {
-  const [done, setDone] = useState(mission.status === 'completed')
-  const [completedAt, setCompletedAt] = useState<string | null>(mission.completed_at)
-  const [canUndo, setCanUndo] = useState(
-    () => mission.status === 'completed' && isMissionUndoAvailable(mission.completed_at)
-  )
+  const isServerDone = mission.status === 'completed'
+  const [optimisticDone, setOptimisticDone] = useState<boolean | null>(null)
+  const [prevStatus, setPrevStatus] = useState(mission.status)
+  const [prevCompletedAt, setPrevCompletedAt] = useState(mission.completed_at)
+  const [, setTick] = useState(0)
+
+  // Reset optimistic state during render when props change
+  if (prevStatus !== mission.status || prevCompletedAt !== mission.completed_at) {
+    setPrevStatus(mission.status)
+    setPrevCompletedAt(mission.completed_at)
+    setOptimisticDone(null)
+  }
+
   const [cardError, setCardError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [isReplacing, startReplaceTransition] = useTransition()
   const meta = MISSION_META[mission.type]
 
-  // Close the undo window ten minutes after completion.
+  const done = optimisticDone !== null ? optimisticDone : isServerDone
+  const canUndo = done && isMissionUndoAvailable(mission.completed_at)
+
+  // Trigger re-render when the 10-minute undo window expires
   useEffect(() => {
-    if (!done || !completedAt || !canUndo) return
-    const timeout = setTimeout(
-      () => setCanUndo(false),
-      missionUndoRemainingMs(completedAt)
-    )
+    if (!done || !mission.completed_at || !canUndo) return
+    const remainingMs = missionUndoRemainingMs(mission.completed_at)
+    if (remainingMs <= 0) return
+
+    const timeout = setTimeout(() => {
+      setTick((t) => t + 1)
+    }, remainingMs)
     return () => clearTimeout(timeout)
-  }, [done, completedAt, canUndo])
+  }, [done, mission.completed_at, canUndo])
 
   const handleComplete = () => {
     if (done || isPending || isReplacing) return
     setCardError(null)
-    setDone(true) // optimistic
-    const nowIso = new Date().toISOString()
-    setCompletedAt(nowIso)
-    setCanUndo(true)
+    setOptimisticDone(true)
 
     startTransition(async () => {
       const { result, error } = await completeMission(mission.id)
       if (error) {
-        setDone(false)
-        setCompletedAt(null)
-        setCanUndo(false)
+        setOptimisticDone(false)
         setCardError(error)
         onError?.(`Completion failed: ${error}`)
         return
@@ -76,17 +84,16 @@ export default function MissionCard({ mission, onComplete, onUndo, onReplace, on
     e.stopPropagation()
     if (!done || isPending || isReplacing) return
     setCardError(null)
+    setOptimisticDone(false)
 
     startTransition(async () => {
       const { result, error } = await undoMission(mission.id)
       if (error) {
+        setOptimisticDone(true)
         setCardError(error)
         onError?.(`Undo failed: ${error}`)
         return
       }
-      setDone(false)
-      setCompletedAt(null)
-      setCanUndo(false)
       onUndo?.(mission.id, result!)
     })
   }

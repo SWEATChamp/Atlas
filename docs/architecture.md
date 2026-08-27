@@ -26,8 +26,42 @@ Server or Client Component → Next.js Server Action or authenticated Supabase c
 
 The app detects the browser's IANA timezone during onboarding and when a signed-in user opens the app. PostgreSQL uses that saved timezone to decide the user's current calendar date. Daily missions, streaks, daily achievements, exam countdowns, and automatic exam archiving therefore change at the user's midnight rather than the database server's midnight. Invalid or missing values fall back to UTC.
 
-## Authentication Flow
-Atlas currently uses Supabase Auth with Google OAuth. Email/password UI and Google Docs synchronisation are not part of the current MVP flow.
+## Authentication Flow & Proxy Route Guarding (Phase 2.10 — Locally Prepared, Deployment Pending)
+
+Atlas uses Supabase Auth with Google OAuth. Email/password UI and Google Docs synchronisation are not part of the current MVP flow.
+
+- **Proxy (`proxy.ts`)**:
+  - Validates request identity using `supabase.auth.getClaims()` and explicit JWT claims validation (`claims.sub`).
+  - Removes the per-request PostgREST lookup of `profiles.onboarding_completed` from proxy routing. Depending on token, key-cache, and refresh conditions, `getClaims()` may still use Supabase Auth infrastructure.
+  - Automatically preserves and pipes modified Supabase cookies across all internal rewrites and redirects.
+  - Excludes static assets and `/api/auth/callback` from route gating.
+- **Server-side Onboarding Guard (`app/(auth)/onboarding/layout.tsx`)**:
+  - Enforces onboarding status on the server: redirects unauthenticated users to `/login?next=/onboarding` and already-onboarded users directly to `/dashboard`.
+  - Preserves `app/(auth)/onboarding/page.tsx` as a pure Client Component.
+
+## Dashboard Architecture & State Reconciliation (Phase 2.10 — Locally Prepared, Deployment Pending)
+
+Atlas employs a single-source-of-truth client-side state model on the dashboard (`components/dashboard/dashboard-view.tsx`):
+
+- **Immediate Feedback & State Reconciliation**:
+  - `MissionCard` manages immediate optimistic interaction feedback while calling Server Actions.
+  - Upon RPC completion (`complete_mission`, `undo_mission_completion`, `replace_mission`), `DashboardView` atomically updates missions, user XP, level, level title, and current streak simultaneously.
+  - On mission undo, if other completed missions remain today, `active_today` remains `true` and `last_date` remains today; if no other completed missions remain, `active_today` reverts to `false` and `last_date` reverts to yesterday (for `streak > 0`) or `null` (for `streak = 0`).
+  - Longest streak history is strictly preserved against decrease during undo operations.
+  - Temporary limitation: Non-mission activity on the same calendar day (e.g. a past paper attempt logged prior to mission undo) is reconciled asynchronously via the subsequent background `router.refresh()` without requiring an unreviewed database migration.
+  - In the event of an RPC error, `MissionCard` and `DashboardView` display inline and toast errors and immediately roll back local visual state, preventing UI/database desynchronization.
+  - `router.refresh()` executes non-blockingly in the background for eventual consistency.
+- **XP Progression & Levelling (`lib/xp.ts`)**:
+  - TypeScript `computeLevel()` mirrors PostgreSQL `compute_level(p_total_xp)` piecewise across all 15 level thresholds (100 to 25,000 XP).
+  - Level 15 title `Mythic` matches PostgreSQL `compute_level_title`.
+  - `completeMission` derives level-up status purely in TypeScript using atomic `total_xp_awarded` and `new_total_xp`, removing the redundant post-completion profile query.
+
+## Performance & Real-User Monitoring (Phase 2.10 — Locally Prepared, Deployment Pending)
+
+- Next.js Turbopack compiler.
+- Core Web Vitals telemetry captured via `@vercel/speed-insights` in `app/layout.tsx` (locally integrated and verified; deployment pending).
+- Heavy visual elements (e.g. Recharts in Past Papers) loaded lazily with loading skeletons.
+- Navigation links in Past Papers filters use Next.js `Link` elements with automatic prefetching and `aria-current="page"`.
 
 ## Mission Engine
 A core component of Atlas is the Mission Engine. It generates up to 3 daily missions per user by calculating a weighted score across multiple dimensions:
