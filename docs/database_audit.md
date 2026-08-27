@@ -533,4 +533,4 @@ Groups all low-cost, high-priority column additions and fixes that are needed fo
 
 ---
 
-*Database audit complete through hosted Migration 026. The matching Migrations 025–026 application hotfix and repeat production smoke testing remain pending.*
+*Database audit complete through hosted Migration 026. The matching Migrations 025–026 application hotfix is deployed and its initial production smoke checks passed.*

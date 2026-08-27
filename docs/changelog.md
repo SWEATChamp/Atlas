@@ -80,6 +80,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Restricts direct enrollment membership mutations so add/archive changes must pass through the guarded RPCs while exam-date, target-grade, and priority edits remain available.
   - Adds 21 pgTAP regression tests and 3 unit tests.
   - Applied after Migration 025 and recorded in hosted migration history on 2026-08-27; all eight combined hosted boundary checks returned `true`.
+- **Application Performance & Dashboard Polish (no database migration):**
+  - Reuses authenticated user and profile reads within each server render instead of repeating the same Supabase validation across layouts and page loaders.
+  - Uses the dashboard aggregate for Subjects-page readiness, removing per-subject readiness network round trips.
+  - Removes the redundant dashboard chapter-count query now that Migration 025 returns `has_chapter_data`.
+  - Adds immediate route-level loading skeletons and defers Past Papers charts and paper-entry forms from the initial client bundle.
+  - Removes render-blocking third-party font requests in favour of a deterministic system-font stack.
+  - Adds clock-skew tolerance to the mission Undo control while leaving PostgreSQL as the authority for the 10-minute rule.
+  - Distinguishes “some subjects are missing exam dates” from the true no-dates state.
+  - Adds four focused unit assertions; 72/72 unit tests, type checking, lint, production build, and whitespace checks pass locally.
 
 ### Fixed
 - Replaced inconsistent application-side readiness calculation with database-level single source of truth.
@@ -90,12 +99,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reconciled Migration 024 acceptance counts to 68 migration-specific and 173 total database tests.
 - Corrected expired streaks being displayed as active until the next mission action recalculated them.
 - Corrected dashboard subject-readiness cards rendering `undefinedd` when `days_until` was absent.
+- Corrected the mission Undo control being hidden until refresh when the hosted database clock was slightly ahead of the browser clock.
+- Corrected the dashboard claiming that no exam dates were set when only one enrolled subject lacked a date.
 
 ### Known Issues & MVP Limitations
-- The Migrations 025–026 application changes remain undeployed pending final review and production smoke testing; the database migrations are already applied and verified on hosted Supabase.
 - One transient failure was observed on the first production Google sign-in attempt; subsequent sign-ins succeeded and no browser console errors were recorded. Continue monitoring authentication logs.
 - Non-MVP subjects (such as Biology 9700) are flagged as unavailable (`is_available = FALSE`) for new onboarding while preserving grandfathered enrolments.
-- Current hotfix verification: 201 database tests and 68 unit tests pass, as do type checking, production build, and whitespace checks. Lint has zero errors and one non-blocking Next.js warning for the existing external font stylesheet.
+- Migrations 025–026 and their matching application changes are deployed. The production subject manager has been checked through the non-destructive confirmation/cancel path; a live remove-and-re-add preservation exercise has not been performed.
 
 
 ## [0.1.0] - Initial Commit

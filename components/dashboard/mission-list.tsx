@@ -8,10 +8,11 @@ import MissionCard from './mission-card'
 import { generateMissions } from '@/lib/actions/dashboard'
 import type { DailyMission, CompleteMissionResult } from '@/lib/actions/dashboard'
 import type { UndoMissionResult, ReplaceMissionResult } from '@/types/database'
+import type { ExamDateCoverage } from '@/lib/dashboard-display'
 
 interface MissionListProps {
   missions: DailyMission[]
-  hasExamDates: boolean
+  examDateCoverage: ExamDateCoverage
   hasChapterData: boolean
 }
 
@@ -58,7 +59,7 @@ export function formatUndoBreakdown(result: UndoMissionResult): string {
     : `-${result.xp_reversed} XP (Reversed)`
 }
 
-export default function MissionList({ missions: initialMissions, hasExamDates, hasChapterData }: MissionListProps) {
+export default function MissionList({ missions: initialMissions, examDateCoverage, hasChapterData }: MissionListProps) {
   const router = useRouter()
   const [missions, setMissions]     = useState<DailyMission[]>(initialMissions)
   const [toasts, setToasts]         = useState<XpToast[]>([])
@@ -159,10 +160,10 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
 
   // ── Pre-requisite warnings ──────────────────────────────────────────────
   const renderBlockers = () => {
-    if (hasExamDates && hasChapterData) return null
+    if (examDateCoverage === 'all' && hasChapterData) return null
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-        {!hasExamDates && (
+        {examDateCoverage !== 'all' && (
           <div style={{
             display: 'flex',
             alignItems: 'flex-start',
@@ -175,10 +176,14 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
             <Calendar size={15} color="var(--warning)" style={{ flexShrink: 0, marginTop: 1 }} />
             <div>
               <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--warning)', marginBottom: 2 }}>
-                No exam dates set
+                {examDateCoverage === 'some'
+                  ? 'Some subjects are missing exam dates'
+                  : 'No exam dates set'}
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                The Mission Engine needs an exam date to calculate urgency scores. Set one in your subject settings.
+                {examDateCoverage === 'some'
+                  ? 'Add the remaining dates so urgency stays accurate across every subject.'
+                  : 'The Mission Engine needs an exam date to calculate urgency scores. Set one in your subject settings.'}
               </div>
             </div>
           </div>
@@ -384,11 +389,11 @@ export default function MissionList({ missions: initialMissions, hasExamDates, h
             No missions generated for today yet
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 12 }}>
-            {hasExamDates && hasChapterData
+            {examDateCoverage === 'all' && hasChapterData
               ? 'Click below to generate your personalised daily study missions.'
               : 'Add your exam dates and start revising chapters to unlock daily missions.'}
           </div>
-          {hasExamDates && hasChapterData && (
+          {examDateCoverage === 'all' && hasChapterData && (
             <button
               onClick={handleGenerate}
               disabled={generating}

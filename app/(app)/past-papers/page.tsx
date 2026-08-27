@@ -1,9 +1,8 @@
-import { createClient } from '@/lib/supabase/server'
+import { getAuthenticatedContext, getCurrentProfile } from '@/lib/supabase/authenticated'
 import { getAllPapersWithSubjects, getPapersForSubject, getChapterAccuracy, getUntaggedPapers } from '@/lib/actions/papers'
-import { LogPaperButton } from '@/components/papers/log-paper-modal'
+import { LogPaperButton } from '@/components/papers/log-paper-button'
 import { SubjectFilterTabs } from '@/components/papers/subject-filter-tabs'
-import { ScoreTrendChart } from '@/components/papers/score-trend-chart'
-import { ChapterAccuracyChart } from '@/components/papers/chapter-accuracy-chart'
+import { LazyChapterAccuracyChart, LazyScoreTrendChart } from '@/components/papers/paper-charts'
 import { PaperCard } from '@/components/papers/paper-card'
 import PaperStageTagger from '@/components/papers/paper-stage-tagger'
 import { FileText } from 'lucide-react'
@@ -11,22 +10,25 @@ import { FileText } from 'lucide-react'
 export default async function PastPapersPage(props: {
   searchParams?: Promise<{ subject?: string }>
 }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const searchParamsPromise: Promise<{ subject?: string }> =
+    props.searchParams ?? Promise.resolve({})
+  const [{ supabase, user }, profile, sp] = await Promise.all([
+    getAuthenticatedContext(),
+    getCurrentProfile(),
+    searchParamsPromise,
+  ])
   if (!user) return null
 
-  const sp = props.searchParams ? await props.searchParams : {}
   const activeSubjectId = sp.subject || null
 
   // ── Parallel fetch ────────────────────────────────────────────────────────
-  const [userSubjectsData, papers, chapterAccuracy, untaggedPapers, profileResult] = await Promise.all([
+  const [userSubjectsData, papers, chapterAccuracy, untaggedPapers] = await Promise.all([
     supabase.from('user_subjects').select('subjects(id, name, color_hex)').eq('user_id', user.id),
     activeSubjectId ? getPapersForSubject(activeSubjectId) : getAllPapersWithSubjects(),
     activeSubjectId ? getChapterAccuracy(activeSubjectId) : Promise.resolve([]),
     getUntaggedPapers(),
-    supabase.from('profiles').select('timezone').eq('id', user.id).single(),
   ])
-  const timeZone = profileResult.data?.timezone ?? 'UTC'
+  const timeZone = profile?.timezone ?? 'UTC'
 
   const subjects = (userSubjectsData.data || [])
     .flatMap((row) => row.subjects ?? [])
@@ -84,7 +86,7 @@ export default async function PastPapersPage(props: {
       {papers.length > 0 && (
         <div className="card" style={{ padding: 'var(--space-5)' }}>
           <h3 className="text-heading-3" style={{ margin: '0 0 var(--space-4) 0' }}>Score Trend</h3>
-          <ScoreTrendChart papers={papers} activeSubjectId={activeSubjectId} />
+          <LazyScoreTrendChart papers={papers} activeSubjectId={activeSubjectId} />
         </div>
       )}
 
@@ -94,7 +96,7 @@ export default async function PastPapersPage(props: {
           {chapterAccuracy.length > 0 && (
             <div className="card" style={{ padding: 'var(--space-5)' }}>
               <h3 className="text-heading-3" style={{ margin: '0 0 var(--space-4) 0' }}>Chapter Accuracy</h3>
-              <ChapterAccuracyChart data={chapterAccuracy} />
+              <LazyChapterAccuracyChart data={chapterAccuracy} />
             </div>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>

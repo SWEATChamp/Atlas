@@ -1,7 +1,7 @@
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { signOut } from '@/lib/supabase/actions'
+import { getAuthenticatedContext, getCurrentProfile } from '@/lib/supabase/authenticated'
 import NavLink from '@/components/nav-link'
 import TimezoneSync from '@/components/timezone-sync'
 
@@ -20,18 +20,11 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { user } = await getAuthenticatedContext()
 
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name, avatar_url, username, onboarding_completed, timezone')
-    .eq('id', user.id)
-    .single()
+  const profile = await getCurrentProfile()
 
   if (!profile?.onboarding_completed) redirect('/onboarding')
 

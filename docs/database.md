@@ -303,7 +303,7 @@ Authored in `supabase/migrations/20260826000024_mvp_syllabus_content.sql`. Rollb
 
 ## Dashboard Statistics Hotfix (Migration 025) — Applied to Hosted Supabase
 
-Authored in `supabase/migrations/20260827000025_dashboard_stats_hotfix.sql`. Rollback-only tests are defined in `supabase/tests/database/dashboard_stats_hotfix.test.sql` (7 tests). Status: **Applied to hosted Supabase and recorded in remote migration history on 2026-08-27 after a fresh logical backup. Hosted boundary verification passed. The matching application deployment remains pending.**
+Authored in `supabase/migrations/20260827000025_dashboard_stats_hotfix.sql`. Rollback-only tests are defined in `supabase/tests/database/dashboard_stats_hotfix.test.sql` (7 tests). Status: **Applied to hosted Supabase and recorded in remote migration history on 2026-08-27 after a fresh logical backup. Hosted boundary verification passed, and the matching application is deployed.**
 
 1. **Restored exam countdown contract**:
    - `get_user_dashboard_stats(UUID)` again returns `days_until` for every enrolled subject.
@@ -321,7 +321,7 @@ Authored in `supabase/migrations/20260827000025_dashboard_stats_hotfix.sql`. Rol
 
 ## Subject Enrollment Management (Migration 026) — Applied to Hosted Supabase
 
-Authored in `supabase/migrations/20260827000026_subject_enrollment_management.sql`. Rollback-only tests are defined in `supabase/tests/database/subject_enrollment_management.test.sql` (21 tests; 201 database tests total across 9 suites). Status: **Applied to hosted Supabase and recorded in remote migration history on 2026-08-27 after Migration 025. All eight combined hosted boundary checks returned `true`. The matching application deployment remains pending.**
+Authored in `supabase/migrations/20260827000026_subject_enrollment_management.sql`. Rollback-only tests are defined in `supabase/tests/database/subject_enrollment_management.test.sql` (21 tests; 201 database tests total across 9 suites). Status: **Applied to hosted Supabase and recorded in remote migration history on 2026-08-27 after Migration 025. All eight combined hosted boundary checks returned `true`, and the matching application is deployed.**
 
 1. **`add_subject_enrollment(UUID, UUID)`**:
    - Accepts only available global MVP subjects.

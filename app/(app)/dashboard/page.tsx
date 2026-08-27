@@ -5,6 +5,7 @@ import XpLevelBar from '@/components/dashboard/xp-level-bar'
 import SubjectReadinessList from '@/components/dashboard/subject-readiness-list'
 import RouteSelectionBanner from '@/components/subjects/route-selection-banner'
 import { dateInTimeZone, hourInTimeZone } from '@/lib/date'
+import { getExamDateCoverage } from '@/lib/dashboard-display'
 import type { Subject, UserSubject } from '@/types'
 
 function greeting(timeZone: string): string {
@@ -42,6 +43,9 @@ export default async function DashboardPage() {
   const totalMissions  = activeMissions.length
   const localToday     = dateInTimeZone(new Date(), profile.timezone)
   const streakActive   = streak.active_today ?? streak.last_date === localToday
+  const examDateCoverage = getExamDateCoverage(
+    subject_readiness.map((subject) => subject.exam_date)
+  )
 
   const unconfirmedSubjects = subject_readiness
     .filter((s) => s.study_route === 'unconfirmed')
@@ -201,7 +205,7 @@ export default async function DashboardPage() {
           <MissionList
             key={today_missions.map((mission) => `${mission.id}:${mission.status}:${mission.completed_at ?? ''}`).join('|')}
             missions={activeMissions}
-            hasExamDates={has_exam_dates}
+            examDateCoverage={has_exam_dates ? 'all' : examDateCoverage}
             hasChapterData={has_chapter_data}
           />
         </div>

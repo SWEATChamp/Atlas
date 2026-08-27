@@ -9,12 +9,12 @@ Atlas uses Vercel for the Next.js application and Supabase for authentication an
 - The Migration 024 application changes were deployed to Vercel on 2026-08-27.
 - Initial production smoke checks passed for authentication retry, preserved enrolments, route-aware chapters, paper component filtering, and mission completion/undo XP accounting.
 - A fresh logical backup was completed before Migrations 025–026. Both migrations were applied in order on 2026-08-27, remote history was confirmed through 026, and all eight hosted boundary checks returned `true`.
-- The matching Migrations 025–026 application hotfix is not yet deployed; its production smoke checks remain pending.
+- The matching Migrations 025–026 application hotfix is deployed. Production smoke testing confirmed valid readiness countdowns, all five active MVP subjects, and the removal confirmation/cancel path.
 - Do not rerun Migrations 024–026. Any further production correction must use a reviewed forward-only migration.
 
 ## Migration 024 Release Order
 
-> **Release status (2026-08-27):** The Migration 024 database and application deployment steps are complete. Migrations 025–026 have also been backed up, applied, recorded, and verified on hosted Supabase. Their matching application hotfix and production smoke matrix remain pending.
+> **Release status (2026-08-27):** The Migration 024–026 database and matching application deployment steps are complete. Hosted history is synchronized through 026 and the initial production smoke matrix passed, except that no live subject removal/re-add preservation exercise was performed.
 
 ### 1. Approve a single release candidate
 
@@ -102,7 +102,7 @@ After successful hosted verification and deployment, update the roadmap, databas
 
 Migration 025 replaces `get_user_dashboard_stats(UUID)` without changing its signature. Migration 026 adds the guarded subject enrollment RPCs used by the matching application UI. Release both database migrations in order before deploying the application:
 
-> **Release status (2026-08-27):** Steps 1–6 are complete. The remote migration list matches local history through 026, the final dry run reports the database is up to date, and all eight hosted boundary verification values returned `true`. Steps 7–9 remain pending.
+> **Release status (2026-08-27):** Steps 1–8 are complete. The remote migration list matches local history through 026, the final dry run reports the database is up to date, all eight hosted boundary verification values returned `true`, and the application hotfix is deployed. Step 9 was checked through confirmation/cancel only; a live remove-and-re-add exercise remains optional.
 
 1. Review both migration files, their 28 focused pgTAP tests, and the dashboard/subject-management unit tests.
 2. Confirm all 201 database tests, 68 unit tests, type checking, lint, production build, and whitespace checks pass.
@@ -113,6 +113,16 @@ Migration 025 replaces `get_user_dashboard_stats(UUID)` without changing its sig
 7. Merge and deploy the matching application hotfix.
 8. Confirm countdown chips no longer show `undefinedd`, the expired streak displays zero, and authentication still succeeds.
 9. On Subjects, open “Add or remove,” verify only available MVP subjects can be added, cancel one removal, then confirm one removal and re-add it. Check that progress, papers, XP, and completed missions remain unchanged.
+
+## Application-Only Performance Polish
+
+The performance and dashboard-polish release after Migration 026 does not change the database schema and must not create or apply another migration.
+
+1. Review the application diff for request-scoped auth reuse, dashboard and Subjects data loading, mission Undo timing, loading skeletons, deferred Past Papers UI, and font removal.
+2. Confirm 72 unit tests, type checking, lint, production build, and whitespace checks pass.
+3. Merge and deploy the reviewed application commit. A new hosted database backup is not required because this release has no database mutation.
+4. Confirm dashboard, Subjects, subject detail, Past Papers, paper logging, mission completion, and mission Undo still work in production.
+5. Compare production navigation timings after the deployment. Create a forward-only Migration 027 only if the Subjects aggregate remains a measured bottleneck after the application changes and Sydney function-region configuration.
 
 ## General Production Configuration
 
