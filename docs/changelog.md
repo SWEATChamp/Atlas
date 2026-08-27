@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-The changes below target the upcoming **v1.1.0** release (locally prepared, deployment pending).
+No unreleased changes are documented yet.
+
+---
+
+## [1.1.0] - 2026-08-28
+
+Application-only release deployed to Vercel production at merge commit `7071fa0` and verified through production smoke testing. No Supabase migration was required.
 
 ### Added
 - Authoritative user-facing release metadata module (`lib/version.ts`) synchronised with `package.json` at version `1.1.0`.
