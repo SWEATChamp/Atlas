@@ -50,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Replaces mission atomically in place and maintains 3-mission active cap.
   - Quiet UI duration display with `<Clock /> ~X min` and secondary "Replace" button with specific loading state and propagation isolation.
   - 15 pgTAP database tests in `mission_quality.test.sql` and 4 Vitest unit tests in `mission-quality.test.ts`.
-- **Five-Subject MVP Syllabus Content & Subject Availability (Migration 024 — Prepared, Pending Hosted Review):**
+- **Five-Subject MVP Syllabus Content & Subject Availability (Migration 024 — Applied and Hosted-Verified):**
   - Gated syllabus onboarding and selection to exactly 5 MVP subjects via `subjects.is_available`: Mathematics 9709, Further Mathematics 9231, Physics 9702, Chemistry 9701, and Computer Science 9618.
   - Preserved grandfathered user enrollments in non-MVP subjects while isolating modern onboarding routes.
   - Added normalized catalogue tables: `subject_papers`, `subject_valid_routes`, `subject_route_papers`, and `chapter_papers`.
@@ -62,7 +62,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added FK `subject_paper_id` on `daily_missions` (indexed), `subject_paper_selections`, and `past_papers`.
   - Added database triggers: `validate_chapter_paper_subject`, `validate_subject_paper_selection`, and `validate_past_paper_entry` (with narrow legacy exception for unchanged legacy rows).
   - Authored comprehensive pgTAP database tests in `mvp_syllabus_content.test.sql` and unit tests in `tests/mvp-syllabus.test.ts` and `tests/as-a2-flow.test.ts`.
-  - Note: *Migration 024 is prepared and locally verified; hosted application pending review.*
+  - Completed a pre-migration logical backup, reconciled hosted migration history through 023, applied Migration 024 once, and recorded it in remote history on 2026-08-27.
+  - All 18 hosted catalogue and data-preservation checks passed; the remote migration dry run reports the database is up to date.
+  - Note: *The matching application deployment and production UI smoke checks remain pending.*
 
 ### Fixed
 - Replaced inconsistent application-side readiness calculation with database-level single source of truth.

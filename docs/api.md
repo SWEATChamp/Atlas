@@ -2,7 +2,7 @@
 
 ## Supabase RPC (Remote Procedure Calls)
 Atlas leverages PostgreSQL functions via Supabase RPC to securely handle complex operations without bloated client-side code.
-> **Status**: Migration 024 is prepared and locally verified; hosted application pending review.
+> **Status**: Migration 024 was applied and verified on hosted Supabase on 2026-08-27. The matching application deployment remains pending.
 
 - `set_onboarding_subjects(p_user_id UUID, p_subject_ids UUID[])`: Atomically enrolls 1–5 available MVP subjects for onboarding users (`onboarding_completed = FALSE`).
 - `configure_subject_route(p_user_id UUID, p_user_subject_id UUID, p_route study_route_enum, p_paper_selections JSONB DEFAULT '[]'::JSONB)`: Configures a subject's study route, validates and persists paper components with `subject_paper_id`, and synchronizes accessible `user_chapters`.

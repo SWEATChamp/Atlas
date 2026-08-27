@@ -84,7 +84,7 @@ Study route is configured per enrolled subject:
   - Preserves streaks and review timestamps (MVP design constraint).
 
 ## Five-Subject MVP Syllabus Architecture (Migration 024)
-> **Status**: Migration 024 is prepared and locally verified; hosted application pending review.
+> **Status**: Migration 024 was applied and verified on hosted Supabase on 2026-08-27. The matching application deployment remains pending.
 
 1. **Gated Subject Availability**:
    - Exactly 5 subjects are available for new onboarding and selection:

@@ -4,12 +4,14 @@ Atlas uses Vercel for the Next.js application and Supabase for authentication an
 
 ## Current Release Boundary
 
-- Migrations 000–023 are applied to hosted Supabase.
-- Migration 024 is prepared and verified locally, but is not applied to hosted Supabase.
+- Migrations 000–024 are applied to hosted Supabase and recorded in remote migration history.
+- A pre-migration logical backup was completed before Migration 024, and all 18 hosted catalogue and data-preservation checks passed afterward.
 - The Migration 024 application changes are not deployed.
-- No hosted migration or deployment should occur until the pull request is approved and an explicit release decision is made.
+- Do not rerun Migration 024. Application deployment still requires pull-request approval and an explicit release decision.
 
 ## Migration 024 Release Order
+
+> **Release status (2026-08-27):** Steps 1–5 are complete for the hosted database. Migration history is synchronized through 024. Steps 6–8 remain pending for the application release.
 
 ### 1. Approve a single release candidate
 
@@ -43,11 +45,15 @@ These are inspection steps. They must not modify the hosted database.
 
 ### 4. Apply Migration 024 to hosted Supabase
 
-Only after explicit approval, apply the reviewed migration from the recorded release commit:
+Completed on 2026-08-27 from the reviewed migration file. Because the local network could not reach the session pooler, the exact committed SQL was applied once through Supabase SQL Editor, then recorded with `supabase migration repair`. The remote migration list and dry run now report the database is up to date.
+
+For a future unapplied migration, the normal reviewed CLI path is:
 
 ```bash
 npx supabase db push --linked
 ```
+
+Do not run this command for Migration 024 now that its remote history record is synchronized.
 
 Do not edit an already-applied migration to repair a production failure. Stop, preserve evidence, and prepare a new forward-only migration if remediation is required.
 

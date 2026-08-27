@@ -17,9 +17,9 @@ Available now:
 
 Release status and known limitations:
 
-- Migrations 020–023 are applied to hosted Supabase.
-- Migration 024, which enables the five-subject syllabus catalogue, is prepared and fully verified locally but is not yet applied to hosted Supabase.
-- The five-subject release must be reviewed, backed up, migrated, verified, and then deployed in that order.
+- Migrations 020–024 are applied to hosted Supabase and recorded in remote migration history.
+- Migration 024 was backed up, applied, and verified on 2026-08-27; all 18 hosted catalogue and data-preservation checks passed.
+- The matching application release remains pending pull-request approval and production smoke testing.
 - Mission undo reverses XP-related effects but intentionally leaves streak and chapter review timestamps unchanged in the MVP.
 - Google Docs integration has not started.
 
