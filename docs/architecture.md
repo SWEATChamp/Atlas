@@ -84,7 +84,7 @@ Study route is configured per enrolled subject:
   - Recalculates the current streak from remaining activity after undo; review timestamps remain unchanged in the MVP.
 
 ## Five-Subject MVP Syllabus Architecture (Migration 024)
-> **Status**: Migration 024 and its matching application were released on 2026-08-27. Migrations 025–026 are prepared and locally verified but remain unapplied and undeployed.
+> **Status**: Migration 024 and its matching application were released on 2026-08-27. Migrations 025–026 were subsequently backed up, applied, recorded, and verified on hosted Supabase that day; their matching application hotfix remains undeployed pending production smoke testing.
 
 1. **Gated Subject Availability**:
    - Exactly 5 subjects are available for new onboarding and selection:
