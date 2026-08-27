@@ -94,13 +94,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Implemented server-side onboarding layout guard (`app/(auth)/onboarding/layout.tsx`), preserving Client Component architecture for `app/(auth)/onboarding/page.tsx`.
   - Created single authoritative client-side dashboard state owner (`DashboardView`), eliminating competing mission arrays in `MissionList` and `MissionCard`.
   - Added immediate local visual feedback on mission completion, undo, and replacement with instant atomic reconciliation across missions, XP, level, level title, and streak.
-  - Added instant error feedback with automatic local state rollback on RPC failure.
   - Strictly preserved historical longest streak during mission Undo operations.
+  - Eliminated redundant post-completion profile query in `completeMission` action, deriving level-ups via pure TypeScript piecewise `computeLevel()`.
   - Added pure piecewise `computeLevel()` and Level 15 title `Mythic` in `lib/xp.ts` matching PostgreSQL definitions.
-  - Removed redundant post-completion profile query in `completeMission` action, deriving level-ups via pure TypeScript calculation.
   - Converted Past Papers subject filter tabs to Next.js `Link` components with automatic prefetching and `aria-current`.
-  - Added `@vercel/speed-insights` for real-user Core Web Vitals performance telemetry (locally prepared and verified; deployment pending).
-  - Added 11 new unit tests covering pure route guards, XP piecewise thresholds, and dashboard reconciliation; 85/85 unit tests, type check, lint, production build, and whitespace checks pass locally.
+  - Added `@vercel/speed-insights` for real-user Core Web Vitals performance telemetry.
+  - Added 11 new unit tests covering pure route guards, XP piecewise thresholds, and dashboard reconciliation; 85/85 unit tests, type check, lint, production build, and whitespace checks passed.
+- **Production Performance & Mobile Responsiveness (Phase 2.11 — no database migration):**
+  - Implemented optimistic AS/A2 paper-stage tagging with synchronous in-flight duplicate prevention (`inFlightRef`), per-paper pending saving state, double-click and conflicting stage click prevention, and automatic error rollback.
+  - Hardened `assignPaperStage` Server Action with runtime Zod schema validation (UUID and `'as' | 'a2'`), row-count update verification (`.select('id')`), untagged row restriction (`.is('stage', null)`), and safe user-facing error messages.
+  - Locked paper card actions (navigation, edit, delete) while a stage update is saving, and populated edit modals with `effectiveStage ?? 'as'`.
+  - Created lightweight client state island (`PaperStageProvider` & `lib/papers-state.ts`) synchronising tagging prompt and attempts list while keeping charts and page shell server-rendered.
+  - Established a single current-page reconciliation path using Server Action cache revalidation without redundant client-side `router.refresh()` calls.
+  - Streamlined Past Papers data fetching on the "All" view by deriving untagged papers directly from the full paper query, saving a database round trip during page loads while preserving global untagged queries on filtered views.
+  - Redesigned navigation header with explicit CSS Grid areas to ensure exact desktop order (`logo` → `nav` → `user`) and mobile 2-tier layout (`logo` + `user` on row 1, `nav` on row 2).
+  - Enforced mobile touch target compliance (≥44×44px) across navigation links, sign-out, filter tabs, tagging buttons, paper action icons, form inputs, and chapter status/confidence toggles.
+  - Resolved mobile horizontal page overflow (`scrollWidth <= clientWidth`) across 320px, 375px, 390px, 768px, and desktop widths on Dashboard, Subjects, Subject Details, and Past Papers.
+  - Added 13 new unit tests for paper-stage reducers, card locking, input validation, and Server Action boundaries; all 98 unit tests, type check, lint, Turbopack build, and whitespace checks pass locally (locally prepared and verified; deployment pending).
+  - Recorded 3 high-severity transitive vulnerabilities (`postcss`, `sharp` via `next`) during read-only dependency audit; no forced upgrade was applied to maintain Next.js 16 compatibility.
 
 ### Fixed
 - Replaced inconsistent application-side readiness calculation with database-level single source of truth.

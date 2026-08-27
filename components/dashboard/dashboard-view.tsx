@@ -316,15 +316,8 @@ export default function DashboardView({ initialData, unconfirmedSubjects }: Dash
         </div>
       </div>
 
-      {/* ── Main grid ──────────────────────────────────────────────────────── */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 280px',
-          gap: 20,
-          alignItems: 'start',
-        }}
-      >
+      {/* ── Main content: Missions (left) + XP / Streak / Readiness (right) ── */}
+      <div className="dashboard-main-grid">
         {/* Left: Missions */}
         <div className="card" style={{ padding: 'var(--space-5)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>

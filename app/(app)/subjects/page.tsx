@@ -55,13 +55,7 @@ export default async function SubjectsPage() {
           </p>
         </div>
       ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-            gap: 20,
-          }}
-        >
+        <div className="subjects-grid">
           {subjects.map((s) => (
             <SubjectCard key={s.subject.id} data={s} />
           ))}

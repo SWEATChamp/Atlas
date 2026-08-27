@@ -17,8 +17,9 @@
 | Phase 2.7 Dashboard Statistics Hotfix | Migration 025 and matching application deployed; smoke check passed |
 | Phase 2.8 Subject Enrollment Management | Migration 026 and confirmed archive UI deployed; non-destructive smoke check passed |
 | Phase 2.9 Application Performance & Dashboard Polish | Application-only changes deployed |
-| Phase 2.10 Application Performance Round 2 & State Reconciliation | Application-only changes prepared and locally verified; review and deployment pending |
-| Release-candidate checks | 201 database tests and 85 unit tests pass; type check, lint, production build, and whitespace checks pass |
+| Phase 2.10 Application Performance Round 2 & State Reconciliation | Application-only changes deployed to production with active Speed Insights |
+| Phase 2.11 Production Performance & Mobile Responsiveness | Application-only changes prepared and locally verified; review and deployment pending |
+| Release-candidate checks | 201 database tests and 98 unit tests pass; type check, lint, production build, and whitespace checks pass |
 | Google Docs integration | Not started |
 
 ## Phase 0: Foundation (Complete)
@@ -93,7 +94,7 @@
 
 ## Phase 2.10: Application Performance Round 2 & State Reconciliation
 
-- **Status**: No database migration is required. Changes are prepared on `codex/performance-round-2` and locally verified; review, merge, deployment, and post-deployment timing checks remain pending.
+- **Status**: Completed and deployed to production on 2026-08-27.
 - [x] Single-source-of-truth client-side dashboard state management (`DashboardView`) with immediate atomic mission feedback and state reconciliation across missions, XP, levels, and streaks.
 - [x] Immediate error feedback with local rollback on RPC failure, preventing UI/database desynchronization.
 - [x] Replaced `getUser()` in the proxy with `getClaims()` and explicit JWT claims validation, preserving Supabase cookies across redirects and removing the per-request profile lookup.
@@ -101,10 +102,23 @@
 - [x] Eliminated redundant post-completion profile query in `completeMission` action, deriving level-ups via pure TypeScript piecewise `computeLevel()`.
 - [x] Added Level 15 title `Mythic` in `lib/xp.ts` matching PostgreSQL `compute_level_title`.
 - [x] Switched Past Papers subject filter tabs to Next.js `Link` elements with automatic prefetching and `aria-current`.
-- [x] Integrated `@vercel/speed-insights` in `app/layout.tsx` (locally prepared and verified; deployment pending).
-- [x] Pass 85 unit tests (including 11 new proxy route-guard, XP piecewise, and dashboard reconciliation tests), type checking, lint, production build, and whitespace checks.
-- [ ] Review, commit, push, merge, and deploy the application-only release.
-- [ ] Repeat production smoke tests and measure real-user Core Web Vitals telemetry.
+- [x] Integrated `@vercel/speed-insights` in `app/layout.tsx`.
+- [x] Passed 85 unit tests, type checking, lint, production build, and whitespace checks.
+
+## Phase 2.11: Production Performance & Mobile Responsiveness
+
+- **Status**: No database migration required. Changes are prepared on `codex/performance-round-3` and locally verified; review, merge, deployment, and post-deployment timing checks remain pending.
+- [x] Optimistic AS/A2 paper-stage tagging with synchronous in-flight duplicate prevention (`inFlightRef`), hardened Zod input validation, row update count verification, and automatic error rollback.
+- [x] Paper card action locking during save (disables navigation, edit, delete; passes `effectiveStage ?? 'as'` to modal).
+- [x] Minimal client state island (`PaperStageProvider` & `lib/papers-state.ts`) synchronising tagging prompt and attempts list while keeping charts and page shell server-rendered.
+- [x] Single current-page reconciliation path leveraging Server Action revalidation without redundant client refreshes.
+- [x] Streamlined Past Papers data loading on the "All" view (deriving untagged papers from full paper list to save a database query), while preserving global untagged queries on filtered views.
+- [x] Responsive navigation header with explicit CSS Grid areas (desktop: logo → nav → user; mobile: logo + user row 1, nav row 2).
+- [x] Mobile touch targets audited and compliant (≥44×44px across navigation, sign-out, filter tabs, tagging buttons, paper actions, inputs, chapter toggles).
+- [x] Comprehensive mobile responsiveness eliminating horizontal overflow at 320px, 375px, 390px, 768px, and desktop widths across Dashboard, Subjects, Subject Details, and Past Papers.
+- [x] Passed all 98 unit tests (including 13 focused paper-tagging, card-locking, input validation, and in-flight guard tests), type checking, lint, Turbopack production build, and whitespace checks.
+- [ ] Review, commit, push, merge, and deploy the application release.
+- [ ] Record post-deployment warm timings and production Speed Insights Core Web Vitals telemetry.
 
 
 

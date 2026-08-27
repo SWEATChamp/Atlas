@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { getAuthenticatedContext } from '@/lib/supabase/authenticated'
+import { validateAssignPaperStageInput } from '@/lib/validations/papers'
 import type { 
   PaperWithSubject, 
   PaperWithQuestions, 
@@ -341,26 +342,37 @@ export async function getUntaggedPapers(): Promise<PaperWithSubject[]> {
   return data as unknown as PaperWithSubject[]
 }
 
-/**
- * Assign a stage ('as' | 'a2') to a legacy paper whose stage was NULL.
- */
 export async function assignPaperStage(
-  paperId: string,
-  stage: 'as' | 'a2'
-): Promise<{ error?: string }> {
+  rawPaperId: string,
+  rawStage: 'as' | 'a2'
+): Promise<{ success: boolean; paperId?: string; stage?: 'as' | 'a2'; error?: string }> {
+  const parsed = validateAssignPaperStageInput(rawPaperId, rawStage)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message || 'Invalid input data' }
+  }
+  const { paperId, stage } = parsed.data
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
+  if (!user) return { success: false, error: 'Not authenticated' }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('past_papers')
     .update({ stage })
     .eq('id', paperId)
     .eq('user_id', user.id)
+    .is('stage', null)
+    .select('id')
 
-  if (error) return { error: error.message }
+  if (error) {
+    return { success: false, error: 'Failed to update paper stage. Please try again.' }
+  }
+
+  if (!data || data.length === 0) {
+    return { success: false, error: 'Past paper not found, already tagged, or access denied.' }
+  }
 
   revalidatePath('/past-papers')
   revalidatePath('/dashboard')
-  return {}
+  return { success: true, paperId, stage }
 }

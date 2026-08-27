@@ -9,11 +9,22 @@ import { deletePaper } from '@/lib/actions/papers'
 import { formatDateOnly } from '@/lib/date'
 import { LazyLogPaperModal } from './lazy-log-paper-modal'
 
-export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZone: string }) {
+export function PaperCard({
+  paper,
+  timeZone,
+  pendingStage,
+}: {
+  paper: PaperWithSubject
+  timeZone: string
+  pendingStage?: 'as' | 'a2'
+}) {
   const router = useRouter()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isDeleting,    setIsDeleting]    = useState(false)
   const [editOpen,      setEditOpen]      = useState(false)
+
+  const effectiveStage = pendingStage ?? paper.stage
+  const isSavingStage = Boolean(pendingStage)
 
   const pct = Number(paper.accuracy_pct)
   const pctColor =
@@ -21,8 +32,14 @@ export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZo
     pct >= 60 ? 'var(--warning)' :
     'var(--danger)'
 
+  const handleCardClick = () => {
+    if (isSavingStage || isDeleting) return
+    router.push(`/past-papers/${paper.id}`)
+  }
+
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation()
+    if (isSavingStage || isDeleting) return
     if (!confirmDelete) {
       setConfirmDelete(true)
       setTimeout(() => setConfirmDelete(false), 3000)
@@ -41,17 +58,13 @@ export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZo
   return (
     <>
       <motion.div
-        className="card card-interactive"
-        onClick={() => router.push(`/past-papers/${paper.id}`)}
+        className="card card-interactive paper-card-responsive"
+        onClick={handleCardClick}
+        aria-busy={isSavingStage}
         style={{
-          cursor: 'pointer',
-          opacity: isDeleting ? 0.4 : 1,
-          pointerEvents: isDeleting ? 'none' : 'auto',
+          cursor: isSavingStage ? 'wait' : 'pointer',
+          opacity: isDeleting || isSavingStage ? 0.6 : 1,
           padding: '14px 16px',
-          display: 'grid',
-          gridTemplateColumns: '1fr auto auto',
-          alignItems: 'center',
-          gap: 12,
         }}
       >
         {/* Left: paper code + subject + stage */}
@@ -66,11 +79,11 @@ export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZo
           }}>
             {paper.paper_code}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
               {paper.subjects.name}
             </span>
-            {paper.stage ? (
+            {effectiveStage ? (
               <span
                 style={{
                   fontSize: '0.65rem',
@@ -78,11 +91,11 @@ export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZo
                   textTransform: 'uppercase',
                   padding: '1px 5px',
                   borderRadius: 4,
-                  background: paper.stage === 'a2' ? 'rgba(167, 139, 250, 0.15)' : 'rgba(91, 127, 255, 0.15)',
-                  color: paper.stage === 'a2' ? 'var(--accent-secondary)' : 'var(--accent-primary)',
+                  background: effectiveStage === 'a2' ? 'rgba(167, 139, 250, 0.15)' : 'rgba(91, 127, 255, 0.15)',
+                  color: effectiveStage === 'a2' ? 'var(--accent-secondary)' : 'var(--accent-primary)',
                 }}
               >
-                {paper.stage.toUpperCase()}
+                {effectiveStage.toUpperCase()}{isSavingStage ? ' (Saving…)' : ''}
               </span>
             ) : (
               <span
@@ -102,9 +115,9 @@ export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZo
         </div>
 
         {/* Centre: score + meta */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
           {/* Score */}
-          <div style={{ textAlign: 'right' }}>
+          <div style={{ textAlign: 'right', minWidth: 64 }}>
             <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1rem', whiteSpace: 'nowrap' }}>
               {paper.score_raw} / {paper.score_max}
             </div>
@@ -128,29 +141,52 @@ export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZo
           </div>
         </div>
 
-        {/* Actions */}
+        {/* Actions with accessible mobile touch targets */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
           <button
-            onClick={e => { e.stopPropagation(); if (paper.paper_number !== null) setEditOpen(true) }}
+            type="button"
+            onClick={e => {
+              e.stopPropagation()
+              if (!isSavingStage && paper.paper_number !== null) setEditOpen(true)
+            }}
             onPointerEnter={() => void import('./log-paper-modal')}
-            className="btn btn-ghost"
-            title={paper.paper_number === null ? 'Edit unavailable (no paper number recorded)' : 'Edit paper'}
-            disabled={paper.paper_number === null}
-            style={{ width: 32, height: 32, padding: 0, color: paper.paper_number === null ? 'var(--text-disabled, var(--text-muted))' : 'var(--text-muted)', opacity: paper.paper_number === null ? 0.4 : 1 }}
-          >
-            <Pencil size={13} />
-          </button>
-          <button
-            onClick={handleDelete}
-            className="btn btn-ghost"
-            title={confirmDelete ? 'Click again to confirm delete' : 'Delete paper'}
+            className="btn btn-ghost paper-action-btn"
+            title={paper.paper_number === null ? 'Edit unavailable (no paper number recorded)' : isSavingStage ? 'Stage update in progress' : 'Edit paper'}
+            disabled={isSavingStage || paper.paper_number === null}
+            aria-label="Edit paper"
             style={{
-              width: 32, height: 32, padding: 0,
-              color: confirmDelete ? 'var(--danger)' : 'var(--text-muted)',
-              background: confirmDelete ? 'rgba(248,113,113,0.1)' : undefined,
+              width: 44,
+              height: 44,
+              padding: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: isSavingStage || paper.paper_number === null ? 'var(--text-disabled, var(--text-muted))' : 'var(--text-muted)',
+              opacity: isSavingStage || paper.paper_number === null ? 0.4 : 1,
             }}
           >
-            {confirmDelete ? <X size={14} /> : <Trash2 size={13} />}
+            <Pencil size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            className="btn btn-ghost paper-action-btn"
+            title={isSavingStage ? 'Stage update in progress' : confirmDelete ? 'Click again to confirm delete' : 'Delete paper'}
+            disabled={isSavingStage}
+            aria-label="Delete paper"
+            style={{
+              width: 44,
+              height: 44,
+              padding: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: confirmDelete ? 'var(--danger)' : 'var(--text-muted)',
+              background: confirmDelete ? 'rgba(248,113,113,0.1)' : undefined,
+              opacity: isSavingStage ? 0.4 : 1,
+            }}
+          >
+            {confirmDelete ? <X size={16} /> : <Trash2 size={15} />}
           </button>
         </div>
       </motion.div>
@@ -167,12 +203,12 @@ export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZo
               session: paper.session,
               paperNumber: Math.floor(paper.paper_number / 10),
               variant: paper.paper_number % 10,
-              stage: paper.stage ?? 'as',
+              stage: effectiveStage ?? 'as',
               attemptedAt: paper.attempted_at,
               timeTakenMins: paper.time_taken_mins ?? undefined,
               notes: paper.notes ?? undefined,
             }}
-            onSuccess={() => { setEditOpen(false); router.refresh() }}
+            onSuccess={() => { setEditOpen(false) }}
             onClose={() => setEditOpen(false)}
           />
       )}

@@ -32,8 +32,10 @@ function StatusButton({
       <div
         title="Locked: Unlock A2 or configure study route to study this chapter"
         style={{
-          width: 26,
-          height: 26,
+          width: 44,
+          height: 44,
+          minWidth: 44,
+          minHeight: 44,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -41,18 +43,18 @@ function StatusButton({
           flexShrink: 0,
         }}
       >
-        <Lock size={15} color="var(--text-disabled)" />
+        <Lock size={16} color="var(--text-disabled)" />
       </div>
     )
   }
 
   const icon =
     status === 'complete' ? (
-      <CheckCircle2 size={18} color={color} strokeWidth={2.5} />
+      <CheckCircle2 size={20} color={color} strokeWidth={2.5} />
     ) : status === 'in_progress' ? (
-      <Clock size={18} color="var(--warning)" strokeWidth={2.5} />
+      <Clock size={20} color="var(--warning)" strokeWidth={2.5} />
     ) : (
-      <Circle size={18} color="var(--text-disabled)" strokeWidth={2} />
+      <Circle size={20} color="var(--text-disabled)" strokeWidth={2} />
     )
 
   const label =
@@ -64,16 +66,22 @@ function StatusButton({
 
   return (
     <button
+      type="button"
       onClick={(e) => {
         e.stopPropagation()
         onClick()
       }}
       title={`Notes: ${label} — click to cycle`}
+      aria-label={`Notes status: ${label}. Click to cycle status.`}
       style={{
         background: 'none',
         border: 'none',
         cursor: 'pointer',
-        padding: 4,
+        width: 44,
+        height: 44,
+        minWidth: 44,
+        minHeight: 44,
+        padding: 0,
         borderRadius: 6,
         display: 'flex',
         alignItems: 'center',
@@ -81,7 +89,7 @@ function StatusButton({
         transition: 'transform 150ms ease',
         flexShrink: 0,
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.15)' }}
+      onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.1)' }}
       onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
     >
       <AnimatePresence mode="wait">
@@ -116,17 +124,29 @@ function ConfidenceStars({
   if (!isAccessible) {
     return (
       <div
-        style={{ display: 'flex', gap: 2, alignItems: 'center', opacity: 0.3, pointerEvents: 'none' }}
+        style={{ display: 'flex', gap: 0, alignItems: 'center', opacity: 0.3, pointerEvents: 'none' }}
         title="Locked"
       >
         {[1, 2, 3, 4, 5].map((n) => (
-          <Star
+          <div
             key={n}
-            size={13}
-            fill="transparent"
-            color="var(--text-disabled)"
-            strokeWidth={1.5}
-          />
+            style={{
+              width: 44,
+              height: 44,
+              minWidth: 44,
+              minHeight: 44,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Star
+              size={15}
+              fill="transparent"
+              color="var(--text-disabled)"
+              strokeWidth={1.5}
+            />
+          </div>
         ))}
       </div>
     )
@@ -134,36 +154,42 @@ function ConfidenceStars({
 
   return (
     <div
-      style={{ display: 'flex', gap: 2, alignItems: 'center' }}
+      style={{ display: 'flex', gap: 0, alignItems: 'center' }}
       title={value ? `Confidence: ${value}/5 — click same star to clear` : 'Set confidence (1–5 stars)'}
     >
       {[1, 2, 3, 4, 5].map((n) => {
-        const filled = (hovered ?? value ?? 0) >= n
+        const isLit = (hovered ?? value ?? 0) >= n
         return (
           <button
             key={n}
+            type="button"
             onClick={(e) => {
               e.stopPropagation()
               onChange(value === n ? null : n)
             }}
             onMouseEnter={() => setHovered(n)}
             onMouseLeave={() => setHovered(null)}
+            aria-label={`Rate confidence ${n} of 5`}
             style={{
               background: 'none',
               border: 'none',
               cursor: 'pointer',
-              padding: 1,
-              display: 'flex',
-              transition: 'transform 100ms ease',
+              width: 44,
+              height: 44,
+              minWidth: 44,
+              minHeight: 44,
+              padding: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
-            onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.85)' }}
-            onMouseUp={(e)   => { e.currentTarget.style.transform = 'scale(1)' }}
           >
             <Star
-              size={13}
-              fill={filled ? color : 'transparent'}
-              color={filled ? color : 'var(--text-disabled)'}
+              size={16}
+              fill={isLit ? color : 'transparent'}
+              color={isLit ? color : 'var(--text-disabled)'}
               strokeWidth={1.5}
+              style={{ transition: 'all 120ms ease', pointerEvents: 'none' }}
             />
           </button>
         )
@@ -189,32 +215,22 @@ function ScorePill({ pct }: { pct: number }) {
         flexShrink: 0,
       }}
     >
-      {/* Mini bar */}
-      <div style={{
-        width: 36,
-        height: 4,
-        borderRadius: 2,
-        background: 'var(--bg-overlay)',
-        overflow: 'hidden',
-      }}>
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${Math.min(pct, 100)}%` }}
-          transition={{ duration: 0.6, ease: 'easeOut' }}
-          style={{ height: '100%', borderRadius: 2, background: color }}
-        />
-      </div>
-      {/* Percentage label */}
-      <span style={{
-        fontFamily: 'var(--font-mono)',
-        fontSize: '0.7rem',
-        fontWeight: 700,
-        color,
-        minWidth: 32,
-        textAlign: 'right',
-      }}>
+      <div
+        style={{
+          fontSize: '0.72rem',
+          fontWeight: 700,
+          fontFamily: 'var(--font-mono)',
+          color,
+          background: `${color}15`,
+          border: `1px solid ${color}30`,
+          borderRadius: 'var(--radius-full)',
+          padding: '2px 7px',
+          whiteSpace: 'nowrap',
+          letterSpacing: '0.01em',
+        }}
+      >
         {pct.toFixed(0)}%
-      </span>
+      </div>
     </div>
   )
 }
@@ -274,95 +290,95 @@ export default function ChapterRow({
   return (
     <motion.div
       layout
+      className="chapter-row-responsive"
       style={{
-        display: 'grid',
-        gridTemplateColumns: '26px 1fr auto auto auto',
-        alignItems: 'center',
-        gap: 10,
-        padding: '10px 14px',
+        padding: '6px 12px',
         background: rowBg,
         opacity: isAccessible ? 1 : 0.6,
         transition: 'background 250ms ease, opacity 200ms ease',
       }}
     >
-      {/* ① Status toggle icon */}
-      <StatusButton
-        status={status}
-        color={subjectColor}
-        isAccessible={isAccessible}
-        onClick={handleStatusClick}
-      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
+        {/* ① Status toggle icon (44x44px touch target) */}
+        <StatusButton
+          status={status}
+          color={subjectColor}
+          isAccessible={isAccessible}
+          onClick={handleStatusClick}
+        />
 
-      {/* ② Chapter number + title + status label */}
-      <div style={{ minWidth: 0 }}>
-        <div
-          style={{
-            fontSize: '0.875rem',
-            fontWeight: status === 'complete' ? 500 : 400,
-            color: !isAccessible
-              ? 'var(--text-disabled)'
-              : status === 'complete'
-              ? 'var(--text-secondary)'
-              : 'var(--text-primary)',
-            textDecorationLine: isAccessible && status === 'complete' ? 'line-through' : 'none',
-            textDecorationColor: 'var(--text-disabled)',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            transition: 'color 200ms ease',
-          }}
-        >
-          <span style={{ color: 'var(--text-muted)', marginRight: 6, fontSize: '0.8rem' }}>
-            {chapter.number}.
-          </span>
-          {chapter.title}
-        </div>
-        {/* Status label — tiny, below title */}
-        <div style={{
-          fontSize: '0.68rem',
-          fontWeight: 600,
-          color: statusColor,
-          marginTop: 1,
-          letterSpacing: '0.02em',
-        }}>
-          {statusLabel}
-        </div>
-      </div>
-
-      {/* ③ Paper avg score pill (only when data exists) */}
-      <AnimatePresence>
-        {avgScore !== null && (
-          <motion.div
-            initial={{ opacity: 0, x: 4 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0 }}
+        {/* ② Chapter number + title + status label */}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div
+            style={{
+              fontSize: '0.875rem',
+              fontWeight: status === 'complete' ? 500 : 400,
+              color: !isAccessible
+                ? 'var(--text-disabled)'
+                : status === 'complete'
+                ? 'var(--text-secondary)'
+                : 'var(--text-primary)',
+              textDecorationLine: isAccessible && status === 'complete' ? 'line-through' : 'none',
+              textDecorationColor: 'var(--text-disabled)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              transition: 'color 200ms ease',
+            }}
           >
-            <ScorePill pct={avgScore} />
-          </motion.div>
-        )}
-        {avgScore === null && (
+            <span style={{ color: 'var(--text-muted)', marginRight: 6, fontSize: '0.8rem' }}>
+              {chapter.number}.
+            </span>
+            {chapter.title}
+          </div>
+          {/* Status label — tiny, below title */}
           <div style={{
             fontSize: '0.68rem',
-            color: 'var(--text-disabled)',
-            whiteSpace: 'nowrap',
-            minWidth: 70,
-            textAlign: 'right',
+            fontWeight: 600,
+            color: statusColor,
+            marginTop: 1,
+            letterSpacing: '0.02em',
           }}>
-            No paper data
+            {statusLabel}
           </div>
-        )}
-      </AnimatePresence>
+        </div>
 
-      {/* ④ Confidence star rating */}
-      <ConfidenceStars
-        value={confidence}
-        color={subjectColor}
-        isAccessible={isAccessible}
-        onChange={handleConfidenceChange}
-      />
+        {/* ③ Paper avg score pill */}
+        <AnimatePresence>
+          {avgScore !== null && (
+            <motion.div
+              initial={{ opacity: 0, x: 4 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0 }}
+            >
+              <ScorePill pct={avgScore} />
+            </motion.div>
+          )}
+          {avgScore === null && (
+            <div
+              style={{
+                fontSize: '0.68rem',
+                color: 'var(--text-disabled)',
+                whiteSpace: 'nowrap',
+                textAlign: 'right',
+                paddingRight: 4,
+              }}
+            >
+              No paper data
+            </div>
+          )}
+        </AnimatePresence>
+      </div>
 
-      {/* ⑤ Chapter link icon */}
-      <div style={{ width: 14 }} />
+      {/* ④ Confidence star rating (5 x 44x44px touch targets) */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexShrink: 0 }}>
+        <ConfidenceStars
+          value={confidence}
+          color={subjectColor}
+          isAccessible={isAccessible}
+          onChange={handleConfidenceChange}
+        />
+      </div>
     </motion.div>
   )
 }

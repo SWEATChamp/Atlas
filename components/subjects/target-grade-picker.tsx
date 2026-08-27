@@ -43,6 +43,7 @@ export default function TargetGradePicker({ subjectId, currentGrade, color }: Pr
     <div ref={ref} style={{ position: 'relative' }}>
       {/* Trigger badge */}
       <button
+        className="target-grade-trigger"
         onClick={() => setOpen((v) => !v)}
         title="Change target grade"
         style={{
@@ -106,6 +107,7 @@ export default function TargetGradePicker({ subjectId, currentGrade, color }: Pr
               return (
                 <motion.button
                   key={g}
+                  className="target-grade-option"
                   onClick={() => handleSelect(g)}
                   whileTap={{ scale: 0.88 }}
                   style={{

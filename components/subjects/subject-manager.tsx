@@ -150,7 +150,7 @@ export default function SubjectManager({
           >
             <div
               style={{
-                padding: '20px 24px',
+                padding: '18px 18px',
                 borderBottom: '1px solid var(--border-subtle)',
                 display: 'flex',
                 alignItems: 'flex-start',
@@ -181,22 +181,29 @@ export default function SubjectManager({
                   border: 'none',
                   color: 'var(--text-muted)',
                   cursor: isPending ? 'not-allowed' : 'pointer',
-                  padding: 4,
+                  width: 44,
+                  height: 44,
+                  minWidth: 44,
+                  minHeight: 44,
+                  padding: 0,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   borderRadius: 'var(--radius-sm)',
                 }}
               >
-                <X size={19} />
+                <X size={20} />
               </button>
             </div>
 
             {confirmingRemoval ? (
-              <div style={{ padding: 24 }}>
+              <div style={{ padding: 18 }}>
                 <div
                   style={{
                     display: 'flex',
                     alignItems: 'flex-start',
                     gap: 12,
-                    padding: 16,
+                    padding: 14,
                     borderRadius: 'var(--radius-md)',
                     background: 'rgba(248, 113, 113, 0.08)',
                     border: '1px solid rgba(248, 113, 113, 0.22)',
@@ -217,7 +224,7 @@ export default function SubjectManager({
                   </p>
                 )}
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24 }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     className="btn btn-ghost"
@@ -241,7 +248,7 @@ export default function SubjectManager({
                 </div>
               </div>
             ) : (
-              <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
+              <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 20 }}>
                 {error && (
                   <p
                     role="alert"

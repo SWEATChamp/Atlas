@@ -397,3 +397,260 @@ body {
 .glow-orb {
   display: none;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   RESPONSIVE LAYOUT SYSTEM
+   Scoped breakpoints and mobile-friendly responsive containers
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.app-root-shell {
+  min-height: 100dvh;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  width: 100%;
+  max-width: 100vw;
+}
+
+.app-header {
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: grid;
+  grid-template-areas:
+    "logo user"
+    "nav nav";
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  padding: 0 16px;
+}
+
+@media (min-width: 640px) {
+  .app-header {
+    grid-template-areas: "logo nav user";
+    grid-template-columns: auto 1fr auto;
+    height: 56px;
+    padding: 0 24px;
+  }
+}
+
+.app-header-logo {
+  grid-area: logo;
+  display: flex;
+  align-items: center;
+  height: 52px;
+}
+
+@media (min-width: 640px) {
+  .app-header-logo {
+    height: 100%;
+    margin-right: 28px;
+  }
+}
+
+.app-header-nav {
+  grid-area: nav;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 2px 0 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+@media (min-width: 640px) {
+  .app-header-nav {
+    border-top: none;
+    padding: 0;
+    margin: 0;
+  }
+}
+
+.app-header-user {
+  grid-area: user;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  height: 52px;
+  flex-shrink: 0;
+}
+
+@media (min-width: 640px) {
+  .app-header-user {
+    height: 100%;
+    margin-left: 20px;
+  }
+}
+
+.app-main-layout {
+  padding: 20px 14px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (min-width: 640px) {
+  .app-main-layout {
+    padding: 32px 24px;
+  }
+}
+
+/* ─── Dashboard Responsive Grid ─────────────────────────────────────────────── */
+.dashboard-main-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (min-width: 860px) {
+  .dashboard-main-grid {
+    grid-template-columns: 1fr 280px;
+    gap: 24px;
+  }
+}
+
+/* ─── Subjects Responsive Grid ──────────────────────────────────────────────── */
+.subjects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 20px;
+}
+
+/* ─── Past Papers Responsive Grid ───────────────────────────────────────────── */
+.past-papers-2col {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (min-width: 768px) {
+  .past-papers-2col {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.past-papers-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-block: 1px solid var(--border-subtle);
+  width: 100%;
+}
+
+.past-papers-stat-cell {
+  padding: var(--space-4) var(--space-5);
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .past-papers-stat-cell {
+    padding: var(--space-3) var(--space-3);
+  }
+}
+
+/* ─── Responsive Paper Card ─────────────────────────────────────────────────── */
+.paper-card-responsive {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+}
+
+@media (max-width: 540px) {
+  .paper-card-responsive {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+/* ─── Responsive Chapter Row ────────────────────────────────────────────────── */
+.chapter-row-responsive {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 768px) {
+  .chapter-row-responsive {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+}
+
+/* ─── Mission Action Buttons ────────────────────────────────────────────────── */
+.mission-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  font-size: 0.7rem;
+  font-weight: 600;
+  transition: all 150ms ease;
+}
+
+.mission-action-btn-replace {
+  color: var(--text-secondary);
+}
+
+.mission-action-btn-undo {
+  color: var(--text-muted);
+}
+
+/* ─── Mobile & Tablet Touch Targets (≥44px through 768px) ──────────────────── */
+.touch-target-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+@media (max-width: 768px) {
+  .btn,
+  .btn-primary,
+  .btn-ghost,
+  .paper-action-btn,
+  .touch-target-btn,
+  .mission-action-btn,
+  .mission-header-btn,
+  .target-grade-trigger {
+    min-height: 44px;
+  }
+
+  .target-grade-option {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .mission-action-btn {
+    min-width: 44px;
+    padding: 0 12px;
+    gap: 6px;
+    font-size: 0.8125rem;
+  }
+
+  .mission-header-btn {
+    min-width: 44px;
+    padding: 0 14px;
+    font-size: 0.8125rem;
+  }
+
+  .app-header-nav a {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 14px;
+  }
+}
