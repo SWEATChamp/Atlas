@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
+import { getAuthenticatedContext, getCurrentProfile } from '@/lib/supabase/authenticated'
 import { daysUntilDate } from '@/lib/date'
 import type {
   Subject,
@@ -69,36 +70,32 @@ export interface SubjectEnrollmentMutationResult {
  * Get all enrolled subjects for the current user with database-computed progress stats.
  */
 export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const [{ supabase, user }, profile] = await Promise.all([
+    getAuthenticatedContext(),
+    getCurrentProfile(),
+  ])
   if (!user) return []
 
   // 1. Enrolled subjects
-  const [enrollmentsResult, profileResult] = await Promise.all([
-    supabase
-      .from('user_subjects')
-      .select('*, subjects(*)')
-      .eq('user_id', user.id)
-      .eq('is_archived', false)
-      .order('priority'),
-    supabase
-      .from('profiles')
-      .select('timezone')
-      .eq('id', user.id)
-      .single(),
-  ])
+  const dashboardPromise = supabase.rpc('get_user_dashboard_stats', {
+    p_user_id: user.id,
+  })
+  const enrollmentsResult = await supabase
+    .from('user_subjects')
+    .select('*, subjects(*)')
+    .eq('user_id', user.id)
+    .eq('is_archived', false)
+    .order('priority')
 
   const enrollments = enrollmentsResult.data
-  const timeZone = profileResult.data?.timezone ?? 'UTC'
+  const timeZone = profile?.timezone ?? 'UTC'
 
   if (!enrollments?.length) return []
 
   const subjectIds = enrollments.map((e) => e.subject_id)
 
-  // Batch 1: chapters + papers in parallel
-  const [chaptersResult, papersResult] = await Promise.all([
+  // Batch 1: chapters, papers, and all readiness scores in parallel.
+  const [chaptersResult, papersResult, dashboardResult] = await Promise.all([
     supabase
       .from('chapters')
       .select('id, subject_id')
@@ -109,6 +106,7 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
       .select('subject_id, accuracy_pct')
       .eq('user_id', user.id)
       .in('subject_id', subjectIds),
+    dashboardPromise,
   ])
 
   const chapters = chaptersResult.data ?? []
@@ -124,42 +122,17 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
         .in('chapter_id', chapterIds)
     : { data: [] }
 
-  // Batch 3: DB readiness scores for each enrolled subject
-  const readinessResults = await Promise.all(
-    enrollments.map(async (enrollment) => {
-      const studyRoute = enrollment.study_route
-      const currentStage = enrollment.current_stage
-
-      if (studyRoute === 'unconfirmed') {
-        return { asScore: null, a2Score: null, legacyScore: null }
-      }
-
-      const [asResult, a2Result] = await Promise.all([
-        supabase.rpc('compute_readiness_score', {
-          p_user_id: user.id,
-          p_subject_id: enrollment.subject_id,
-          p_stage: 'as',
-        }),
-        studyRoute === 'full_level' || (studyRoute === 'staged' && currentStage === 'a2')
-          ? supabase.rpc('compute_readiness_score', {
-              p_user_id: user.id,
-              p_subject_id: enrollment.subject_id,
-              p_stage: 'a2',
-            })
-          : Promise.resolve({ data: null, error: null }),
-      ])
-
-      const asScore = typeof asResult.data === 'number' ? asResult.data : null
-      const a2Score = typeof a2Result.data === 'number' ? a2Result.data : null
-
-      // Legacy readiness display rule:
-      // - as_only & staged/as -> asScore
-      // - staged/a2 -> asScore (primary context)
-      // - full_level -> null (do not silently choose one stage)
-      const legacyScore = studyRoute === 'full_level' ? null : asScore
-
-      return { asScore, a2Score, legacyScore }
-    })
+  type ReadinessRow = {
+    subject_id: string
+    as_readiness: number | null
+    a2_readiness: number | null
+    readiness: number | null
+  }
+  const readinessRows = Array.isArray(dashboardResult.data?.subject_readiness)
+    ? dashboardResult.data.subject_readiness as ReadinessRow[]
+    : []
+  const readinessBySubject = new Map(
+    readinessRows.map((row) => [row.subject_id, row])
   )
 
   // Index for fast lookup
@@ -179,7 +152,7 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
     papersBySubject.set(p.subject_id, arr)
   })
 
-  return enrollments.map((enrollment, idx) => {
+  return enrollments.map((enrollment) => {
     const subject = enrollment.subjects as unknown as Subject
     const chIds = chaptersBySubject.get(enrollment.subject_id) ?? []
     const ucs = chIds
@@ -203,7 +176,16 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
           withConfidence.length
         : null
 
-    const { asScore, a2Score, legacyScore } = readinessResults[idx]
+    const readinessRow = readinessBySubject.get(enrollment.subject_id)
+    const asScore = typeof readinessRow?.as_readiness === 'number'
+      ? readinessRow.as_readiness
+      : null
+    const a2Score = typeof readinessRow?.a2_readiness === 'number'
+      ? readinessRow.a2_readiness
+      : null
+    const legacyScore = typeof readinessRow?.readiness === 'number'
+      ? readinessRow.readiness
+      : null
 
     return {
       enrollment: enrollment as unknown as UserSubject,
@@ -225,10 +207,7 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
  * Get the supported global subjects that may be added from the Subjects page.
  */
 export async function getAvailableMvpSubjects(): Promise<Subject[]> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { supabase, user } = await getAuthenticatedContext()
   if (!user) return []
 
   const { data, error } = await supabase
@@ -249,13 +228,13 @@ export async function getAvailableMvpSubjects(): Promise<Subject[]> {
 export async function getSubjectDetail(
   subjectId: string
 ): Promise<SubjectDetailData | null> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const [{ supabase, user }, profile] = await Promise.all([
+    getAuthenticatedContext(),
+    getCurrentProfile(),
+  ])
   if (!user) return null
 
-  const [subjectResult, enrollmentResult, profileResult] = await Promise.all([
+  const [subjectResult, enrollmentResult] = await Promise.all([
     supabase
       .from('subjects')
       .select('*')
@@ -268,11 +247,6 @@ export async function getSubjectDetail(
       .eq('subject_id', subjectId)
       .eq('is_archived', false)
       .single(),
-    supabase
-      .from('profiles')
-      .select('timezone')
-      .eq('id', user.id)
-      .single(),
   ])
 
   const subject = subjectResult.data
@@ -280,7 +254,7 @@ export async function getSubjectDetail(
 
   const enrollment = enrollmentResult.data
   if (!enrollment) return null
-  const timeZone = profileResult.data?.timezone ?? 'UTC'
+  const timeZone = profile?.timezone ?? 'UTC'
 
   // Fetch chapters, paper selections, stage results in parallel
   const [chaptersResult, paperSelectionsResult, stageResultsResult] = await Promise.all([

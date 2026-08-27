@@ -20,7 +20,7 @@ Release status and known limitations:
 - Migrations 020–026 are applied to hosted Supabase and recorded in remote migration history.
 - Migration 024 was backed up, applied, and verified on 2026-08-27; all 18 hosted catalogue and data-preservation checks passed.
 - The matching application release was deployed to Vercel on 2026-08-27. Production smoke testing confirmed authentication, preserved enrolments, route-aware chapter access, paper-form component filtering, and mission completion/undo XP accounting.
-- Migrations 025–026 were backed up, applied, recorded, and verified on hosted Supabase on 2026-08-27; all eight hosted boundary checks returned `true`. The matching dashboard and subject-management application changes are not yet deployed.
+- Migrations 025–026 were backed up, applied, recorded, and verified on hosted Supabase on 2026-08-27; all eight hosted boundary checks returned `true`. The matching dashboard and subject-management application changes are deployed. Production smoke testing confirmed valid readiness countdowns, the five active MVP subjects, and the required removal confirmation flow.
 - Mission undo reverses attempt-linked XP and recalculates the streak from remaining activity; chapter review timestamps remain unchanged in the MVP.
 - Google Docs integration has not started.
 

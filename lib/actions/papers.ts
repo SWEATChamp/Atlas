@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
+import { getAuthenticatedContext } from '@/lib/supabase/authenticated'
 import type { 
   PaperWithSubject, 
   PaperWithQuestions, 
@@ -10,8 +11,7 @@ import type {
 } from '@/types'
 
 export async function getAllPapersWithSubjects(): Promise<PaperWithSubject[]> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { supabase, user } = await getAuthenticatedContext()
   if (!user) return []
 
   const { data, error } = await supabase
@@ -28,8 +28,7 @@ export async function getAllPapersWithSubjects(): Promise<PaperWithSubject[]> {
 }
 
 export async function getPapersForSubject(subjectId: string): Promise<PaperWithSubject[]> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { supabase, user } = await getAuthenticatedContext()
   if (!user) return []
 
   const { data, error } = await supabase
@@ -47,8 +46,7 @@ export async function getPapersForSubject(subjectId: string): Promise<PaperWithS
 }
 
 export async function getPaperDetail(paperId: string): Promise<PaperWithQuestions | null> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { supabase, user } = await getAuthenticatedContext()
   if (!user) return null
 
   const { data, error } = await supabase
@@ -70,8 +68,7 @@ export async function getPaperDetail(paperId: string): Promise<PaperWithQuestion
 }
 
 export async function getChapterAccuracy(subjectId: string): Promise<ChapterAccuracy[]> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { supabase, user } = await getAuthenticatedContext()
   if (!user) return []
 
   // Step 1: get paper IDs for this user+subject (fast indexed lookup)
@@ -327,8 +324,7 @@ export async function getSubjectPapers(subjectId: string) {
  * Fetch papers with stage = NULL for the current user (legacy / untagged papers).
  */
 export async function getUntaggedPapers(): Promise<PaperWithSubject[]> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { supabase, user } = await getAuthenticatedContext()
   if (!user) return []
 
   const { data, error } = await supabase

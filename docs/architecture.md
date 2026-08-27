@@ -84,7 +84,7 @@ Study route is configured per enrolled subject:
   - Recalculates the current streak from remaining activity after undo; review timestamps remain unchanged in the MVP.
 
 ## Five-Subject MVP Syllabus Architecture (Migration 024)
-> **Status**: Migration 024 and its matching application were released on 2026-08-27. Migrations 025–026 were subsequently backed up, applied, recorded, and verified on hosted Supabase that day; their matching application hotfix remains undeployed pending production smoke testing.
+> **Status**: Migrations 024–026 and their matching application changes were released on 2026-08-27. Hosted migration history is synchronized through 026, and the catalogue, data-preservation, dashboard-countdown, and subject-management boundaries were verified.
 
 1. **Gated Subject Availability**:
    - Exactly 5 subjects are available for new onboarding and selection:
@@ -116,6 +116,14 @@ Study route is configured per enrolled subject:
 - Archiving skips pending missions tied to the removed subject and immediately removes its chapter access.
 - The final active subject cannot be archived. Re-adding a supported archived subject restores the same enrollment ID and any existing configuration.
 - The Subjects page requires a second explicit confirmation step before removal and explains the preservation behavior.
+
+## Request and Client-Loading Performance
+
+- Server Components share request-scoped authenticated user and profile reads, avoiding repeated token validation and profile queries within the same render.
+- The Subjects page reads readiness from the existing dashboard aggregate rather than issuing separate readiness calls for every enrolled subject.
+- Dynamic Past Papers charts and paper-entry forms are split from the initial client bundle and loaded when rendered or opened.
+- The shared app route provides an immediate loading skeleton during server-rendered navigation.
+- Typography uses a system-font stack so page rendering and production builds do not depend on third-party font requests.
 
 ## Data Refresh
 

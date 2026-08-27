@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { getAuthenticatedContext } from '@/lib/supabase/authenticated'
 import type {
   StudyRoute,
   SubjectStage,
@@ -98,21 +99,12 @@ export interface CompleteMissionResult {
  * Automatically generates today's missions if none exist.
  */
 export async function getDashboardData(): Promise<DashboardData | null> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { supabase, user } = await getAuthenticatedContext()
   if (!user) return null
 
-  // Fetch the dashboard and the one prerequisite the RPC does not expose.
-  // Run both requests together so the extra check does not delay the page.
-  const [statsResult, chapterResult] = await Promise.all([
-    supabase.rpc('get_user_dashboard_stats', { p_user_id: user.id }),
-    supabase
-      .from('user_chapters')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id),
-  ])
-
-  const { data: stats, error } = statsResult
+  const { data: stats, error } = await supabase.rpc('get_user_dashboard_stats', {
+    p_user_id: user.id,
+  })
 
   if (error || !stats) {
     console.error('getDashboardData error:', error)
@@ -122,7 +114,7 @@ export async function getDashboardData(): Promise<DashboardData | null> {
   const missions: DailyMission[] = (stats.today_missions ?? []).filter((m: DailyMission) => m.status !== 'skipped')
   const subjectReadiness: SubjectReadiness[] = stats.subject_readiness ?? []
   const hasExamDates = stats.has_exam_dates ?? subjectReadiness.some(subject => subject.exam_date !== null)
-  const hasChapterData = stats.has_chapter_data ?? (!chapterResult.error && (chapterResult.count ?? 0) > 0)
+  const hasChapterData = stats.has_chapter_data ?? false
   const hasUnconfirmedRoutes = stats.has_unconfirmed_routes ?? subjectReadiness.some(s => s.study_route === 'unconfirmed')
 
   // Auto-generate missions if none exist for today

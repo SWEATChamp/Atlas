@@ -1,13 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { Trash2, Pencil, Clock, Calendar, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type { PaperWithSubject } from '@/types'
 import { deletePaper } from '@/lib/actions/papers'
-import { LogPaperModal } from '@/components/papers/log-paper-modal'
 import { formatDateOnly } from '@/lib/date'
+import { LazyLogPaperModal } from './lazy-log-paper-modal'
 
 export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZone: string }) {
   const router = useRouter()
@@ -132,6 +132,7 @@ export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZo
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
           <button
             onClick={e => { e.stopPropagation(); if (paper.paper_number !== null) setEditOpen(true) }}
+            onPointerEnter={() => void import('./log-paper-modal')}
             className="btn btn-ghost"
             title={paper.paper_number === null ? 'Edit unavailable (no paper number recorded)' : 'Edit paper'}
             disabled={paper.paper_number === null}
@@ -155,9 +156,8 @@ export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZo
       </motion.div>
 
       {/* Edit modal */}
-      <AnimatePresence>
-        {editOpen && paper.paper_number !== null && (
-          <LogPaperModal
+      {editOpen && paper.paper_number !== null && (
+          <LazyLogPaperModal
             timeZone={timeZone}
             existingPaperId={paper.id}
             existingPaper={{
@@ -175,8 +175,7 @@ export function PaperCard({ paper, timeZone }: { paper: PaperWithSubject; timeZo
             onSuccess={() => { setEditOpen(false); router.refresh() }}
             onClose={() => setEditOpen(false)}
           />
-        )}
-      </AnimatePresence>
+      )}
     </>
   )
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { X, Plus, Trash2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { logPaper, updatePaper, LogPaperInput, QuestionInput } from '@/lib/actions/papers'
@@ -69,31 +69,6 @@ const SESSION_LABELS: Record<string, string> = {
 }
 
 const MVP_SUBJECT_CODES = new Set(['9709', '9231', '9702', '9701', '9618'])
-
-// ── Trigger button ─────────────────────────────────────────────────────────
-export function LogPaperButton({
-  onSuccess,
-  timeZone,
-}: {
-  onSuccess?: () => void
-  timeZone: string
-}) {
-  const [isOpen, setIsOpen] = useState(false)
-  return (
-    <>
-      <button className="btn btn-primary" onClick={() => setIsOpen(true)}>+ Log Paper</button>
-      <AnimatePresence>
-        {isOpen && (
-          <LogPaperModal
-            timeZone={timeZone}
-            onSuccess={() => { setIsOpen(false); onSuccess?.() }}
-            onClose={() => setIsOpen(false)}
-          />
-        )}
-      </AnimatePresence>
-    </>
-  )
-}
 
 interface RawSubject {
   id: string

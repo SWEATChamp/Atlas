@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { BookOpen, RefreshCw, FileSearch, AlertTriangle, Star, Check, Zap, RotateCcw, AlertCircle, Clock } from 'lucide-react'
 import { completeMission, undoMission, replaceMission } from '@/lib/actions/dashboard'
+import { isMissionUndoAvailable, missionUndoRemainingMs } from '@/lib/mission-undo'
 import type { DailyMission, CompleteMissionResult } from '@/lib/actions/dashboard'
 import type { UndoMissionResult, ReplaceMissionResult } from '@/types/database'
 
@@ -31,11 +32,9 @@ const MISSION_META: Record<DailyMission['type'], {
 export default function MissionCard({ mission, onComplete, onUndo, onReplace, onError }: MissionCardProps) {
   const [done, setDone] = useState(mission.status === 'completed')
   const [completedAt, setCompletedAt] = useState<string | null>(mission.completed_at)
-  const [canUndo, setCanUndo] = useState(() => {
-    if (mission.status !== 'completed' || !mission.completed_at) return false
-    const elapsed = Date.now() - new Date(mission.completed_at).getTime()
-    return elapsed >= 0 && elapsed <= 10 * 60 * 1000
-  })
+  const [canUndo, setCanUndo] = useState(
+    () => mission.status === 'completed' && isMissionUndoAvailable(mission.completed_at)
+  )
   const [cardError, setCardError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [isReplacing, startReplaceTransition] = useTransition()
@@ -44,8 +43,10 @@ export default function MissionCard({ mission, onComplete, onUndo, onReplace, on
   // Close the undo window ten minutes after completion.
   useEffect(() => {
     if (!done || !completedAt || !canUndo) return
-    const remainingMs = new Date(completedAt).getTime() + 10 * 60 * 1000 - Date.now()
-    const timeout = setTimeout(() => setCanUndo(false), Math.max(remainingMs, 0))
+    const timeout = setTimeout(
+      () => setCanUndo(false),
+      missionUndoRemainingMs(completedAt)
+    )
     return () => clearTimeout(timeout)
   }, [done, completedAt, canUndo])
 
