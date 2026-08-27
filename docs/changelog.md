@@ -7,49 +7,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+The changes below target the upcoming **v1.1.0** release (locally prepared, deployment pending).
+
 ### Added
-- Manual exam-date editing from each subject page.
-- Approved AS-only, staged A-Level, and full A-Level study-route design.
-- Planned separate AS readiness, A2 readiness, and overall A-Level projection.
-- Automatic browser-timezone detection for existing users and during onboarding.
-- Three small safety tests covering mission generation, mission completion, and local-midnight exam countdowns.
-- **AS/A2 Database Foundation (Migration 020):** Applied and verified database migration with `study_route`, `current_stage`, `a2_unlocked_at`, and `a2_unlock_method` columns on `user_subjects` with three consistency constraints; `stage` column on `chapters` (including `route_dependent` for Maths Mechanics & Statistics 1); `stage` column on `past_papers`; new `subject_paper_selections` table (structured paper combination, ownership via `user_subjects`); new `subject_stage_results` table (required series/year, score CHECK, carry-forward AS-only CHECK, dedup UNIQUE, `set_updated_at` trigger); RLS on both new tables via `user_subjects` join; five new enum types; indexes on `chapters.stage`, `subject_paper_selections.stage`, and `subject_stage_results` carry-forward; TypeScript types updated in `database.ts` and `index.ts`; all 23 rollback-only database tests passed.
-- **AS/A2 Application Flow & Migration 021 (Applied to Hosted Supabase):**
-  - Route selection UI (`RouteSelectionBanner`, `RouteSetupSheet`) and Onboarding Step 4 for choosing AS only, Staged A Level, or Full A Level per subject.
-  - Paper combination selection (`PaperSelectionPanel`) for Mathematics (Pure 1/Pure 3/Mechanics/Statistics).
-  - Stage-aware readiness calculation via PostgreSQL `compute_readiness_score(user_id, subject_id, stage)` RPC, removing application-side calculation entirely.
-  - Separate AS and A2 readiness displays across dashboard and subject pages; removed averaged readiness hero chip.
-  - A2 transition modal supporting standard AS result entry with carry-forward validation and early manual unlock.
-  - Past paper logging with required stage selection and legacy paper tagger (`PaperStageTagger`).
-  - Auth guards (`auth.uid() = p_user_id`) added to all security definer functions and chapter/paper RLS policies.
-- **AS/A2 Fixes & Gamification Accounting (Migration 022 — Applied to Hosted Supabase):**
-  - Mission completion attempts tracked via `daily_missions.completion_attempt`.
-  - Detailed XP breakdown payload returned from `complete_mission` (`mission_xp`, `daily_bonus_xp`, `achievement_xp`, `total_xp_awarded`, `new_total_xp`) and displayed in dashboard toast stack.
-  - Mission completion enforces user local calendar date match and rejects foreign-date missions.
-  - Mission undo atomically reverses mission XP, daily completion bonus, and attempt-linked achievements (deleting unlock records from `user_achievements` so badges can be re-earned).
-  - Clean support for multiple `complete → undo → complete → undo` cycles without cross-attempt reward leakage.
-  - Strict profile XP ledger invariant maintained (`profiles.total_xp = SUM(xp_events.xp_amount)`).
-  - Atomic onboarding subject selection via `set_onboarding_subjects` RPC (enforcing 1–5 subjects and `onboarding_completed = FALSE`).
-  - Mathematics 9709 paper selection strict matching and onboarding Continue button validation.
-  - Pure 2 Mathematics reclassified as `route_dependent`.
-  - Declarative auth-independent migration backfill of `user_chapters` for existing confirmed enrollments.
-  - 10 database tests in `migration_022_fixes.test.sql` and 10 tests in `undo_mission.test.sql`.
-- **Mission Quality, Workload & Variety Balancing (Migration 023 — Applied to Hosted Supabase):**
-  - Added `estimated_minutes` column to `daily_missions` (CHECK 5–120 mins) and backfilled existing missions with sensible duration estimates (10–60 mins).
-  - Constrained `user_settings.max_missions_per_day` to 1..3 (default 3) and backfilled existing settings > 3 to 3.
-  - Overhauled `generate_daily_missions` algorithm:
-    - Enforces maximum 2 missions per subject across active daily budget.
-    - Prohibits duplicate target entities (`target_entity_id`) on the same local date.
-    - Ensures variety by prioritizing balanced category rotation (Notes ~30m/50XP, Practice/Weak-topic ~30m/40XP or Paper ~60m/75XP, Review ~20m/30XP or Confidence ~10m/20XP).
-    - Never generates all 3 missions of identical type; safely stops and emits fewer than 3 missions when content is limited.
-    - Replaces broad instructions with bite-sized, realistic action titles and clear descriptions.
-  - Added atomic, pre-validated `replace_mission` RPC:
-    - Verifies user ownership (`auth.uid() = p_user_id`), pending status, and user-local calendar date.
-    - Serializes user mission operations via `user_settings` row lock (`FOR UPDATE`).
-    - Validates alternative candidate availability before committing the skip; aborts with `P0002: No suitable replacement available` without modifying the original mission if exhausted.
-    - Replaces mission atomically in place and maintains 3-mission active cap.
-  - Quiet UI duration display with `<Clock /> ~X min` and secondary "Replace" button with specific loading state and propagation isolation.
-  - 15 pgTAP database tests in `mission_quality.test.sql` and 4 Vitest unit tests in `mission-quality.test.ts`.
+- Authoritative user-facing release metadata module (`lib/version.ts`) synchronised with `package.json` at version `1.1.0`.
+- Visible, accessible semantic version display in the authenticated application shell footer (`Atlas v1.1.0`).
+- Accessible, latest-only "What's New" release update notification dialog (`components/whats-new-modal.tsx`) with client-safe `localStorage` dismissal persistence, focus trap, Escape key handling, and background scroll locking.
+- Pure release state helpers (`lib/release-state.ts`) for safe storage access and version comparison.
+- Agent workflow and version-control discipline rules added to `AGENTS.md`.
+- Meaningful component structural tests in `tests/mission-layout.test.ts` verifying responsive 2-tier layout markup, long title/description rendering, Replace, and Undo controls.
+- 14 new unit tests covering version synchronization, release notification state and safe storage access, and mission layout component structure (112 unit tests total).
+
+### Fixed
+- Fixed populated Dashboard mission card horizontal overflow on narrow mobile screens (320px, 375px, 390px) by implementing a responsive 2-tier card layout (≤640px) and constraining `.dashboard-main-grid` with `minmax(0, 1fr)` and `min-width: 0`.
+- Allowed long mission titles and descriptions to wrap cleanly (`overflow-wrap: break-word`) without overflowing the document.
+- Wrapped the Daily Missions header and "Generate / Refresh" controls cleanly on narrow viewports.
+- Enforced ≥44px touch height on the header Atlas logo link.
+- Enforced ≥44×44px touch target on the "Configure {subject}" route selection button in `RouteSelectionBanner`.
+
+---
+
+## [1.0.0] - 2026-08-27
+
+### Added
+- **Production Performance & Mobile Responsiveness (Phase 2.11 — commit `39427dd`):**
+  - Implemented optimistic AS/A2 paper-stage tagging with synchronous in-flight duplicate prevention (`inFlightRef`), per-paper pending saving state, double-click and conflicting stage click prevention, and automatic error rollback.
+  - Hardened `assignPaperStage` Server Action with runtime Zod schema validation (UUID and `'as' | 'a2'`), row-count update verification (`.select('id')`), untagged row restriction (`.is('stage', null)`), and safe user-facing error messages.
+  - Locked paper card actions (navigation, edit, delete) while a stage update is saving, and populated edit modals with `effectiveStage ?? 'as'`.
+  - Created lightweight client state island (`PaperStageProvider` & `lib/papers-state.ts`) synchronising tagging prompt and attempts list while keeping charts and page shell server-rendered.
+  - Established a single current-page reconciliation path using Server Action cache revalidation without redundant client-side `router.refresh()` calls.
+  - Streamlined Past Papers data fetching on the "All" view by deriving untagged papers directly from the full paper query, saving a database round trip during page loads while preserving global untagged queries on filtered views.
+  - Redesigned navigation header with explicit CSS Grid areas to ensure exact desktop order (`logo` → `nav` → `user`) and mobile 2-tier layout (`logo` + `user` on row 1, `nav` on row 2).
+  - Enforced mobile touch target compliance (≥44×44px) across navigation links, sign-out, filter tabs, tagging buttons, paper action icons, form inputs, and chapter status/confidence toggles.
+  - Resolved mobile horizontal page overflow (`scrollWidth <= clientWidth`) across 320px, 375px, 390px, 768px, and desktop widths on Dashboard, Subjects, Subject Details, and Past Papers.
+- **Application Performance Round 2 & State Reconciliation (Phase 2.10):**
+  - Single-source-of-truth client-side dashboard state management (`DashboardView`) with immediate atomic mission feedback and state reconciliation across missions, XP, levels, and streaks.
+  - Replaced `getUser()` in the proxy with `getClaims()` and explicit JWT claims validation, preserving Supabase cookies across redirects.
+  - Server-side onboarding layout guard (`app/(auth)/onboarding/layout.tsx`), preserving Client Component architecture for `app/(auth)/onboarding/page.tsx`.
+  - Added pure piecewise `computeLevel()` and Level 15 title `Mythic` in `lib/xp.ts` matching PostgreSQL definitions.
+  - Converted Past Papers subject filter tabs to Next.js `Link` components with automatic prefetching and `aria-current`.
+  - Added `@vercel/speed-insights` for real-user Core Web Vitals performance telemetry.
+- **Subject Enrollment Management (Migration 026 — Applied to Hosted Supabase):**
+  - Added an “Add or remove” subject manager that offers only the five supported MVP subjects for new enrollment.
+  - Added a required removal confirmation describing the exact preservation behavior.
+  - Archived removals rather than deleting enrollments, preserving chapter progress, paper history, completed missions, route configuration, and XP.
+  - Enforced a maximum of five active subjects and prevented removal of the final active subject at both application and database boundaries.
+  - Skipped pending missions for archived subjects and restored the same enrollment ID when a supported subject is re-added.
+  - Restricted direct enrollment membership mutations so add/archive changes must pass through the guarded RPCs while exam-date, target-grade, and priority edits remain available.
+  - Added 21 pgTAP regression tests and 3 unit tests.
+- **Dashboard Statistics Hotfix (Migration 025 — Applied to Hosted Supabase):**
+  - Restored user-local `days_until` values in `get_user_dashboard_stats` after Migration 024 omitted the field.
+  - Returned an effective current streak of zero when the stored last-activity date is older than yesterday, without changing the historical longest streak.
+  - Added defensive countdown formatting so missing or invalid values never render as `undefinedd`.
+  - Added 7 pgTAP regression tests and 2 unit tests.
+- **Application Performance & Dashboard Polish (Phase 2.9):**
+  - Reused authenticated user and profile reads within each server render instead of repeating the same Supabase validation across layouts and page loaders.
+  - Used the dashboard aggregate for Subjects-page readiness, removing per-subject readiness network round trips.
+  - Removed the redundant dashboard chapter-count query now that Migration 025 returns `has_chapter_data`.
+  - Added immediate route-level loading skeletons and deferred Past Papers charts and paper-entry forms from the initial client bundle.
+  - Removed render-blocking third-party font requests in favour of a deterministic system-font stack.
+  - Added clock-skew tolerance to the mission Undo control while leaving PostgreSQL as the authority for the 10-minute rule.
+  - Distinguished “some subjects are missing exam dates” from the true no-dates state.
 - **Five-Subject MVP Syllabus Content & Subject Availability (Migration 024 — Applied and Hosted-Verified):**
   - Gated syllabus onboarding and selection to exactly 5 MVP subjects via `subjects.is_available`: Mathematics 9709, Further Mathematics 9231, Physics 9702, Chemistry 9701, and Computer Science 9618.
   - Preserved grandfathered user enrollments in non-MVP subjects while isolating modern onboarding routes.
@@ -62,56 +80,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added FK `subject_paper_id` on `daily_missions` (indexed), `subject_paper_selections`, and `past_papers`.
   - Added database triggers: `validate_chapter_paper_subject`, `validate_subject_paper_selection`, and `validate_past_paper_entry` (with narrow legacy exception for unchanged legacy rows).
   - Authored comprehensive pgTAP database tests in `mvp_syllabus_content.test.sql` and unit tests in `tests/mvp-syllabus.test.ts` and `tests/as-a2-flow.test.ts`.
-  - Completed a pre-migration logical backup, reconciled hosted migration history through 023, applied Migration 024 once, and recorded it in remote history on 2026-08-27.
-  - All 18 hosted catalogue and data-preservation checks passed; the remote migration dry run reports the database is up to date.
-  - The matching application was deployed to Vercel on 2026-08-27 and its initial production smoke checks completed.
-- **Dashboard Statistics Hotfix (Migration 025 — Applied to Hosted Supabase):**
-  - Restores user-local `days_until` values in `get_user_dashboard_stats` after Migration 024 omitted the field.
-  - Returns an effective current streak of zero when the stored last-activity date is older than yesterday, without changing the historical longest streak.
-  - Adds defensive countdown formatting so missing or invalid values never render as `undefinedd`.
-  - Adds 7 pgTAP regression tests and 2 unit tests.
-  - Applied after a fresh logical backup and recorded in hosted migration history on 2026-08-27.
-- **Subject Enrollment Management (Migration 026 — Applied to Hosted Supabase):**
-  - Adds an “Add or remove” subject manager that offers only the five supported MVP subjects for new enrollment.
-  - Adds a required removal confirmation describing the exact preservation behavior.
-  - Archives removals rather than deleting enrollments, preserving chapter progress, paper history, completed missions, route configuration, and XP.
-  - Enforces a maximum of five active subjects and prevents removal of the final active subject at both application and database boundaries.
-  - Skips pending missions for archived subjects and restores the same enrollment ID when a supported subject is re-added.
-  - Restricts direct enrollment membership mutations so add/archive changes must pass through the guarded RPCs while exam-date, target-grade, and priority edits remain available.
-  - Adds 21 pgTAP regression tests and 3 unit tests.
-  - Applied after Migration 025 and recorded in hosted migration history on 2026-08-27; all eight combined hosted boundary checks returned `true`.
-- **Application Performance & Dashboard Polish (no database migration):**
-  - Reuses authenticated user and profile reads within each server render instead of repeating the same Supabase validation across layouts and page loaders.
-  - Uses the dashboard aggregate for Subjects-page readiness, removing per-subject readiness network round trips.
-  - Removes the redundant dashboard chapter-count query now that Migration 025 returns `has_chapter_data`.
-  - Adds immediate route-level loading skeletons and defers Past Papers charts and paper-entry forms from the initial client bundle.
-  - Removes render-blocking third-party font requests in favour of a deterministic system-font stack.
-  - Adds clock-skew tolerance to the mission Undo control while leaving PostgreSQL as the authority for the 10-minute rule.
-  - Distinguishes “some subjects are missing exam dates” from the true no-dates state.
-  - Adds four focused unit assertions; 72/72 unit tests, type checking, lint, production build, and whitespace checks passed before deployment.
-- **Application Performance Round 2 & State Reconciliation (no database migration):**
-  - Replaced `supabase.auth.getUser()` in the proxy with `supabase.auth.getClaims()`, removing the per-request PostgREST profile lookup from proxy routing while retaining explicit verified-claims validation (`claims.sub`).
-  - Implemented server-side onboarding layout guard (`app/(auth)/onboarding/layout.tsx`), preserving Client Component architecture for `app/(auth)/onboarding/page.tsx`.
-  - Created single authoritative client-side dashboard state owner (`DashboardView`), eliminating competing mission arrays in `MissionList` and `MissionCard`.
-  - Added immediate local visual feedback on mission completion, undo, and replacement with instant atomic reconciliation across missions, XP, level, level title, and streak.
-  - Strictly preserved historical longest streak during mission Undo operations.
-  - Eliminated redundant post-completion profile query in `completeMission` action, deriving level-ups via pure TypeScript piecewise `computeLevel()`.
-  - Added pure piecewise `computeLevel()` and Level 15 title `Mythic` in `lib/xp.ts` matching PostgreSQL definitions.
-  - Converted Past Papers subject filter tabs to Next.js `Link` components with automatic prefetching and `aria-current`.
-  - Added `@vercel/speed-insights` for real-user Core Web Vitals performance telemetry.
-  - Added 11 new unit tests covering pure route guards, XP piecewise thresholds, and dashboard reconciliation; 85/85 unit tests, type check, lint, production build, and whitespace checks passed.
-- **Production Performance & Mobile Responsiveness (Phase 2.11 — no database migration):**
-  - Implemented optimistic AS/A2 paper-stage tagging with synchronous in-flight duplicate prevention (`inFlightRef`), per-paper pending saving state, double-click and conflicting stage click prevention, and automatic error rollback.
-  - Hardened `assignPaperStage` Server Action with runtime Zod schema validation (UUID and `'as' | 'a2'`), row-count update verification (`.select('id')`), untagged row restriction (`.is('stage', null)`), and safe user-facing error messages.
-  - Locked paper card actions (navigation, edit, delete) while a stage update is saving, and populated edit modals with `effectiveStage ?? 'as'`.
-  - Created lightweight client state island (`PaperStageProvider` & `lib/papers-state.ts`) synchronising tagging prompt and attempts list while keeping charts and page shell server-rendered.
-  - Established a single current-page reconciliation path using Server Action cache revalidation without redundant client-side `router.refresh()` calls.
-  - Streamlined Past Papers data fetching on the "All" view by deriving untagged papers directly from the full paper query, saving a database round trip during page loads while preserving global untagged queries on filtered views.
-  - Redesigned navigation header with explicit CSS Grid areas to ensure exact desktop order (`logo` → `nav` → `user`) and mobile 2-tier layout (`logo` + `user` on row 1, `nav` on row 2).
-  - Enforced mobile touch target compliance (≥44×44px) across navigation links, sign-out, filter tabs, tagging buttons, paper action icons, form inputs, and chapter status/confidence toggles.
-  - Resolved mobile horizontal page overflow (`scrollWidth <= clientWidth`) across 320px, 375px, 390px, 768px, and desktop widths on Dashboard, Subjects, Subject Details, and Past Papers.
-  - Added 13 new unit tests for paper-stage reducers, card locking, input validation, and Server Action boundaries; all 98 unit tests, type check, lint, Turbopack build, and whitespace checks pass locally (locally prepared and verified; deployment pending).
-  - Recorded 3 high-severity transitive vulnerabilities (`postcss`, `sharp` via `next`) during read-only dependency audit; no forced upgrade was applied to maintain Next.js 16 compatibility.
+- **Mission Quality, Workload & Variety Balancing (Migration 023 — Applied to Hosted Supabase):**
+  - Added `estimated_minutes` column to `daily_missions` (CHECK 5–120 mins) and backfilled existing missions with sensible duration estimates (10–60 mins).
+  - Constrained `user_settings.max_missions_per_day` to 1..3 (default 3) and backfilled existing settings > 3 to 3.
+  - Overhauled `generate_daily_missions` algorithm: max 2 missions per subject across active budget, no duplicate target entities on the same date, balanced category rotation, and bite-sized action titles.
+  - Added atomic, pre-validated `replace_mission` RPC with row locking (`FOR UPDATE`) and candidate availability validation.
+  - Added quiet UI duration display with `<Clock /> ~X min` and secondary "Replace" button with specific loading state and propagation isolation.
+- **AS/A2 Database Foundation & Flow (Migrations 020–022 — Applied to Hosted Supabase):**
+  - Applied and verified Migration 020 with `study_route`, `current_stage`, `a2_unlocked_at`, and `a2_unlock_method` columns on `user_subjects`; `stage` on `chapters` and `past_papers`; `subject_paper_selections` and `subject_stage_results` tables with RLS; enum types and indexes.
+  - Added route selection UI (`RouteSelectionBanner`, `RouteSetupSheet`) and Onboarding Step 4 for choosing AS only, Staged A Level, or Full A Level per subject.
+  - Added paper combination selection (`PaperSelectionPanel`) for Mathematics (Pure 1/Pure 3/Mechanics/Statistics).
+  - Implemented stage-aware readiness calculation via PostgreSQL `compute_readiness_score(user_id, subject_id, stage)` RPC.
+  - Added separate AS and A2 readiness displays across dashboard and subject pages; removed averaged readiness hero chip.
+  - Added A2 transition modal supporting standard AS result entry with carry-forward validation and early manual unlock.
+  - Tracked mission completion attempts via `daily_missions.completion_attempt` and returned detailed XP breakdowns (`mission_xp`, `daily_bonus_xp`, `achievement_xp`, `total_xp_awarded`, `new_total_xp`).
+  - Added atomic mission undo reversing mission XP, daily completion bonus, and attempt-linked achievements.
+  - Added atomic onboarding subject selection via `set_onboarding_subjects` RPC.
 
 ### Fixed
 - Replaced inconsistent application-side readiness calculation with database-level single source of truth.
@@ -130,8 +114,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Non-MVP subjects (such as Biology 9700) are flagged as unavailable (`is_available = FALSE`) for new onboarding while preserving grandfathered enrolments.
 - Migrations 025–026 and their matching application changes are deployed. The production subject manager has been checked through the non-destructive confirmation/cancel path; a live remove-and-re-add preservation exercise has not been performed.
 
+---
 
-## [0.1.0] - Initial Commit
+## [0.1.0] - 2026-08-26
+
 ### Added
 - Project folder structure initialization.
 - Complete Database Schema via Supabase migrations (000 to 012).

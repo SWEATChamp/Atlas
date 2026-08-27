@@ -62,7 +62,7 @@ Atlas employs a single-source-of-truth client-side state model on the dashboard 
 - Heavy visual elements (e.g. Recharts in Past Papers) loaded lazily with loading skeletons.
 - Navigation links in Past Papers filters use Next.js `Link` elements with automatic prefetching and `aria-current="page"`.
 
-## Past Papers Optimistic State & Responsive Island (Phase 2.11 — Locally Prepared, Deployment Pending)
+## Past Papers Optimistic State & Responsive Island (Phase 2.11 — Deployed)
 Atlas uses a focused client state island on Past Papers (`components/papers/paper-stage-provider.tsx`) with pure state reduction (`lib/papers-state.ts`):
 - **Immediate Visual Feedback & In-Flight Guard**: Clicking "Tag AS" or "Tag A2" is protected by a synchronous `inFlightRef` guard that prevents double-clicks, conflicting stage clicks, and concurrent actions. The row enters a pending "Saving AS…" state and updates the matching `PaperCard` badge synchronously in the Attempts list.
 - **Hardened Server Action Validation**: `assignPaperStage` runtime-validates input with Zod (`UUID` and `'as' | 'a2'`), executes Supabase update with row-count verification (`.select('id')`), and rejects missing/unauthorized papers.
@@ -71,12 +71,28 @@ Atlas uses a focused client state island on Past Papers (`components/papers/pape
 - **Minimal Client Boundary**: Keeps page shell, statistics, and charts server-rendered; only attempts list and tagger prompt subscribe to client state.
 - **Global Untagged Query Integrity**: On filtered subject views, retains global untagged query to ensure untagged papers across all subjects remain visible.
 
-## Responsive Layout System (Phase 2.11 — Locally Prepared, Deployment Pending)
+## Responsive Layout System (Phase 2.11 & v1.1.0)
 - **Responsive Navigation Header**: Uses explicit CSS Grid areas:
   - Desktop: `logo nav user` (logo → navigation → user controls)
   - Mobile (<640px): `logo user` on row 1, full-width `nav nav` on row 2
-- **Mobile Touch Targets**: All interactive elements (navigation links, sign out, filter tabs, tagging buttons, paper action icons, inputs, status toggles) enforce ≥44×44px touch targets on mobile.
-- **Zero Horizontal Overflow**: Responsive layout system (`.dashboard-main-grid`, `.subjects-grid`, `.past-papers-2col`, `.paper-card-responsive`) verified at 320px, 375px, 390px, 768px, and desktop widths.
+- **2-Tier Responsive Daily Missions**:
+  - `≤640px`: 2-tier responsive layout (Row 1: checkbox, icon, wrapped title & description; Row 2: estimated time, action button, XP badge).
+  - `>640px`: compact single-row layout (`checkbox + icon + text + actions + badge`), verified on 768px tablet and desktop viewports with zero horizontal document overflow.
+- **Mobile Touch Targets**: All interactive elements (navigation links, sign out, filter tabs, tagging buttons, paper action icons, inputs, status toggles, mission actions, route selection buttons) enforce ≥44×44px touch targets on mobile and tablet (≤768px).
+- **Zero Horizontal Overflow**: Responsive layout system (`.dashboard-main-grid`, `.subjects-grid`, `.past-papers-2col`, `.paper-card-responsive`, `.mission-card-inner`) verified at 320px, 375px, 390px, 768px, and desktop widths.
+
+## Release Versioning & Update Notification Architecture (v1.1.0 — Locally Prepared, Deployment Pending)
+- **Authoritative Semantic Versioning (`lib/version.ts`)**:
+  - `CURRENT_RELEASE` maintains product version, title, release date, and change highlights.
+  - Synchronized with `package.json` at version `1.1.0`.
+  - Unobtrusive semantic version indicator displayed in the authenticated application footer shell (`Atlas v1.1.0`).
+- **Latest-Only "What's New" Dialog (`components/whats-new-modal.tsx`)**:
+  - Client-rendered modal overlay rendered within the authenticated application layout.
+  - Blocking modal behavior while active: `aria-modal="true"`, focus trap, initial focus management on the confirm button, focus restoration to the previous active element on close, `Escape` key dismissal, and background scroll locking (`document.body.style.overflow = 'hidden'`).
+  - Safe client-side storage access (`lib/release-state.ts`) prevents SSR hydration mismatches and handles private-browsing storage exceptions safely.
+  - Tracks the last seen release version using `localStorage` key `atlas_last_seen_release_version`.
+  - Automatically displays when an upgraded release version is detected.
+  - Storage acknowledgement is device/browser-local and does not require database tables, profile columns, or migrations.
 
 
 ## Mission Engine

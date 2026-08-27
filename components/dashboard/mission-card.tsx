@@ -138,168 +138,162 @@ export default function MissionCard({ mission, onComplete, onUndo, onReplace, on
         whileHover={done ? {} : { scale: 1.005, borderColor: meta.color + '60' }}
         whileTap={done ? {} : { scale: 0.995 }}
       >
-        {/* Checkbox */}
-        <motion.div
-          animate={{ scale: done ? [1, 1.3, 1] : 1 }}
-          transition={{ duration: 0.3 }}
-          style={{
-            width: 22,
-            height: 22,
-            borderRadius: 6,
-            border: `2px solid ${done ? 'var(--success)' : 'var(--border-muted)'}`,
-            background: done ? 'var(--success)' : 'transparent',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            transition: 'background 200ms ease, border-color 200ms ease',
-          }}
-        >
-          <AnimatePresence>
-            {done && (
-              <motion.div
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0, opacity: 0 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-              >
-                <Check size={13} color="#fff" strokeWidth={3} />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
+        <div className="mission-card-inner">
+          <div className="mission-card-top">
+            {/* Checkbox */}
+            <motion.div
+              animate={{ scale: done ? [1, 1.3, 1] : 1 }}
+              transition={{ duration: 0.3 }}
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: 6,
+                border: `2px solid ${done ? 'var(--success)' : 'var(--border-muted)'}`,
+                background: done ? 'var(--success)' : 'transparent',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                marginTop: 2,
+                transition: 'background 200ms ease, border-color 200ms ease',
+              }}
+            >
+              <AnimatePresence>
+                {done && (
+                  <motion.div
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                  >
+                    <Check size={13} color="#fff" strokeWidth={3} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
 
-        {/* Type icon pill */}
-        <div
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: 8,
-            background: meta.bg,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: meta.color,
-            flexShrink: 0,
-          }}
-        >
-          {meta.icon}
-        </div>
-
-        {/* Text */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              color: done ? 'var(--text-muted)' : 'var(--text-primary)',
-              textDecorationLine: done ? 'line-through' : 'none',
-              textDecorationColor: 'var(--text-disabled)',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              transition: 'color 200ms',
-            }}
-          >
-            {mission.title}
-          </div>
-          {mission.description && (
+            {/* Type icon pill */}
             <div
               style={{
-                fontSize: '0.75rem',
-                color: 'var(--text-muted)',
-                marginTop: 2,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
+                width: 30,
+                height: 30,
+                borderRadius: 8,
+                background: meta.bg,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: meta.color,
+                flexShrink: 0,
               }}
             >
-              {mission.description}
+              {meta.icon}
             </div>
-          )}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-              fontSize: '0.7rem',
-              color: 'var(--text-secondary)',
-              marginTop: 3,
-            }}
-          >
-            <Clock size={11} style={{ opacity: 0.7 }} />
-            <span>~{mission.estimated_minutes ?? 30} min</span>
+
+            {/* Text */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                className="mission-card-title"
+                style={{
+                  color: done ? 'var(--text-muted)' : 'var(--text-primary)',
+                  textDecorationLine: done ? 'line-through' : 'none',
+                  textDecorationColor: 'var(--text-disabled)',
+                }}
+              >
+                {mission.title}
+              </div>
+              {mission.description && (
+                <div className="mission-card-desc">
+                  {mission.description}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Action / XP badge */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          {!done && mission.status === 'pending' && (
-            <button
-              type="button"
-              className="mission-action-btn mission-action-btn-replace"
-              onClick={handleReplace}
-              disabled={isPending || isReplacing}
-              title="Replace this mission with another available task"
+          {/* Action / Time / XP row */}
+          <div className="mission-card-bottom">
+            <div
               style={{
-                cursor: isPending || isReplacing ? 'not-allowed' : 'pointer',
-              }}
-              onMouseEnter={(e) => {
-                if (!isPending && !isReplacing) {
-                  e.currentTarget.style.borderColor = 'var(--text-secondary)'
-                  e.currentTarget.style.color = 'var(--text-primary)'
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border-subtle)'
-                e.currentTarget.style.color = 'var(--text-secondary)'
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                fontSize: '0.72rem',
+                color: 'var(--text-secondary)',
+                flexShrink: 0,
               }}
             >
-              <RefreshCw size={12} style={{ animation: isReplacing ? 'spin 1s linear infinite' : 'none' }} />
-              {isReplacing ? 'Replacing…' : 'Replace'}
-            </button>
-          )}
+              <Clock size={11} style={{ opacity: 0.7 }} />
+              <span>~{mission.estimated_minutes ?? 30} min</span>
+            </div>
 
-          {done && canUndo && (
-            <button
-              type="button"
-              className="mission-action-btn mission-action-btn-undo"
-              onClick={handleUndo}
-              disabled={isPending || isReplacing}
-              title="Undo completion (available for 10 minutes)"
-              style={{
-                cursor: isPending || isReplacing ? 'not-allowed' : 'pointer',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--text-secondary)'
-                e.currentTarget.style.color = 'var(--text-primary)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border-subtle)'
-                e.currentTarget.style.color = 'var(--text-muted)'
-              }}
-            >
-              <RotateCcw size={12} />
-              Undo
-            </button>
-          )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+              {!done && mission.status === 'pending' && (
+                <button
+                  type="button"
+                  className="mission-action-btn mission-action-btn-replace"
+                  onClick={handleReplace}
+                  disabled={isPending || isReplacing}
+                  title="Replace this mission with another available task"
+                  style={{
+                    cursor: isPending || isReplacing ? 'not-allowed' : 'pointer',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isPending && !isReplacing) {
+                      e.currentTarget.style.borderColor = 'var(--text-secondary)'
+                      e.currentTarget.style.color = 'var(--text-primary)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-subtle)'
+                    e.currentTarget.style.color = 'var(--text-secondary)'
+                  }}
+                >
+                  <RefreshCw size={12} style={{ animation: isReplacing ? 'spin 1s linear infinite' : 'none' }} />
+                  {isReplacing ? 'Replacing…' : 'Replace'}
+                </button>
+              )}
 
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 3,
-              padding: '3px 8px',
-              borderRadius: 99,
-              background: done ? 'rgba(52,211,153,0.1)' : 'rgba(124,109,250,0.12)',
-              color: done ? 'var(--success)' : 'var(--accent-primary)',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <Zap size={11} strokeWidth={2.5} />
-            +{mission.xp_reward} XP
+              {done && canUndo && (
+                <button
+                  type="button"
+                  className="mission-action-btn mission-action-btn-undo"
+                  onClick={handleUndo}
+                  disabled={isPending || isReplacing}
+                  title="Undo completion (available for 10 minutes)"
+                  style={{
+                    cursor: isPending || isReplacing ? 'not-allowed' : 'pointer',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--text-secondary)'
+                    e.currentTarget.style.color = 'var(--text-primary)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-subtle)'
+                    e.currentTarget.style.color = 'var(--text-muted)'
+                  }}
+                >
+                  <RotateCcw size={12} />
+                  Undo
+                </button>
+              )}
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 3,
+                  padding: '3px 8px',
+                  borderRadius: 99,
+                  background: done ? 'rgba(52,211,153,0.1)' : 'rgba(124,109,250,0.12)',
+                  color: done ? 'var(--success)' : 'var(--accent-primary)',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <Zap size={11} strokeWidth={2.5} />
+                +{mission.xp_reward} XP
+              </div>
+            </div>
           </div>
         </div>
       </motion.div>

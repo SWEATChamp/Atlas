@@ -131,17 +131,39 @@ The performance and dashboard-polish release after Migration 026 does not change
 1. Proxy authentication via `getClaims()`, server-side onboarding layout guard, authoritative reactive dashboard state management, XP progression, and Speed Insights telemetry are deployed.
 2. Production smoke testing confirmed authentication, dashboard readiness, mission completion/undo, subject management, and Speed Insights script loading.
 
-## Phase 2.11 Production Performance & Mobile Responsiveness
+## Phase 2.11 Production Performance & Mobile Responsiveness (v1.0.0 Baseline)
 
-> **Release status (2026-08-27):** Prepared and verified locally on `codex/performance-round-3`. Review, merge, Vercel deployment, and production verification remain pending. This is an application-only release: no Supabase backup, database migration, or migration-history repair is required.
+> **Release status (2026-08-27):** Merged and deployed to Vercel production at commit `39427dd`. Baseline `v1.0.0` established.
+> This was an application-only release: no Supabase backup, database migration, or migration-history repair was required.
 
-1. Review the Phase 2.11 diff, including optimistic AS/A2 paper-stage tagging with synchronous in-flight guard (`PaperStageProvider`, `lib/papers-state.ts`), input validation, card locking, responsive header with explicit CSS Grid areas, full mobile touch targets (≥44×44px), and streamlined data loading.
-2. Confirm all 98 unit tests, TypeScript type checking, ESLint, the Next.js production build, and whitespace checks pass locally.
-3. Confirm there are no changes under `supabase/migrations/` or `supabase/tests/`. Do not create or apply Migration 027 as part of this release.
+1. Optimistic AS/A2 paper-stage tagging with synchronous in-flight guard (`PaperStageProvider`, `lib/papers-state.ts`), input validation, card locking, responsive header with explicit CSS Grid areas, and mobile touch targets (≥44×44px) are live in production.
+2. Verified 98 unit tests, TypeScript type checking, ESLint, Next.js production build, and whitespace checks.
+
+## Phase 2.12 / v1.1.0: Dashboard Mobile Compatibility & Update Notifications
+
+> **Release status (2026-08-27):** Prepared and verified locally on `codex/dashboard-mobile-hotfix`. Review, merge, Vercel deployment, production verification, and release tagging remain pending. This is an application-only release: no Supabase backup, database migration, or migration-history repair is required.
+
+1. Review the v1.1.0 diff:
+   - 2-tier responsive Daily Missions layout (≤640px) in `components/dashboard/mission-card.tsx` and `app/globals.css`, and clean single-row layout on wider viewports (>640px, including 768px and desktop), eliminating mobile horizontal overflow.
+   - `minmax(0, 1fr)` and `min-width: 0` constraints on `.dashboard-main-grid`.
+   - Header logo touch target (≥44px height) and "Configure {subject}" button (≥44×44px).
+   - Authoritative release metadata module (`lib/version.ts`) synchronised with `package.json` at version `1.1.0`.
+   - Visible semantic version display in application footer (`Atlas v1.1.0`).
+   - Accessible latest-only "What's New" release update modal overlay (`components/whats-new-modal.tsx`) with client-safe `localStorage` dismissal persistence, focus trap, Escape key handling, and background scroll locking.
+   - Agent workflow discipline rules added to `AGENTS.md`.
+2. Confirm all 112 unit tests, TypeScript type checking, ESLint, the Next.js production build, and whitespace checks pass locally.
+3. Confirm there are no changes under `supabase/migrations/` or `supabase/tests/`. Do not create or apply Migration 027.
 4. Merge the reviewed branch and allow Vercel to deploy the application release.
-5. Smoke-test paper-stage tagging on Past Papers: confirm immediate visual feedback, "Saving AS…" pending state, paper card interactive locking, and synchronous paper-card stage badge updates.
-6. Smoke-test mobile responsiveness at 320px, 375px, 390px, 768px, and desktop widths: verify zero horizontal overflow (`scrollWidth <= clientWidth`) and ensure all controls (navigation, sign-out, modals, filter tabs, chapter toggles) are accessible and touch-friendly (≥44×44px touch targets).
-7. Inspect Speed Insights production Core Web Vitals (LCP, INP, CLS, TTFB) post-deployment to verify field improvements.
+5. Production smoke checks:
+   - Verify Dashboard on mobile (320px, 375px, 390px, 768px): confirm mission cards wrap cleanly with zero horizontal document overflow (`document.documentElement.scrollWidth <= document.documentElement.clientWidth`).
+   - Verify "What's New" modal appears on initial post-release visit in browser, traps focus, dismisses cleanly on Escape/Got it, and does not reappear upon page refresh.
+   - Confirm mission completion, XP awards, and undo operate normally without regression.
+6. **Release Tagging (Post-Deployment)**:
+   After production deployment and smoke verification are complete and explicitly approved by the user, create and push the annotated Git tag:
+   ```bash
+   git tag -a v1.1.0 -m "v1.1.0: Dashboard mobile compatibility and update notifications"
+   git push origin v1.1.0
+   ```
 
 ## General Production Configuration
 

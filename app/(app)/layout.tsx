@@ -4,6 +4,8 @@ import { signOut } from '@/lib/supabase/actions'
 import { getAuthenticatedContext, getCurrentProfile } from '@/lib/supabase/authenticated'
 import NavLink from '@/components/nav-link'
 import TimezoneSync from '@/components/timezone-sync'
+import WhatsNewModal from '@/components/whats-new-modal'
+import { CURRENT_RELEASE } from '@/lib/version'
 
 const NAV_ITEMS = [
   { href: '/dashboard',   label: 'Dashboard'   },
@@ -33,6 +35,7 @@ export default async function AppLayout({
   return (
     <div className="app-root-shell">
       <TimezoneSync initialTimezone={profile.timezone ?? 'UTC'} />
+      <WhatsNewModal />
 
       {/* ── Responsive Sticky header ──────────────────────────────────────── */}
       <header className="app-header">
@@ -40,11 +43,17 @@ export default async function AppLayout({
         <div className="app-header-logo">
           <Link
             href="/dashboard"
+            aria-label="A-Level Atlas Dashboard"
+            className="touch-target-btn"
             style={{
               fontWeight: 800,
               fontSize: '1.125rem',
               letterSpacing: '-0.03em',
               textDecoration: 'none',
+              minHeight: 44,
+              display: 'inline-flex',
+              alignItems: 'center',
+              padding: '0 4px',
               flexShrink: 0,
             }}
           >
@@ -82,6 +91,19 @@ export default async function AppLayout({
       <main className="app-main-layout">
         {children}
       </main>
+
+      {/* ── Unobtrusive Application Footer Shell ───────────────────────── */}
+      <footer
+        style={{
+          borderTop: '1px solid var(--border-subtle)',
+          padding: '16px 24px',
+          textAlign: 'center',
+          fontSize: '0.75rem',
+          color: 'var(--text-muted)',
+        }}
+      >
+        <span>Atlas v{CURRENT_RELEASE.version}</span>
+      </footer>
     </div>
   )
 }

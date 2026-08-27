@@ -155,6 +155,8 @@ export default function MissionList({
           alignItems: 'center',
           justifyContent: 'space-between',
           marginBottom: 16,
+          gap: 12,
+          flexWrap: 'wrap',
         }}
       >
         <div>

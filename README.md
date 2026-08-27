@@ -18,11 +18,11 @@ Available now:
 Release status and known limitations:
 
 - Migrations 020–026 are applied to hosted Supabase and recorded in remote migration history.
-- Migration 024 was backed up, applied, and verified on 2026-08-27; all 18 hosted catalogue and data-preservation checks passed.
-- The matching application release was deployed to Vercel on 2026-08-27. Production smoke testing confirmed authentication, preserved enrolments, route-aware chapter access, paper-form component filtering, and mission completion/undo XP accounting.
+- Migration 024 was backed up, applied, and verified on 2026-08-27; all 18 hosted catalogue and data-preservation checks passed. The matching application release was deployed to Vercel on 2026-08-27. Production smoke testing confirmed authentication, preserved enrolments, route-aware chapter access, paper-form component filtering, and mission completion/undo XP accounting.
 - Migrations 025–026 were backed up, applied, recorded, and verified on hosted Supabase on 2026-08-27; all eight hosted boundary checks returned `true`. The matching dashboard and subject-management application changes are deployed. Production smoke testing confirmed valid readiness countdowns, the five active MVP subjects, and the required removal confirmation flow.
 - Phase 2.10 (Application Performance Round 2 & Speed Insights) is deployed to production with active Speed Insights telemetry.
-- Phase 2.11 (Production Performance & Mobile Responsiveness): Optimistic AS/A2 paper-stage tagging with synchronous in-flight duplicate prevention, hardened input validation and row-count verification, authoritative client state island (`PaperStageProvider`), card action locking during save, 2-tier responsive mobile header with explicit CSS Grid areas, full mobile touch-target compliance (≥44×44px), and zero document-level horizontal overflow across 320px, 375px, 390px, 768px, and desktop widths are locally prepared and verified (98/98 unit tests pass); deployment pending.
+- Phase 2.11 (Production Performance & Mobile Responsiveness) is merged and deployed to Vercel production as baseline `v1.0.0` (commit `39427dd`).
+- v1.1.0 (Dashboard Mobile Compatibility & Update Notifications): Responsive 2-tier Daily Missions layout on mobile viewports (≤640px) and clean single-row layout on wider viewports (>640px, including 768px and desktop) eliminating mobile horizontal overflow, enforced 44×44px touch targets on navigation logo and route setup, visible semantic versioning (`Atlas v1.1.0`), and accessible latest-only "What's New" release update modal overlay with safe client storage are locally prepared and verified (112/112 unit tests pass); deployment pending.
 - Mission undo reverses attempt-linked XP and recalculates the streak from remaining activity; chapter review timestamps remain unchanged in the MVP.
 - Google Docs integration has not started.
 
