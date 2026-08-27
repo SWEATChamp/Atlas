@@ -31,47 +31,29 @@ export default async function AppLayout({
   const displayName = profile?.username ? `@${profile.username}` : profile?.full_name
 
   return (
-    <div
-      style={{
-        minHeight: '100dvh',
-        background: 'var(--bg-base)',
-        color: 'var(--text-primary)',
-      }}
-    >
+    <div className="app-root-shell">
       <TimezoneSync initialTimezone={profile.timezone ?? 'UTC'} />
 
-      {/* ── Sticky header ──────────────────────────────────────────────── */}
-      <header
-        style={{
-          height: 56,
-          borderBottom: '1px solid var(--border-subtle)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 0,
-          padding: '0 24px',
-          background: 'var(--bg-elevated)',
-          position: 'sticky',
-          top: 0,
-          zIndex: 50,
-        }}
-      >
-        {/* Logo */}
-        <Link
-          href="/dashboard"
-          style={{
-            fontWeight: 800,
-            fontSize: '1.125rem',
-            letterSpacing: '-0.03em',
-            textDecoration: 'none',
-            marginRight: 32,
-            flexShrink: 0,
-          }}
-        >
-          <span style={{ color: 'var(--text-primary)' }}>Atlas</span>
-        </Link>
+      {/* ── Responsive Sticky header ──────────────────────────────────────── */}
+      <header className="app-header">
+        {/* 1. Logo (Grid area: logo) */}
+        <div className="app-header-logo">
+          <Link
+            href="/dashboard"
+            style={{
+              fontWeight: 800,
+              fontSize: '1.125rem',
+              letterSpacing: '-0.03em',
+              textDecoration: 'none',
+              flexShrink: 0,
+            }}
+          >
+            <span style={{ color: 'var(--text-primary)' }}>Atlas</span>
+          </Link>
+        </div>
 
-        {/* Nav links */}
-        <nav style={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1 }}>
+        {/* 2. Nav links (Grid area: nav) */}
+        <nav className="app-header-nav" aria-label="Main Navigation">
           {NAV_ITEMS.map((item) => (
             <NavLink key={item.href} href={item.href}>
               {item.label}
@@ -79,16 +61,16 @@ export default async function AppLayout({
           ))}
         </nav>
 
-        {/* User + sign out */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-          <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+        {/* 3. User + sign out (Grid area: user) */}
+        <div className="app-header-user">
+          <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {displayName}
           </span>
           <form action={signOut}>
             <button
               type="submit"
               className="btn btn-ghost"
-              style={{ height: 32, padding: '0 12px', fontSize: '0.8rem' }}
+              style={{ padding: '0 12px', fontSize: '0.8rem' }}
             >
               Sign out
             </button>
@@ -97,7 +79,7 @@ export default async function AppLayout({
       </header>
 
       {/* ── Page content ───────────────────────────────────────────────── */}
-      <main style={{ padding: '32px 24px', maxWidth: 1200, margin: '0 auto' }}>
+      <main className="app-main-layout">
         {children}
       </main>
     </div>

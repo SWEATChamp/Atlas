@@ -12,6 +12,11 @@ export function SubjectFilterTabs({ subjects, activeId }: SubjectFilterTabsProps
       style={{
         display: 'flex',
         overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        scrollbarWidth: 'none',
+        maxWidth: '100%',
+        width: '100%',
+        minWidth: 0,
         gap: 'var(--space-2)',
         paddingBottom: 'var(--space-2)',
       }}
@@ -27,6 +32,9 @@ export function SubjectFilterTabs({ subjects, activeId }: SubjectFilterTabsProps
           textDecoration: 'none',
           display: 'inline-flex',
           alignItems: 'center',
+          flexShrink: 0,
+          minHeight: 44,
+          padding: '0 16px',
         }}
       >
         All
@@ -47,6 +55,9 @@ export function SubjectFilterTabs({ subjects, activeId }: SubjectFilterTabsProps
               textDecoration: 'none',
               display: 'inline-flex',
               alignItems: 'center',
+              flexShrink: 0,
+              minHeight: 44,
+              padding: '0 16px',
             }}
           >
             {s.name}

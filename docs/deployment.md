@@ -126,18 +126,22 @@ The performance and dashboard-polish release after Migration 026 does not change
 
 ## Phase 2.10 Application Performance Round 2
 
-> **Release status (2026-08-27):** Prepared and verified locally on `codex/performance-round-2`. Review, merge, Vercel deployment, and production measurement remain pending. This is an application-only release: no Supabase backup, database migration, or migration-history repair is required.
+> **Release status (2026-08-27):** Deployed to production and verified. Speed Insights telemetry is active.
 
-1. Review the Phase 2.10 diff, including proxy authentication, the onboarding guard, dashboard state reconciliation, Past Papers navigation, and Speed Insights integration.
-2. Confirm all 85 unit tests, TypeScript type checking, ESLint, the Next.js production build, and whitespace checks pass.
+1. Proxy authentication via `getClaims()`, server-side onboarding layout guard, authoritative reactive dashboard state management, XP progression, and Speed Insights telemetry are deployed.
+2. Production smoke testing confirmed authentication, dashboard readiness, mission completion/undo, subject management, and Speed Insights script loading.
+
+## Phase 2.11 Production Performance & Mobile Responsiveness
+
+> **Release status (2026-08-27):** Prepared and verified locally on `codex/performance-round-3`. Review, merge, Vercel deployment, and production verification remain pending. This is an application-only release: no Supabase backup, database migration, or migration-history repair is required.
+
+1. Review the Phase 2.11 diff, including optimistic AS/A2 paper-stage tagging with synchronous in-flight guard (`PaperStageProvider`, `lib/papers-state.ts`), input validation, card locking, responsive header with explicit CSS Grid areas, full mobile touch targets (≥44×44px), and streamlined data loading.
+2. Confirm all 98 unit tests, TypeScript type checking, ESLint, the Next.js production build, and whitespace checks pass locally.
 3. Confirm there are no changes under `supabase/migrations/` or `supabase/tests/`. Do not create or apply Migration 027 as part of this release.
-4. Enable Speed Insights for the Atlas project in Vercel. The integration does not require a new environment variable.
-5. Merge the reviewed branch and allow Vercel to deploy the application release.
-6. Smoke-test unauthenticated redirects, Google OAuth, returning-user login, incomplete onboarding, and the already-onboarded redirect.
-7. Smoke-test dashboard mission completion, Undo, replacement, XP, level, and streak updates; then verify Subjects and Past Papers filtering, paper logging, modals, and charts.
-8. Confirm Supabase session-cookie updates survive redirects and that protected routes remain unavailable without a valid session.
-9. After representative production traffic, review Speed Insights and compare Dashboard and Past Papers timings with the pre-release baseline.
-10. Propose a forward-only Migration 027 only if production measurements show a remaining database bottleneck. Treat it as a separate reviewed database release and create a fresh hosted backup before applying it.
+4. Merge the reviewed branch and allow Vercel to deploy the application release.
+5. Smoke-test paper-stage tagging on Past Papers: confirm immediate visual feedback, "Saving AS…" pending state, paper card interactive locking, and synchronous paper-card stage badge updates.
+6. Smoke-test mobile responsiveness at 320px, 375px, 390px, 768px, and desktop widths: verify zero horizontal overflow (`scrollWidth <= clientWidth`) and ensure all controls (navigation, sign-out, modals, filter tabs, chapter toggles) are accessible and touch-friendly (≥44×44px touch targets).
+7. Inspect Speed Insights production Core Web Vitals (LCP, INP, CLS, TTFB) post-deployment to verify field improvements.
 
 ## General Production Configuration
 

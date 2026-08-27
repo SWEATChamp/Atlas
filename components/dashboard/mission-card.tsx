@@ -237,22 +237,12 @@ export default function MissionCard({ mission, onComplete, onUndo, onReplace, on
           {!done && mission.status === 'pending' && (
             <button
               type="button"
+              className="mission-action-btn mission-action-btn-replace"
               onClick={handleReplace}
               disabled={isPending || isReplacing}
               title="Replace this mission with another available task"
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                padding: '3px 8px',
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border-subtle)',
-                color: 'var(--text-secondary)',
-                fontSize: '0.7rem',
-                fontWeight: 600,
                 cursor: isPending || isReplacing ? 'not-allowed' : 'pointer',
-                transition: 'all 150ms ease',
               }}
               onMouseEnter={(e) => {
                 if (!isPending && !isReplacing) {
@@ -265,7 +255,7 @@ export default function MissionCard({ mission, onComplete, onUndo, onReplace, on
                 e.currentTarget.style.color = 'var(--text-secondary)'
               }}
             >
-              <RefreshCw size={10} style={{ animation: isReplacing ? 'spin 1s linear infinite' : 'none' }} />
+              <RefreshCw size={12} style={{ animation: isReplacing ? 'spin 1s linear infinite' : 'none' }} />
               {isReplacing ? 'Replacing…' : 'Replace'}
             </button>
           )}
@@ -273,22 +263,12 @@ export default function MissionCard({ mission, onComplete, onUndo, onReplace, on
           {done && canUndo && (
             <button
               type="button"
+              className="mission-action-btn mission-action-btn-undo"
               onClick={handleUndo}
               disabled={isPending || isReplacing}
               title="Undo completion (available for 10 minutes)"
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                padding: '3px 8px',
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border-subtle)',
-                color: 'var(--text-muted)',
-                fontSize: '0.7rem',
-                fontWeight: 600,
                 cursor: isPending || isReplacing ? 'not-allowed' : 'pointer',
-                transition: 'all 150ms ease',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.borderColor = 'var(--text-secondary)'
@@ -299,7 +279,7 @@ export default function MissionCard({ mission, onComplete, onUndo, onReplace, on
                 e.currentTarget.style.color = 'var(--text-muted)'
               }}
             >
-              <RotateCcw size={10} />
+              <RotateCcw size={12} />
               Undo
             </button>
           )}

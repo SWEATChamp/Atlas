@@ -26,7 +26,7 @@ Server or Client Component → Next.js Server Action or authenticated Supabase c
 
 The app detects the browser's IANA timezone during onboarding and when a signed-in user opens the app. PostgreSQL uses that saved timezone to decide the user's current calendar date. Daily missions, streaks, daily achievements, exam countdowns, and automatic exam archiving therefore change at the user's midnight rather than the database server's midnight. Invalid or missing values fall back to UTC.
 
-## Authentication Flow & Proxy Route Guarding (Phase 2.10 — Locally Prepared, Deployment Pending)
+## Authentication Flow & Proxy Route Guarding (Phase 2.10 — Deployed)
 
 Atlas uses Supabase Auth with Google OAuth. Email/password UI and Google Docs synchronisation are not part of the current MVP flow.
 
@@ -39,7 +39,7 @@ Atlas uses Supabase Auth with Google OAuth. Email/password UI and Google Docs sy
   - Enforces onboarding status on the server: redirects unauthenticated users to `/login?next=/onboarding` and already-onboarded users directly to `/dashboard`.
   - Preserves `app/(auth)/onboarding/page.tsx` as a pure Client Component.
 
-## Dashboard Architecture & State Reconciliation (Phase 2.10 — Locally Prepared, Deployment Pending)
+## Dashboard Architecture & State Reconciliation (Phase 2.10 — Deployed)
 
 Atlas employs a single-source-of-truth client-side state model on the dashboard (`components/dashboard/dashboard-view.tsx`):
 
@@ -56,12 +56,28 @@ Atlas employs a single-source-of-truth client-side state model on the dashboard 
   - Level 15 title `Mythic` matches PostgreSQL `compute_level_title`.
   - `completeMission` derives level-up status purely in TypeScript using atomic `total_xp_awarded` and `new_total_xp`, removing the redundant post-completion profile query.
 
-## Performance & Real-User Monitoring (Phase 2.10 — Locally Prepared, Deployment Pending)
-
+## Performance & Real-User Monitoring
 - Next.js Turbopack compiler.
-- Core Web Vitals telemetry captured via `@vercel/speed-insights` in `app/layout.tsx` (locally integrated and verified; deployment pending).
+- Core Web Vitals telemetry captured via `@vercel/speed-insights` in `app/layout.tsx`.
 - Heavy visual elements (e.g. Recharts in Past Papers) loaded lazily with loading skeletons.
 - Navigation links in Past Papers filters use Next.js `Link` elements with automatic prefetching and `aria-current="page"`.
+
+## Past Papers Optimistic State & Responsive Island (Phase 2.11 — Locally Prepared, Deployment Pending)
+Atlas uses a focused client state island on Past Papers (`components/papers/paper-stage-provider.tsx`) with pure state reduction (`lib/papers-state.ts`):
+- **Immediate Visual Feedback & In-Flight Guard**: Clicking "Tag AS" or "Tag A2" is protected by a synchronous `inFlightRef` guard that prevents double-clicks, conflicting stage clicks, and concurrent actions. The row enters a pending "Saving AS…" state and updates the matching `PaperCard` badge synchronously in the Attempts list.
+- **Hardened Server Action Validation**: `assignPaperStage` runtime-validates input with Zod (`UUID` and `'as' | 'a2'`), executes Supabase update with row-count verification (`.select('id')`), and rejects missing/unauthorized papers.
+- **Card Interactive Locking**: While a paper stage is saving, navigation, editing, and deletion on that paper card are locked. The edit modal receives `effectiveStage ?? 'as'`.
+- **Server Confirmation & Error Rollback**: Server Actions execute asynchronously with strict `getUser()` and user ownership validation. On failure, state automatically rolls back and displays an accessible error notice. On success, the untagged row smoothly clears and the Server Action revalidates server caches in a single round trip.
+- **Minimal Client Boundary**: Keeps page shell, statistics, and charts server-rendered; only attempts list and tagger prompt subscribe to client state.
+- **Global Untagged Query Integrity**: On filtered subject views, retains global untagged query to ensure untagged papers across all subjects remain visible.
+
+## Responsive Layout System (Phase 2.11 — Locally Prepared, Deployment Pending)
+- **Responsive Navigation Header**: Uses explicit CSS Grid areas:
+  - Desktop: `logo nav user` (logo → navigation → user controls)
+  - Mobile (<640px): `logo user` on row 1, full-width `nav nav` on row 2
+- **Mobile Touch Targets**: All interactive elements (navigation links, sign out, filter tabs, tagging buttons, paper action icons, inputs, status toggles) enforce ≥44×44px touch targets on mobile.
+- **Zero Horizontal Overflow**: Responsive layout system (`.dashboard-main-grid`, `.subjects-grid`, `.past-papers-2col`, `.paper-card-responsive`) verified at 320px, 375px, 390px, 768px, and desktop widths.
+
 
 ## Mission Engine
 A core component of Atlas is the Mission Engine. It generates up to 3 daily missions per user by calculating a weighted score across multiple dimensions:

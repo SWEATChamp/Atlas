@@ -208,6 +208,7 @@ export default function MissionList({
 
         {/* Generate / Refresh button */}
         <button
+          className="mission-header-btn"
           onClick={onGenerate}
           disabled={generating}
           style={{
@@ -237,7 +238,7 @@ export default function MissionList({
           }}
         >
           <RefreshCw
-            size={12}
+            size={13}
             style={{
               animation: generating ? 'spin 1s linear infinite' : 'none',
             }}
@@ -307,6 +308,7 @@ export default function MissionList({
           </div>
           {examDateCoverage === 'all' && hasChapterData && (
             <button
+              className="btn btn-primary"
               onClick={onGenerate}
               disabled={generating}
               style={{

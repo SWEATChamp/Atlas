@@ -170,17 +170,24 @@ export default function A2TransitionModal({
             </div>
           </div>
           <button
+            type="button"
+            aria-label="Close A2 transition modal"
             onClick={onClose}
+            className="touch-target-btn"
             style={{
               background: 'transparent',
               border: 'none',
               color: 'var(--text-muted)',
               cursor: 'pointer',
-              padding: 4,
+              width: 44,
+              height: 44,
+              minWidth: 44,
+              minHeight: 44,
+              padding: 0,
               borderRadius: 'var(--radius-sm)',
             }}
           >
-            <X size={18} />
+            <X size={19} />
           </button>
         </div>
 
@@ -401,11 +408,11 @@ export default function A2TransitionModal({
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
                 <button
                   type="button"
+                  className="btn btn-ghost"
                   onClick={() => setMode('select')}
                   style={{
                     padding: '8px 14px',
                     borderRadius: 'var(--radius-md)',
-                    background: 'transparent',
                     border: '1px solid var(--border-subtle)',
                     color: 'var(--text-secondary)',
                     fontSize: '0.85rem',
@@ -415,6 +422,7 @@ export default function A2TransitionModal({
                 </button>
                 <button
                   type="button"
+                  className="btn btn-primary"
                   onClick={handleNormalSubmit}
                   disabled={isPending}
                   style={{
@@ -453,11 +461,11 @@ export default function A2TransitionModal({
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
                 <button
                   type="button"
+                  className="btn btn-ghost"
                   onClick={() => setMode('select')}
                   style={{
                     padding: '8px 14px',
                     borderRadius: 'var(--radius-md)',
-                    background: 'transparent',
                     border: '1px solid var(--border-subtle)',
                     color: 'var(--text-secondary)',
                     fontSize: '0.85rem',
@@ -467,6 +475,7 @@ export default function A2TransitionModal({
                 </button>
                 <button
                   type="button"
+                  className="btn btn-primary"
                   onClick={() => handleManualSubmit(false)}
                   disabled={isPending}
                   style={{

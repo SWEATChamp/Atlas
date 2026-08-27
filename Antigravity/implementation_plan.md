@@ -4,7 +4,7 @@
 > **Historical Document (Archived)**: This document reflects early design notes prior to Migrations 020–024. For current schema, business logic, and API contracts, consult `docs/` and `supabase/migrations/`.
 
 > [!IMPORTANT]
-> This plan has been implemented and is not the current release checklist. Migrations 024–026 and their matching application changes were released on 2026-08-27 after backup and hosted verification. Use `docs/roadmap.md` and `docs/deployment.md` for the current release sequence.
+> This plan has been implemented and is not the current release checklist. Migrations 024–026 and their matching application changes are deployed. Phase 2.10 is deployed. Phase 2.11 (Production Performance & Mobile Responsiveness) is locally prepared and verified; deployment pending. Use `docs/roadmap.md` and `docs/deployment.md` for the current release sequence.
 
 ## Overview
 

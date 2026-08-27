@@ -727,25 +727,27 @@ export function LogPaperModal({
             </div>
 
             {/* Column headers */}
-            <div style={{ display: 'grid', gridTemplateColumns: '52px 1fr 64px 12px 64px 36px', gap: 6, padding: '0 2px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 46px 6px 46px 44px', gap: 4, padding: '0 2px' }}>
               {['Q#', 'Chapter', 'Got', '', 'Max', ''].map((h, i) => (
                 <div key={i} style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
               ))}
             </div>
 
             {/* Question rows */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {questions.map((q, i) => {
                 const overMax = q.marksObtained > q.marksAvailable
                 return (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '52px 1fr 64px 12px 64px 36px', gap: 6, alignItems: 'center' }}>
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '40px 1fr 46px 6px 46px 44px', gap: 4, alignItems: 'center' }}>
                     <input className="input" placeholder="1a" value={q.questionNumber}
                       onChange={e => updateQuestion(i, 'questionNumber', e.target.value)}
-                      style={{ height: 40, padding: '0 6px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '0.875rem' }} />
+                      aria-label={`Question ${i + 1} number`}
+                      style={{ height: 44, minHeight: 44, padding: '0 4px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }} />
 
                     <select className="input" value={q.chapterId || ''}
                       onChange={e => updateQuestion(i, 'chapterId', e.target.value || null)}
-                      style={{ height: 40, padding: '0 8px', fontSize: '0.8125rem' }}>
+                      aria-label={`Question ${i + 1} chapter`}
+                      style={{ height: 44, minHeight: 44, padding: '0 4px', fontSize: '0.75rem', minWidth: 0 }}>
                       <option value="">— chapter —</option>
                       {filteredChapters.map(c => (
                         <option key={c.id} value={c.id}>{c.title}</option>
@@ -755,18 +757,21 @@ export function LogPaperModal({
                     <input type="number" className="input" min={0} max={q.marksAvailable}
                       value={q.marksObtained === 0 ? '' : q.marksObtained} placeholder="0"
                       onChange={e => updateQuestion(i, 'marksObtained', e.target.value)}
-                      style={{ height: 40, padding: '0 6px', textAlign: 'center', borderColor: overMax ? 'var(--danger)' : undefined }} />
+                      aria-label={`Question ${i + 1} marks obtained`}
+                      style={{ height: 44, minHeight: 44, padding: '0 4px', textAlign: 'center', fontSize: '0.8125rem', borderColor: overMax ? 'var(--danger)' : undefined }} />
 
-                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600 }}>/</div>
+                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.75rem' }}>/</div>
 
                     <input type="number" className="input" min={1}
                       value={q.marksAvailable}
                       onChange={e => updateQuestion(i, 'marksAvailable', e.target.value)}
-                      style={{ height: 40, padding: '0 6px', textAlign: 'center' }} />
+                      aria-label={`Question ${i + 1} marks available`}
+                      style={{ height: 44, minHeight: 44, padding: '0 4px', textAlign: 'center', fontSize: '0.8125rem' }} />
 
-                    <button className="btn btn-ghost" onClick={() => removeQuestion(i)} disabled={questions.length === 1}
-                      style={{ height: 36, width: 36, padding: 0, color: 'var(--danger)', opacity: questions.length === 1 ? 0.2 : 1 }}>
-                      <Trash2 size={14} />
+                    <button type="button" className="btn btn-ghost" onClick={() => removeQuestion(i)} disabled={questions.length === 1}
+                      aria-label={`Remove question ${i + 1}`}
+                      style={{ height: 44, width: 44, minWidth: 44, minHeight: 44, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)', opacity: questions.length === 1 ? 0.2 : 1 }}>
+                      <Trash2 size={16} />
                     </button>
                   </div>
                 )
