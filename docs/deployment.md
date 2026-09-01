@@ -141,7 +141,7 @@ The performance and dashboard-polish release after Migration 026 does not change
 
 ## Phase 2.12 / v1.1.0: Dashboard Mobile Compatibility & Update Notifications
 
-> **Release status (2026-08-28):** Merged at `7071fa0`, deployed to Vercel production, and production-verified. This was an application-only release: no Supabase backup, database migration, or migration-history repair was required. The annotated `v1.1.0` Git tag remains pending explicit approval.
+> **Release status (2026-08-28):** Merged at `7071fa0`, deployed to Vercel production, and production-verified. This was an application-only release: no Supabase backup, database migration, or migration-history repair was required. Annotated release tag `v1.1.0` was published pointing to release-closeout commit `5a8d69e`.
 
 1. Delivered v1.1.0 scope:
    - Container-responsive Daily Mission cards in `components/dashboard/mission-card.tsx` and `app/globals.css`: a flexible 2-tier layout when the card itself is ≤640px wide and a clean single row above 640px, including fluid desktop and split-screen resizing.
@@ -156,11 +156,34 @@ The performance and dashboard-polish release after Migration 026 does not change
    - No files under `supabase/migrations/` or `supabase/tests/` changed.
    - Vercel production deployment completed successfully for merge commit `7071fa0`.
    - Production smoke testing confirmed authentication, responsive mission reflow without horizontal overflow, mission completion/undo, visible `Atlas v1.1.0`, and latest-only update-dialog behavior.
-3. **Release Tagging (Remaining)**:
-   After explicit user approval, create and push the annotated Git tag from the finalized release-closeout commit:
+3. **Release Tagging (Completed)**:
+   Annotated release tag `v1.1.0` (tag object `7f60c090027475733f72937f02665b25511b7646`) was published to `origin` pointing to release-closeout commit `5a8d69e6ee96cdcfb3c4e71e5c499222421164f8` with annotation `v1.1.0: MVP stabilization, mobile compatibility, and update notifications` (with application deployment at `7071fa0`).
+
+## v1.1.1 Operational Patch: Singapore Infrastructure Migration
+
+> **Release status (2026-09-01):** Locally prepared on dedicated branch `codex/v1.1.1-singapore-cutover` (not yet merged or deployed). The underlying database, Auth, and Storage infrastructure cutover from Sydney (`ap-southeast-2`) to Singapore (`ap-southeast-1`) is completed and production-verified. Application metadata and returning-user notification updates are prepared on the release branch. This release involved no new database migration: all 27 canonical migration records (000–026) were restored, verified, and audited during project migration.
+
+1. Prepared v1.1.1 application-release scope:
+   - Infrastructure cutover: production database, Auth, and Storage migrated to Singapore project `uvprmojmscndtwgkvjbi` (`ap-southeast-1`) (completed and verified).
+   - Application metadata: updated in `lib/version.ts`, `package.json`, and `package-lock.json` to version `1.1.1` with title `Singapore Infrastructure Migration` (prepared on release branch).
+   - Release notification: updated release metadata displayed by the existing notification dialog to inform returning users about the Singapore migration.
+   - Test suite: updated version synchronization and release-state lifecycle unit tests for version `1.1.1` and date `2026-09-01`.
+2. Verification record:
+   - All 113 unit tests, TypeScript type checking, ESLint, Next.js production build, and whitespace checks passed locally.
+   - Release-state lifecycle tests verify upgrade detection, single-dismissal recording, and storage safety.
+   - Zero changes to files under `supabase/migrations/` or `supabase/tests/`.
+   - Gate 3 postflight comparative audit verified byte-for-byte parity across all 10 structural and catalog dimensions between Sydney and Singapore.
+   - Preflight verified zero Storage objects in both projects.
+3. **Pending Release Steps**:
+   - Operator and peer review of locally prepared v1.1.1 changes.
+   - Commit and push to `origin/codex/v1.1.1-singapore-cutover`.
+   - Pull request creation, review, and merge to `main`.
+   - Production deployment to Vercel.
+   - Post-deployment returning-user modal smoke test: verify that a browser with stored `1.1.0` displays the v1.1.1 notification dialog once, dismissal records `1.1.1`, and the modal does not reopen on subsequent visits.
+   - Annotated Git tag `v1.1.1` creation and push after explicit approval:
    ```bash
-   git tag -a v1.1.0 -m "v1.1.0: Dashboard mobile compatibility and update notifications"
-   git push origin v1.1.0
+   git tag -a v1.1.1 -m "v1.1.1: Singapore infrastructure migration"
+   git push origin v1.1.1
    ```
 
 ## General Production Configuration

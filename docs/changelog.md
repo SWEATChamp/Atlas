@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes are documented yet.
+- Operational patch release `1.1.1` is prepared on branch `codex/v1.1.1-singapore-cutover` pending merge and deployment.
+
+---
+
+## [1.1.1] - 2026-09-01
+
+Operational patch release prepared on branch `codex/v1.1.1-singapore-cutover` (not yet merged or deployed) moving Atlas database, authentication, and backend services from Sydney (`ap-southeast-2`) to Singapore (`ap-southeast-1`). While the underlying infrastructure cutover is completed and production-verified, the application metadata and returning-user notification changes are prepared on the release branch. This release involved no new database migration: all 27 canonical migration records (000–026) were restored, verified, and audited during the project migration.
+
+### Changed
+- Migrated production database, Auth, and Storage infrastructure to Singapore (`ap-southeast-1`), placing services closer to the primary user base.
+- Updated application release metadata in `lib/version.ts`, `package.json`, and `package-lock.json` to version `1.1.1` (`Singapore Infrastructure Migration`).
+- Updated release metadata displayed by the existing release notification dialog to present Singapore Infrastructure Migration highlights to returning users.
+- Updated semantic version synchronization and release-state lifecycle unit tests for version `1.1.1` and date `2026-09-01`.
 
 ---
 
