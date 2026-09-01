@@ -10,12 +10,13 @@ export interface ReleaseInfo {
  * releaseDate is finalized only after the release passes production smoke testing.
  */
 export const CURRENT_RELEASE: ReleaseInfo = {
-  version: '1.1.0',
-  title: 'Dashboard Mobile Compatibility & Update Notifications',
-  releaseDate: '2026-08-28',
+  version: '1.1.1',
+  title: 'Singapore Infrastructure Migration',
+  releaseDate: '2026-09-01',
   changes: [
-    'Made Dashboard daily missions flex with their available width across desktop, split-screen, tablet, and mobile layouts',
-    'Enforced 44×44px touch targets on navigation logo, route configuration, and mission controls',
-    'Added visible semantic release versioning and update notifications',
+    'Atlas services have moved to Singapore, closer to most users.',
+    'Accounts, subjects, progress, missions, past papers and XP were preserved during migration.',
+    'Authentication and data services now use the Singapore infrastructure.',
+    'Returning users may need to sign in again after the move.',
   ],
 }
