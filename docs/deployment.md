@@ -13,7 +13,7 @@ Atlas uses Vercel for the Next.js application and Supabase for authentication an
 - Phase 2.11 (Production Performance & Mobile Responsiveness) is merged and deployed as baseline `v1.0.0` (commit `39427dd`).
 - Phase 2.12 / v1.1.0 (Dashboard Mobile Compatibility & Update Notifications) was deployed to Vercel production at merge commit `7071fa0` and production-verified. Annotated tag `v1.1.0` was published at `5a8d69e`.
 - v1.1.1 (Singapore Infrastructure Migration) was deployed to Vercel production and verified on 2026-09-01 (merge commit `7b2203f`, closeout `8448e18`, annotated tag `v1.1.1`, and published GitHub Release).
-- Phase 2.13 / v1.2.0 (Accessible UI Foundation & Subject Controls Guide) was merged to `main` via PR #12 at merge commit `abed20ba325e99113813a8860be7f4a22c1fc39c` (feature branch head `bff4c5b0cc24d435187e7a1974a19a7c9fd30687`), deployed to Vercel production (`9RCwZ6xAY7ohAqxNn2msJzcCXcUi`), and verified through authenticated production smoke testing on 2026-09-02. Formal annotated tag `v1.2.0` and GitHub Release closeout remain pending.
+- Phase 2.13 / v1.2.0 (Accessible UI Foundation & Subject Controls Guide) was deployed to Vercel production and verified on 2026-09-02 at merge commit `abed20ba325e99113813a8860be7f4a22c1fc39c` (with release-closeout merge commit `a4ea17993e0f9250eb1c50a41d930a8c4f5a4d2c`, annotated tag object `1c4524fcd1f747a7e00674d7c0aa8551f2180d94`, and published [GitHub Release](https://github.com/SWEATChamp/Atlas/releases/tag/v1.2.0)). It establishes an accessible `Dialog` primitive, dark design tokens, two-step Subject controls guide, responsive layouts (320px–1280px), touch targets (≥44×44px through 768px), and returning-user v1.2.0 notifications.
 - Do not rerun Migrations 024–026. Any further production correction must use a reviewed forward-only migration.
 
 ## Migration 024 Release Order
@@ -198,7 +198,7 @@ The performance and dashboard-polish release after Migration 026 does not change
 
 ## Phase 2.13 / v1.2.0: Accessible UI Foundation & Subject Controls Guide
 
-> **Release status (Merged, Production-Deployed & Smoke-Tested):** Merged to `main` via PR #12 at merge commit `abed20ba325e99113813a8860be7f4a22c1fc39c` (feature branch head `bff4c5b0cc24d435187e7a1974a19a7c9fd30687`), automatically deployed to Vercel production (`9RCwZ6xAY7ohAqxNn2msJzcCXcUi`), and verified through authenticated production smoke testing on 2026-09-02. This is an application-only release requiring zero database migrations. Formal annotated release tag `v1.2.0` and GitHub Release closeout remain pending.
+> **Release status (Complete & Formally Released):** Merged to `main` via PR #12 at merge commit `abed20ba325e99113813a8860be7f4a22c1fc39c` (feature branch head `bff4c5b0cc24d435187e7a1974a19a7c9fd30687`), deployed to Vercel production (`9RCwZ6xAY7ohAqxNn2msJzcCXcUi`), verified through authenticated production smoke testing on 2026-09-02, closed out via PR #13 at merge commit `a4ea17993e0f9250eb1c50a41d930a8c4f5a4d2c` (documentation deployment `8shqSC2QMjNVMsVn6ABoc36xWvm4`), tagged with annotated tag `v1.2.0` (object `1c4524fcd1f747a7e00674d7c0aa8551f2180d94`), and published as a stable [GitHub Release](https://github.com/SWEATChamp/Atlas/releases/tag/v1.2.0). This is an application-only release requiring zero database migrations.
 
 1. Delivered v1.2.0 scope:
    - Extracted accessible, dependency-free `Dialog` component primitive (`components/ui/dialog.tsx`) with `titleId`/`descriptionId`, focus trapping, Escape dismissal, universal focus restoration on every close path/unmount, body scroll locking, and 44×44px touch targets.
@@ -253,6 +253,9 @@ The performance and dashboard-polish release after Migration 026 does not change
      - Minimum 44×44px touch targets verified across touch-oriented layouts (320px–768px). (Compact desktop navigation and mission actions intentionally use smaller desktop dimensions at 1280px).
      - Zero browser console warnings or errors.
      - Zero study records modified during smoke testing.
+3. **Release Tagging & Publication (Completed)**:
+   - Annotated release tag `v1.2.0` (tag object `1c4524fcd1f747a7e00674d7c0aa8551f2180d94`) was published pointing to release-closeout commit `a4ea17993e0f9250eb1c50a41d930a8c4f5a4d2c` with annotation `v1.2.0: Accessible UI Foundation & Subject Controls Guide`.
+   - Stable GitHub Release published on 2026-09-02 at 14:30:09Z: [A-Level Atlas v1.2.0 — Accessible UI Foundation & Subject Controls Guide](https://github.com/SWEATChamp/Atlas/releases/tag/v1.2.0).
 
 ## General Production Configuration
 

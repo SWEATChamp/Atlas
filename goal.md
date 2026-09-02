@@ -41,7 +41,7 @@ The five-subject MVP currently supports:
 
 Implemented foundations include authentication, onboarding, subject routes, chapter progress, confidence tracking, past-paper logging, readiness, missions, XP, streaks, achievements, subject management, responsive layouts, and the accessible v1.2.0 UI foundation.
 
-The v1.2.0 UI foundation has been merged to main, deployed to production, and verified through authenticated production smoke testing; formal tag and GitHub Release closeout remain pending.
+The v1.2.0 UI foundation has been merged to main, deployed to production, verified through authenticated production smoke testing, tagged with annotated tag `v1.2.0`, and published as a stable GitHub Release.
 
 ---
 
@@ -73,7 +73,7 @@ The v1.2.0 UI foundation has been merged to main, deployed to production, and ve
 
 ## Milestone 2 — Accessible and Cohesive UI Foundation
 
-**Status:** Complete baseline (deployed to production; formal tag and release closeout pending)
+**Status:** Complete baseline (deployed to production, verified, tagged, and released)
 
 **Objective:** Establish a consistent, accessible interface that can support future analytics and gamification without accumulating incompatible UI patterns.
 
@@ -93,7 +93,7 @@ The v1.2.0 UI foundation has been merged to main, deployed to production, and ve
 - **Responsive check:** Dashboard, Subjects, Subject details, and Past Papers have zero horizontal overflow at 320px, 375px, 390px, 768px, and 1280px viewport widths.
 - **Touch check:** Interactive controls meet the 44×44px minimum across mobile and tablet touch-oriented viewports (320px–768px).
 - **Bundle check:** Login does not load authenticated-only animation code.
-- **Release check:** Preview deployment, production deployment (`9RCwZ6xAY7ohAqxNn2msJzcCXcUi`), and production smoke tests passed; formal tag and GitHub Release closeout pending.
+- **Release check:** Preview and production deployments (`9RCwZ6xAY7ohAqxNn2msJzcCXcUi`, `8shqSC2QMjNVMsVn6ABoc36xWvm4`) and production smoke tests passed; annotated tag `v1.2.0` (object `1c4524fcd1f747a7e00674d7c0aa8551f2180d94`) and the stable GitHub Release were published.
 
 ---
 
