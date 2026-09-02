@@ -39,9 +39,9 @@ The five-subject MVP currently supports:
 - Chemistry 9701
 - Computer Science 9618
 
-Implemented foundations include authentication, onboarding, subject routes, chapter progress, confidence tracking, past-paper logging, readiness, missions, XP, streaks, achievements, subject management, and responsive layouts.
+Implemented foundations include authentication, onboarding, subject routes, chapter progress, confidence tracking, past-paper logging, readiness, missions, XP, streaks, achievements, subject management, responsive layouts, and the accessible v1.2.0 UI foundation.
 
-The accessible v1.2.0 UI foundation is prepared but remains subject to release approval, deployment, and production verification.
+The v1.2.0 UI foundation has been merged to main, deployed to production, and verified through authenticated production smoke testing; formal tag and GitHub Release closeout remain pending.
 
 ---
 
@@ -73,7 +73,7 @@ The accessible v1.2.0 UI foundation is prepared but remains subject to release a
 
 ## Milestone 2 — Accessible and Cohesive UI Foundation
 
-**Status:** In progress for v1.2.0
+**Status:** Complete baseline (deployed to production; formal tag and release closeout pending)
 
 **Objective:** Establish a consistent, accessible interface that can support future analytics and gamification without accumulating incompatible UI patterns.
 
@@ -88,12 +88,12 @@ The accessible v1.2.0 UI foundation is prepared but remains subject to release a
 
 **Verification checks:**
 
-- **Interaction check:** Dialog opening, progression, dismissal, Escape handling, focus trapping, and return focus work in real DOM tests.
-- **Accessibility check:** Controls have accessible names, semantic roles, keyboard operation, and visible focus.
-- **Responsive check:** Dashboard, Subjects, Subject details, and Past Papers have no horizontal overflow at 320px, 375px, 390px, 768px, and desktop widths.
-- **Touch check:** Interactive mobile controls meet the 44×44px minimum.
+- **Interaction check:** Dialog opening, progression, dismissal, Escape handling, focus trapping, and return focus work in real DOM tests and production smoke testing.
+- **Accessibility check:** Controls have accessible names, semantic roles, keyboard operation, visible focus, and reduced-motion compliance.
+- **Responsive check:** Dashboard, Subjects, Subject details, and Past Papers have zero horizontal overflow at 320px, 375px, 390px, 768px, and 1280px viewport widths.
+- **Touch check:** Interactive controls meet the 44×44px minimum across mobile and tablet touch-oriented viewports (320px–768px).
 - **Bundle check:** Login does not load authenticated-only animation code.
-- **Release check:** Preview and production smoke tests pass before v1.2.0 is declared complete.
+- **Release check:** Preview deployment, production deployment (`9RCwZ6xAY7ohAqxNn2msJzcCXcUi`), and production smoke tests passed; formal tag and GitHub Release closeout pending.
 
 ---
 

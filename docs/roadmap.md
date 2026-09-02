@@ -23,7 +23,7 @@
 | Phase 2.11 Production Performance & Mobile Responsiveness | Merged and deployed to production (v1.0.0 baseline, commit `39427dd`) |
 | Phase 2.12 / v1.1.0 Dashboard Mobile Compatibility & Update Notifications | Deployed and production-verified on 2026-08-28 (merge commit `7071fa0`); annotated tag `v1.1.0` published at `5a8d69e` |
 | v1.1.1 Operational Patch: Singapore Infrastructure Migration | Deployed and production-verified on 2026-09-01 (merge commit `7b2203f`, closeout `8448e18`); annotated tag `v1.1.1` published |
-| Phase 2.13 / v1.2.0 Accessible UI Foundation & Subject Controls Guide | Locally prepared on branch `codex/v1.2.0-ui-foundation` and Preview-verified (unreleased / undeployed) |
+| Phase 2.13 / v1.2.0 Accessible UI Foundation & Subject Controls Guide | Merged (PR #12, commit `abed20b`), production-deployed (`9RCwZ6xAY7ohAqxNn2msJzcCXcUi`), and production-verified; tag/release pending |
 | Release-candidate checks | 201 database tests and 134 unit tests pass; type check, lint, production build, and whitespace checks pass |
 | Google Docs integration | Not started |
 
@@ -133,7 +133,7 @@
 - [x] Create annotated release tag `v1.1.0` pointing to release-closeout commit `5a8d69e`.
 
 ## Phase 2.13 / v1.2.0: Accessible UI Foundation & Subject Controls Guide
-- **Status**: Locally prepared on branch `codex/v1.2.0-ui-foundation` and Preview-verified across two stages (UI foundation baseline on deployment `ApihahfPteHbQwYg5je6dVa8AymT` from commit `c4e6a96`, and final release candidate on deployment `7qSYmzFZLnK8nKioamjB7kDgEhtF` from commit `3db79b0` at `https://atlas-git-codex-v120-ui-foundation-atlas-726e.vercel.app`); unreleased and undeployed to production.
+- **Status**: Production-complete (merged via PR #12 at merge commit `abed20ba325e99113813a8860be7f4a22c1fc39c`, deployed to Vercel production deployment `9RCwZ6xAY7ohAqxNn2msJzcCXcUi`, and production-verified; formal annotated tag `v1.2.0` and GitHub Release pending).
 - [x] Extracted accessible, dependency-free `Dialog` component primitive (`components/ui/dialog.tsx`) with `titleId`/`descriptionId`, focus trapping, Escape dismissal, universal focus restoration on every close path/unmount, body scroll locking, and 44×44px touch targets.
 - [x] Refactored `WhatsNewModal`, `LogPaperModal`, `SubjectManager`, `A2TransitionModal`, and `RouteSetupSheet` to use the accessible `Dialog` primitive.
 - [x] Rationalized global design tokens in `app/globals.css`: added `--border-accent`, `.btn-icon` min 44×44px touch targets, unified skeleton styling, and comprehensive reduced-motion media query rules.
@@ -144,10 +144,14 @@
 - [x] 19 unit tests across `tests/subject-controls-guide.test.ts` and `tests/accessibility-semantics.test.ts` (134 unit tests total passing).
 - [x] Verified Stage 1 Vercel Preview deployment (`ApihahfPteHbQwYg5je6dVa8AymT`) from commit `c4e6a9647df1a9dd69ba13b4a3db27963c3dabae` for UI foundation baseline.
 - [x] Stage 1 Preview smoke testing across Sign In followed by the authenticated Dashboard, Subjects, Subject details, Past Papers, and paper details.
-- [x] Verified Subject controls guide lifecycle: first-visit auto-open, Step 1/2 Next/Back navigation, Escape dismissal, focus trapping, focus restoration on close, manual reopen via "Guide" button, and dismissal persistence.
-- [x] Verified zero horizontal overflow and compliant touch targets (≥44×44px) across 320px, 375px, 390px, 768px, and 1280px viewports with zero browser console errors.
 - [x] Verified Stage 2 Vercel Preview deployment (`7qSYmzFZLnK8nKioamjB7kDgEhtF`) from commit `3db79b0dfb942da000c28d4ea2fe8eab48704053` for v1.2.0 release candidate.
-- [x] Authenticated Stage 2 Preview smoke testing: verified v1.2.0 returning-user notification title, four highlights, upgrade detection from v1.1.1, dismissal persistence, `Atlas v1.2.0` footer, and zero study-record modifications.
+- [x] Verified Stage 3 Vercel Preview deployment (`ESWA1crtAKir5rpNbeAUYdSvGK1n`) from commit `bff4c5b0cc24d435187e7a1974a19a7c9fd30687` for master product plan documentation.
+- [x] Merged PR #12 to `main` at commit `abed20ba325e99113813a8860be7f4a22c1fc39c` and verified automatic Vercel Production deployment `9RCwZ6xAY7ohAqxNn2msJzcCXcUi`.
+- [x] Authenticated production smoke testing: verified v1.2.0 returning-user notification title, four highlights, upgrade detection from v1.1.1, dismissal persistence, `Atlas v1.2.0` footer, and zero study-record modifications.
+- [x] Verified Subject controls guide lifecycle in production: first-visit auto-open, Step 1/2 Next/Back navigation, Escape dismissal, return focus to the Guide launcher, manual reopen via "Guide" button beside Chapters, and dismissal persistence.
+- [x] Verified zero horizontal overflow across 320px, 375px, 390px, 768px, and 1280px viewports on Dashboard, Subjects, and Past Papers with zero browser console errors.
+- [x] Verified Past Paper detail view loaded correctly and separately passed the 320px overflow and touch-target check.
+- [x] Verified minimum 44×44px touch targets across touch-oriented layouts from 320px through 768px.
 
 ## Phase 3: Past Papers & Analytics
 - Past paper logging UI
