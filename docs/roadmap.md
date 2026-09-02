@@ -1,5 +1,7 @@
 # Development Roadmap
 
+> **Master Plan Reference:** This roadmap tracks implementation and release progress against the authoritative master product plan in [`goal.md`](../goal.md). Refer to `goal.md` for long-term product direction, milestone objectives, calculation rules, and verification standards.
+
 ## Current Status
 
 | Phase | Status |

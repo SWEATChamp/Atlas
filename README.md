@@ -27,7 +27,7 @@ Release status and known limitations:
 - Mission undo reverses attempt-linked XP and recalculates the streak from remaining activity; chapter review timestamps remain unchanged in the MVP.
 - Google Docs integration has not started.
 
-See [the roadmap](docs/roadmap.md) for the current plan.
+See the master product plan in [goal.md](goal.md) and the implementation roadmap in [docs/roadmap.md](docs/roadmap.md) for current planning and execution status.
 
 ## Current study structure
 
@@ -112,6 +112,7 @@ npm run start  # Run the production build locally
 
 ## Documentation
 
+- [Master Product Plan](goal.md)
 - [Architecture](docs/architecture.md)
 - [Database](docs/database.md)
 - [API](docs/api.md)
