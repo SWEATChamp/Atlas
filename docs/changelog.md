@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Locally prepared and Preview-verified changes on branch `codex/v1.2.0-ui-foundation` for the v1.2.0 release (UI-foundation baseline verified on deployment `ApihahfPteHbQwYg5je6dVa8AymT` from commit `c4e6a9647df1a9dd69ba13b4a3db27963c3dabae`, and release candidate verified on deployment `7qSYmzFZLnK8nKioamjB7kDgEhtF` from commit `3db79b0dfb942da000c28d4ea2fe8eab48704053` at `https://atlas-git-codex-v120-ui-foundation-atlas-726e.vercel.app`; unreleased, unmerged, untagged, and not deployed to production):
+- No unreleased changes.
+
+---
+
+## [1.2.0] - 2026-09-02
+
+UI foundation and accessibility release merged via PR #12 at merge commit `abed20ba325e99113813a8860be7f4a22c1fc39c` (feature branch head `bff4c5b0cc24d435187e7a1974a19a7c9fd30687`), deployed to Vercel production (`9RCwZ6xAY7ohAqxNn2msJzcCXcUi` on `https://atlas-alpha-vert.vercel.app` via Singapore `sin1`), and verified through authenticated production smoke testing. This release involved zero database migrations. Formal annotated tag `v1.2.0` and GitHub Release closeout remain pending.
 
 ### Added
 - Accessible dependency-free `Dialog` primitive (`components/ui/dialog.tsx`) supporting accessible name/description associations (`titleId`, `descriptionId`), initial focus management, circular focus trapping (Tab/Shift+Tab), Escape key dismissal, universal focus restoration on every closure path/unmount (`previousActiveElementRef`), body scroll locking, and 44×44px touch targets.
@@ -21,15 +27,24 @@ Locally prepared and Preview-verified changes on branch `codex/v1.2.0-ui-foundat
 - Universal Framer Motion reduced-motion support via `<MotionProvider>` wrapping the app in `<MotionConfig reducedMotion="user">` and `useReducedMotion()` hooks.
 - Live region toast announcements (`role="status"`, `aria-live="polite"`, `aria-atomic="true"`) on `DashboardView`.
 - Comprehensive unit test suites in `tests/subject-controls-guide.test.ts`, `tests/accessibility-semantics.test.ts`, `tests/release-notification.test.ts`, and `tests/version-sync.test.ts` verifying auto-opening, dismissal, versioning, safe/throwing storage fallback, modal auto-open coordination, rendered HTML structure, canonical status order, confidence levels, touch targets, and accessible radio/action semantics (134 tests across 17 files passing).
+- Established `goal.md` as the tracked, authoritative master product plan for product direction, milestone objectives, calculation rules, and verification standards.
 
 ### Changed
 - Refactored `WhatsNewModal`, `LogPaperModal`, `SubjectManager`, `A2TransitionModal`, and `RouteSetupSheet` to use the accessible `Dialog` primitive.
 - Global design system cleanup (`app/globals.css`): unified `--border-accent`, `.btn-icon` min 44×44px touch target, deduplicated skeleton styles, and comprehensive `@media (prefers-reduced-motion: reduce)` rules for animations, transitions, and loading shimmers.
 - Flattened Dashboard and Subject sections: removed redundant nested cards, replaced decorative emoji interface elements with Lucide icons (e.g. Star, CheckCircle2), and aligned colors to restrained neutral-dark with muted slate-blue accents.
 - Responsive app header and 320px viewport resilience: prevented user display name truncation overflow on narrow viewports while maintaining 44px mobile touch targets.
-- Two-stage Preview smoke testing verified on Vercel:
-  - **Stage 1 (UI Foundation Baseline, commit `c4e6a96`, deployment `ApihahfPteHbQwYg5je6dVa8AymT`)**: Verified Sign In followed by the authenticated Dashboard, Subjects, Subject details, Past Papers, and paper details; confirmed Subject guide first-visit auto-open, Next/Back navigation, Escape key dismissal, focus trapping, focus restoration on close, manual reopen via "Guide" button beside Chapters, and dismissal persistence across refreshes; verified zero horizontal overflow and compliant touch targets (≥44×44px) across 320px, 375px, 390px, 768px, and 1280px viewports with zero browser console errors.
-  - **Stage 2 (Release Candidate Metadata, commit `3db79b0`, deployment `7qSYmzFZLnK8nKioamjB7kDgEhtF`)**: Verified returning-user release update dialog displayed version `1.2.0`, title `Accessible UI Foundation & Subject Controls Guide`, and all four approved highlights; verified upgrade detection for users previously dismissed at `1.1.1`; verified dismissal persistence across page reload; verified authenticated footer display `Atlas v1.2.0`; verified Dashboard, Subjects, Subject details, Past Papers, and paper data loaded cleanly with zero browser warnings/errors and zero modifications to study records.
+- Verified through Preview deployments (`ApihahfPteHbQwYg5je6dVa8AymT`, `7qSYmzFZLnK8nKioamjB7kDgEhtF`, `ESWA1crtAKir5rpNbeAUYdSvGK1n`) and authenticated Production smoke testing on Vercel (`9RCwZ6xAY7ohAqxNn2msJzcCXcUi`):
+  - Verified returning-user release update dialog displayed version `1.2.0`, title `Accessible UI Foundation & Subject Controls Guide`, and all four approved highlights.
+  - Verified upgrade notification appears for returning users upgrading from `1.1.1`.
+  - Verified release notification dismissal persists across page reload.
+  - Verified visible `Atlas v1.2.0` in the authenticated application footer.
+  - Verified Sign In followed by authenticated Dashboard, Subjects, Subject details, Past Papers, and paper details loading correctly.
+  - Verified Subject controls guide first-visit auto-open, Next/Back navigation, Escape key dismissal, return focus to the Guide launcher, manual reopen via "Guide" button beside Chapters, and dismissal persistence across reload.
+  - Verified zero horizontal overflow across 320px, 375px, 390px, 768px, and 1280px viewports on Dashboard, Subjects, and Past Papers.
+  - Verified Past Paper detail view loaded correctly and separately passed the 320px overflow and touch-target check.
+  - Verified minimum 44×44px touch targets across touch-oriented layouts from 320px through 768px.
+  - Verified zero browser console warnings or errors and zero study-record modifications.
 
 ---
 
@@ -47,7 +62,7 @@ Operational patch release deployed to Vercel production at merge commit `7b2203f
 
 ## [1.1.0] - 2026-08-28
 
-Application-only release deployed to Vercel production at merge commit `7071fa0` and verified through production smoke testing. The release-closeout and current tagged production commit is `5a8d69e6ee96cdcfb3c4e71e5c499222421164f8`. The `v1.1.0` Git tag is present, while the GitHub Release object is currently absent. No Supabase migration was required.
+Application-only release deployed to Vercel production at merge commit `7071fa0` and verified through production smoke testing. The release-closeout and tagged production commit is `5a8d69e6ee96cdcfb3c4e71e5c499222421164f8`. The `v1.1.0` Git tag is present, while the GitHub Release object is currently absent. No Supabase migration was required.
 
 ### Added
 - Authoritative user-facing release metadata module (`lib/version.ts`) synchronised with `package.json` at version `1.1.0`.

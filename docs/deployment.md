@@ -11,8 +11,9 @@ Atlas uses Vercel for the Next.js application and Supabase for authentication an
 - A fresh logical backup was completed before Migrations 025–026. Both migrations were applied in order on 2026-08-27, remote history was confirmed through 026, and all eight hosted boundary checks returned `true`.
 - The matching Migrations 025–026 application hotfix is deployed. Production smoke testing confirmed valid readiness countdowns, all five active MVP subjects, and the removal confirmation/cancel path.
 - Phase 2.11 (Production Performance & Mobile Responsiveness) is merged and deployed as baseline `v1.0.0` (commit `39427dd`).
-- Phase 2.12 / v1.1.0 (Dashboard Mobile Compatibility & Update Notifications) was deployed to Vercel production at merge commit `7071fa0` and production-verified. The release closeout and tagged production commit is `5a8d69e6ee96cdcfb3c4e71e5c499222421164f8`. The `v1.1.0` Git tag is present, while the GitHub Release object is currently absent.
-- Phase 2.13 / v1.2.0 (Accessible UI Foundation & Subject Controls Guide) is in development and locally prepared on branch `codex/v1.2.0-ui-foundation`. It is an application-only release requiring zero database migrations. It remains unreleased and is not deployed until explicitly approved, merged to `main`, deployed to Vercel, and smoke-tested.
+- Phase 2.12 / v1.1.0 (Dashboard Mobile Compatibility & Update Notifications) was deployed to Vercel production at merge commit `7071fa0` and production-verified. Annotated tag `v1.1.0` was published at `5a8d69e`.
+- v1.1.1 (Singapore Infrastructure Migration) was deployed to Vercel production and verified on 2026-09-01 (merge commit `7b2203f`, closeout `8448e18`, annotated tag `v1.1.1`, and published GitHub Release).
+- Phase 2.13 / v1.2.0 (Accessible UI Foundation & Subject Controls Guide) was merged to `main` via PR #12 at merge commit `abed20ba325e99113813a8860be7f4a22c1fc39c` (feature branch head `bff4c5b0cc24d435187e7a1974a19a7c9fd30687`), deployed to Vercel production (`9RCwZ6xAY7ohAqxNn2msJzcCXcUi`), and verified through authenticated production smoke testing on 2026-09-02. Formal annotated tag `v1.2.0` and GitHub Release closeout remain pending.
 - Do not rerun Migrations 024–026. Any further production correction must use a reviewed forward-only migration.
 
 ## Migration 024 Release Order
@@ -197,27 +198,28 @@ The performance and dashboard-polish release after Migration 026 does not change
 
 ## Phase 2.13 / v1.2.0: Accessible UI Foundation & Subject Controls Guide
 
-> **Release status (Locally Prepared & Preview-Verified):** Locally prepared on branch `codex/v1.2.0-ui-foundation` and Preview-verified on Vercel. This is an application-only release requiring zero database migrations. It remains unreleased and undeployed to production until explicitly approved, merged to `main`, deployed to Vercel production, and production-verified.
+> **Release status (Merged, Production-Deployed & Smoke-Tested):** Merged to `main` via PR #12 at merge commit `abed20ba325e99113813a8860be7f4a22c1fc39c` (feature branch head `bff4c5b0cc24d435187e7a1974a19a7c9fd30687`), automatically deployed to Vercel production (`9RCwZ6xAY7ohAqxNn2msJzcCXcUi`), and verified through authenticated production smoke testing on 2026-09-02. This is an application-only release requiring zero database migrations. Formal annotated release tag `v1.2.0` and GitHub Release closeout remain pending.
 
-1. Prepared v1.2.0 scope:
+1. Delivered v1.2.0 scope:
    - Extracted accessible, dependency-free `Dialog` component primitive (`components/ui/dialog.tsx`) with `titleId`/`descriptionId`, focus trapping, Escape dismissal, universal focus restoration on every close path/unmount, body scroll locking, and 44×44px touch targets.
    - Refactored `WhatsNewModal`, `LogPaperModal`, `SubjectManager`, `A2TransitionModal`, and `RouteSetupSheet` onto `<Dialog>`.
    - Two-step Subject controls guide dialog (`components/subjects/subject-controls-guide.tsx`, `components/subjects/subject-guide-launcher.tsx`) with versioned persistence (`atlas_subject_controls_guide_v1`), safe storage accessor (`lib/storage.ts`), coordination to prevent competing What's New auto-opening, 5-star visual example representation, and permanently visible "Guide" button beside Chapters.
    - Canonical shared mappings (`lib/subject-controls.ts`, `STATUS_CYCLE`, `STATUS_CONFIG`, `CONFIDENCE_LEVELS`).
    - Semantic one-way complete action `<button type="button" aria-label="Complete mission: ...">` with separate `Undo` button, keyboard-operable `PaperCard` with native link semantics, and native radio semantics on study route configuration.
    - Request caching via `React.cache()` for `getPaperDetail` and `getSubjectDetail` to deduplicate metadata reads.
+   - Established `goal.md` as the tracked, authoritative master product plan.
 2. Verification record:
    - All 134 unit and accessibility tests across 17 test files, TypeScript type checking, ESLint, Next.js Turbopack production build, and whitespace checks passed.
    - Release-notification lifecycle tests verified upgrade detection from 1.1.1 to 1.2.0, single-dismissal recording, and storage safety.
    - Zero changes to files under `supabase/migrations/` or `supabase/tests/`.
-   - Two-stage Vercel Preview verification record:
+   - Preview verification record:
      - **Stage 1 (UI Foundation Baseline Verification)**:
        - Source branch: `codex/v1.2.0-ui-foundation`
        - Source commit: `c4e6a9647df1a9dd69ba13b4a3db27963c3dabae`
        - Vercel status: Ready / Success
        - Deployment dashboard identifier: `ApihahfPteHbQwYg5je6dVa8AymT`
        - Stable Preview URL: `https://atlas-git-codex-v120-ui-foundation-atlas-726e.vercel.app`
-       - Smoke test results: Sign In followed by the authenticated Dashboard, Subjects, Subject details, Past Papers, and paper details rendered with consistent styling; Subject controls guide passed first-visit auto-open, Step 1 → Step 2 Next/Back navigation, Escape key dismissal, focus trapping, focus restoration on close, manual reopen via "Guide" button beside Chapters, and dismissal persistence across refreshes; zero horizontal overflow and compliant touch targets (≥44×44px) across 320px, 375px, 390px, 768px, and 1280px viewports; zero browser console errors.
+       - Smoke test results: Sign In followed by the authenticated Dashboard, Subjects, Subject details, Past Papers, and paper details rendered with consistent styling; Subject controls guide passed first-visit auto-open, Step 1 → Step 2 Next/Back navigation, Escape key dismissal, focus trapping, focus restoration on close, manual reopen via "Guide" button beside Chapters, and dismissal persistence across refreshes; zero horizontal overflow across 320px, 375px, 390px, 768px, and 1280px viewports and compliant touch targets (≥44×44px) across touch-oriented layouts (320px–768px); zero browser console errors.
      - **Stage 2 (Final v1.2.0 Release-Candidate Verification)**:
        - Source branch: `codex/v1.2.0-ui-foundation`
        - Source commit: `3db79b0dfb942da000c28d4ea2fe8eab48704053`
@@ -225,6 +227,32 @@ The performance and dashboard-polish release after Migration 026 does not change
        - Deployment dashboard identifier: `7qSYmzFZLnK8nKioamjB7kDgEhtF`
        - Stable Preview URL: `https://atlas-git-codex-v120-ui-foundation-atlas-726e.vercel.app`
        - Smoke test results: Returning-user notification dialog displayed version `1.2.0`, title `Accessible UI Foundation & Subject Controls Guide`, and all four approved highlights; users previously dismissed at `1.1.1` were correctly prompted with the `1.2.0` update dialog; modal dismissal persisted after page reload; authenticated app footer displayed `Atlas v1.2.0`; Dashboard, Subjects, Subject details, Past Papers, and paper data loaded cleanly; zero browser console errors or unhandled warnings; zero application study records modified (only Preview-local dismissal state updated).
+     - **Stage 3 (Master Product Plan Documentation Verification)**:
+       - Source branch: `codex/v1.2.0-ui-foundation`
+       - Source commit: `bff4c5b0cc24d435187e7a1974a19a7c9fd30687`
+       - Vercel status: Ready / Success
+       - Deployment dashboard identifier: `ESWA1crtAKir5rpNbeAUYdSvGK1n`
+       - Stable Preview URL: `https://atlas-git-codex-v120-ui-foundation-atlas-726e.vercel.app`
+   - Production deployment verification:
+     - PR: [SWEATChamp/Atlas#12](https://github.com/SWEATChamp/Atlas/pull/12) merged at `abed20ba325e99113813a8860be7f4a22c1fc39c` (2026-09-02T09:46:30Z).
+     - Environment: Production
+     - Source commit: `abed20ba325e99113813a8860be7f4a22c1fc39c`
+     - Vercel status: Ready / Success
+     - Deployment dashboard identifier: `9RCwZ6xAY7ohAqxNn2msJzcCXcUi`
+     - Production URL: `https://atlas-alpha-vert.vercel.app`
+     - Edge region: Singapore (`sin1`)
+   - Authenticated production smoke testing confirmed:
+     - Correct `v1.2.0` returning-user notification title (*Accessible UI Foundation & Subject Controls Guide*) and all four highlights rendered upon login.
+     - Upgrade notification appeared for users previously dismissed at `v1.1.1`.
+     - Release notification dismissal persisted after page reload.
+     - Visible `Atlas v1.2.0` footer across authenticated pages.
+     - Dashboard, Subjects, Subject details, Past Papers, and Past Paper detail views loaded correctly.
+     - Subject Controls Guide first-visit auto-open, Step 1 → Step 2 Next/Back navigation, Escape dismissal, return focus to the Guide launcher, manual Guide reopening beside Chapters, and dismissal persistence across page reload verified.
+     - Zero horizontal overflow passed across 320px, 375px, 390px, 768px, and 1280px viewports on Dashboard, Subjects, and Past Papers.
+     - Past Paper detail view passed its production read/loading check and the 320px overflow/touch-target check.
+     - Minimum 44×44px touch targets verified across touch-oriented layouts (320px–768px). (Compact desktop navigation and mission actions intentionally use smaller desktop dimensions at 1280px).
+     - Zero browser console warnings or errors.
+     - Zero study records modified during smoke testing.
 
 ## General Production Configuration
 
