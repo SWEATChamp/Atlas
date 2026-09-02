@@ -20,7 +20,7 @@
 | Phase 2.10 Application Performance Round 2 & State Reconciliation | Application-only changes deployed to production with active Speed Insights |
 | Phase 2.11 Production Performance & Mobile Responsiveness | Merged and deployed to production (v1.0.0 baseline, commit `39427dd`) |
 | Phase 2.12 / v1.1.0 Dashboard Mobile Compatibility & Update Notifications | Deployed and production-verified on 2026-08-28 (merge commit `7071fa0`); annotated tag `v1.1.0` published at `5a8d69e` |
-| v1.1.1 Operational Patch: Singapore Infrastructure Migration | Prepared on 2026-09-01 (infrastructure cutover production-verified; app updates locally prepared) |
+| v1.1.1 Operational Patch: Singapore Infrastructure Migration | Deployed and production-verified on 2026-09-01 (merge commit `7b2203f`); annotated tag pending |
 | Release-candidate checks | 201 database tests and 113 unit tests pass; type check, lint, production build, and whitespace checks pass |
 | Google Docs integration | Not started |
 

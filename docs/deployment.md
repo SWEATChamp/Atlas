@@ -161,26 +161,36 @@ The performance and dashboard-polish release after Migration 026 does not change
 
 ## v1.1.1 Operational Patch: Singapore Infrastructure Migration
 
-> **Release status (2026-09-01):** Locally prepared on dedicated branch `codex/v1.1.1-singapore-cutover` (not yet merged or deployed). The underlying database, Auth, and Storage infrastructure cutover from Sydney (`ap-southeast-2`) to Singapore (`ap-southeast-1`) is completed and production-verified. Application metadata and returning-user notification updates are prepared on the release branch. This release involved no new database migration: all 27 canonical migration records (000–026) were restored, verified, and audited during project migration.
+> **Release status (2026-09-01):** Merged at `7b2203f`, deployed to Vercel production, and production-verified. This was an operational patch release moving database, authentication, and backend services to Singapore (`ap-southeast-1`). No new migration file, schema change, or migration-history repair was introduced by the v1.1.1 application release; the operational Sydney-to-Singapore cutover itself used a verified export and restore where all 27 canonical migration records (000–026) were restored and audited. The annotated `v1.1.1` Git tag remains pending explicit approval.
 
-1. Prepared v1.1.1 application-release scope:
-   - Infrastructure cutover: production database, Auth, and Storage migrated to Singapore project `uvprmojmscndtwgkvjbi` (`ap-southeast-1`) (completed and verified).
-   - Application metadata: updated in `lib/version.ts`, `package.json`, and `package-lock.json` to version `1.1.1` with title `Singapore Infrastructure Migration` (prepared on release branch).
-   - Release notification: updated release metadata displayed by the existing notification dialog to inform returning users about the Singapore migration.
-   - Test suite: updated version synchronization and release-state lifecycle unit tests for version `1.1.1` and date `2026-09-01`.
+1. Delivered v1.1.1 scope:
+   - Migrated production database, Auth, and Storage infrastructure to Singapore project `uvprmojmscndtwgkvjbi` (`ap-southeast-1`).
+   - Updated release metadata in `lib/version.ts`, `package.json`, and `package-lock.json` to version `1.1.1` with title `Singapore Infrastructure Migration`.
+   - Updated the release metadata displayed by the existing notification dialog to inform returning users about the Singapore migration.
+   - Updated version synchronization and release-state lifecycle unit tests for version `1.1.1` and date `2026-09-01`.
 2. Verification record:
-   - All 113 unit tests, TypeScript type checking, ESLint, Next.js production build, and whitespace checks passed locally.
-   - Release-state lifecycle tests verify upgrade detection, single-dismissal recording, and storage safety.
+   - All 113 unit tests, TypeScript type checking, ESLint, Next.js production build, and whitespace checks passed before merge.
+   - Release-state lifecycle tests verified upgrade detection, single-dismissal recording, and storage safety.
    - Zero changes to files under `supabase/migrations/` or `supabase/tests/`.
    - Gate 3 postflight comparative audit verified byte-for-byte parity across all 10 structural and catalog dimensions between Sydney and Singapore.
    - Preflight verified zero Storage objects in both projects.
-3. **Pending Release Steps**:
-   - Operator and peer review of locally prepared v1.1.1 changes.
-   - Commit and push to `origin/codex/v1.1.1-singapore-cutover`.
-   - Pull request creation, review, and merge to `main`.
-   - Production deployment to Vercel.
-   - Post-deployment returning-user modal smoke test: verify that a browser with stored `1.1.0` displays the v1.1.1 notification dialog once, dismissal records `1.1.1`, and the modal does not reopen on subsequent visits.
-   - Annotated Git tag `v1.1.1` creation and push after explicit approval:
+   - Production deployment verified on Vercel:
+     - Source merge commit: `7b2203fde2c49ab660347044522e09655dd14fca`
+     - Vercel status: Ready
+     - Deployment dashboard identifier: `FtFjyn6FxxVhtidpqrKynnCXUZ77`
+     - Immutable deployment URL: `https://atlas-8znzp8rci-atlas-726e.vercel.app`
+     - Production domain: `https://atlas-alpha-vert.vercel.app`
+   - Production smoke testing on the production domain confirmed:
+     - Authentication through Singapore Supabase succeeded on the production domain.
+     - Footer displayed `Atlas v1.1.1`.
+     - The Singapore migration notification displayed all four intended highlights.
+     - Dismissal persisted after reload.
+     - Dashboard missions, XP, readiness and streak data loaded.
+     - All five subjects loaded.
+     - Past-paper attempts and analytics loaded.
+     - No application records were modified during smoke testing.
+3. **Release Tagging (Remaining)**:
+   After explicit user approval, create and push the annotated Git tag from the finalized release-closeout commit:
    ```bash
    git tag -a v1.1.1 -m "v1.1.1: Singapore infrastructure migration"
    git push origin v1.1.1
