@@ -10,6 +10,9 @@ Atlas uses Vercel for the Next.js application and Supabase for authentication an
 - Initial production smoke checks passed for authentication retry, preserved enrolments, route-aware chapters, paper component filtering, and mission completion/undo XP accounting.
 - A fresh logical backup was completed before Migrations 025–026. Both migrations were applied in order on 2026-08-27, remote history was confirmed through 026, and all eight hosted boundary checks returned `true`.
 - The matching Migrations 025–026 application hotfix is deployed. Production smoke testing confirmed valid readiness countdowns, all five active MVP subjects, and the removal confirmation/cancel path.
+- Phase 2.11 (Production Performance & Mobile Responsiveness) is merged and deployed as baseline `v1.0.0` (commit `39427dd`).
+- Phase 2.12 / v1.1.0 (Dashboard Mobile Compatibility & Update Notifications) was deployed to Vercel production at merge commit `7071fa0` and production-verified. The release closeout and tagged production commit is `5a8d69e6ee96cdcfb3c4e71e5c499222421164f8`. The `v1.1.0` Git tag is present, while the GitHub Release object is currently absent.
+- Phase 2.13 / v1.2.0 (Accessible UI Foundation & Subject Controls Guide) is in development and locally prepared on branch `codex/v1.2.0-ui-foundation`. It is an application-only release requiring zero database migrations. It remains unreleased and is not deployed until explicitly approved, merged to `main`, deployed to Vercel, and smoke-tested.
 - Do not rerun Migrations 024–026. Any further production correction must use a reviewed forward-only migration.
 
 ## Migration 024 Release Order
@@ -141,7 +144,7 @@ The performance and dashboard-polish release after Migration 026 does not change
 
 ## Phase 2.12 / v1.1.0: Dashboard Mobile Compatibility & Update Notifications
 
-> **Release status (2026-08-28):** Merged at `7071fa0`, deployed to Vercel production, and production-verified. This was an application-only release: no Supabase backup, database migration, or migration-history repair was required. The annotated `v1.1.0` Git tag remains pending explicit approval.
+> **Release status (2026-08-28):** Feature merge commit `7071fa0` was deployed to Vercel production and production-verified. The release-closeout and current tagged production commit is `5a8d69e6ee96cdcfb3c4e71e5c499222421164f8`. This was an application-only release: no Supabase backup, database migration, or migration-history repair was required. The `v1.1.0` Git tag is present, while the GitHub Release object is currently absent.
 
 1. Delivered v1.1.0 scope:
    - Container-responsive Daily Mission cards in `components/dashboard/mission-card.tsx` and `app/globals.css`: a flexible 2-tier layout when the card itself is ≤640px wide and a clean single row above 640px, including fluid desktop and split-screen resizing.
@@ -156,12 +159,18 @@ The performance and dashboard-polish release after Migration 026 does not change
    - No files under `supabase/migrations/` or `supabase/tests/` changed.
    - Vercel production deployment completed successfully for merge commit `7071fa0`.
    - Production smoke testing confirmed authentication, responsive mission reflow without horizontal overflow, mission completion/undo, visible `Atlas v1.1.0`, and latest-only update-dialog behavior.
-3. **Release Tagging (Remaining)**:
-   After explicit user approval, create and push the annotated Git tag from the finalized release-closeout commit:
-   ```bash
-   git tag -a v1.1.0 -m "v1.1.0: Dashboard mobile compatibility and update notifications"
-   git push origin v1.1.0
-   ```
+
+## Phase 2.13 / v1.2.0: Accessible UI Foundation & Subject Controls Guide
+
+> **Release status (In Development):** Locally prepared on branch `codex/v1.2.0-ui-foundation`. This is an application-only release requiring zero database migrations. It remains in development / unreleased and is not deployed until explicitly approved, merged to `main`, deployed to Vercel, and smoke-tested.
+
+1. Prepared v1.2.0 scope:
+   - Extracted accessible, dependency-free `Dialog` component primitive (`components/ui/dialog.tsx`) with `titleId`/`descriptionId`, focus trapping, Escape dismissal, universal focus restoration on every close path/unmount, body scroll locking, and 44×44px touch targets.
+   - Refactored `WhatsNewModal`, `LogPaperModal`, `SubjectManager`, `A2TransitionModal`, and `RouteSetupSheet` onto `<Dialog>`.
+   - Two-step Subject controls guide dialog (`components/subjects/subject-controls-guide.tsx`, `components/subjects/subject-guide-launcher.tsx`) with versioned persistence (`atlas_subject_controls_guide_v1`), safe storage accessor (`lib/storage.ts`), coordination to prevent competing What's New auto-opening, 5-star visual example representation, and permanently visible "Guide" button beside Chapters.
+   - Canonical shared mappings (`lib/subject-controls.ts`, `STATUS_CYCLE`, `STATUS_CONFIG`, `CONFIDENCE_LEVELS`).
+   - Semantic one-way complete action `<button type="button" aria-label="Complete mission: ...">` with separate `Undo` button, keyboard-operable `PaperCard` with native link semantics, and native radio semantics on study route configuration.
+   - Request caching via `React.cache()` for `getPaperDetail` and `getSubjectDetail` to deduplicate metadata reads.
 
 ## General Production Configuration
 

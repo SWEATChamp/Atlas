@@ -22,7 +22,8 @@ Release status and known limitations:
 - Migrations 025–026 were backed up, applied, recorded, and verified on hosted Supabase on 2026-08-27; all eight hosted boundary checks returned `true`. The matching dashboard and subject-management application changes are deployed. Production smoke testing confirmed valid readiness countdowns, the five active MVP subjects, and the required removal confirmation flow.
 - Phase 2.10 (Application Performance Round 2 & Speed Insights) is deployed to production with active Speed Insights telemetry.
 - Phase 2.11 (Production Performance & Mobile Responsiveness) is merged and deployed to Vercel production as baseline `v1.0.0` (commit `39427dd`).
-- v1.1.0 (Dashboard Mobile Compatibility & Update Notifications) was deployed and production-verified on 2026-08-28 at merge commit `7071fa0`. Daily Mission cards respond to their own available width across desktop, split-screen, tablet, and phone layouts; the release also includes mobile overflow fixes, 44×44px touch targets, visible semantic versioning (`Atlas v1.1.0`), and an accessible latest-only "What's New" dialog. All 112 unit tests passed; the annotated Git tag remains pending explicit approval.
+- v1.1.0 (Dashboard Mobile Compatibility & Update Notifications) was deployed to Vercel production at merge commit `7071fa0` and production-verified; the release-closeout and current tagged production commit is `5a8d69e6ee96cdcfb3c4e71e5c499222421164f8`. Daily Mission cards respond to their own available width across desktop, split-screen, tablet, and phone layouts; the release also includes mobile overflow fixes, 44×44px touch targets, visible semantic versioning (`Atlas v1.1.0`), and an accessible latest-only "What's New" dialog. All unit tests passed; the `v1.1.0` Git tag is present, while the GitHub Release object is currently absent.
+- v1.2.0 (UI Foundation & Accessible Controls Guide) is in development and locally prepared on branch `codex/v1.2.0-ui-foundation`. It establishes an accessible dependency-free `Dialog` primitive, restrained dark design system, two-step Subject controls guide (`atlas_subject_controls_guide_v1`), 320px viewport resilience, and canonical status/confidence mappings. v1.2.0 is not deployed until explicitly approved, merged, deployed to Vercel, and smoke-tested.
 - Mission undo reverses attempt-linked XP and recalculates the streak from remaining activity; chapter review timestamps remain unchanged in the MVP.
 - Google Docs integration has not started.
 
@@ -118,6 +119,7 @@ npm run start  # Run the production build locally
 - [Deployment](docs/deployment.md)
 - [Roadmap](docs/roadmap.md)
 - [Changelog](docs/changelog.md)
+- [UI Guidelines](docs/ui-guidelines.md)
 - [Contributing](docs/contributing.md)
 
 ## Repository safety

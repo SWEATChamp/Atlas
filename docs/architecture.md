@@ -16,7 +16,25 @@ Atlas is an early private-pilot application designed as a revision operating sys
 
 ## Interface Direction
 
-Atlas uses a restrained, academic visual system: neutral dark surfaces, one muted-blue action accent, solid fills, and Lucide icons. Subject colours are reserved for subject identity and data visualisation. Cards are used for independently actionable or grouped content, not as a wrapper for every text block. Decorative gradients, glow effects, emoji icons, multicoloured navigation, and unlabeled status dots are excluded from the current interface.
+Atlas uses a restrained, academic visual system: neutral dark surfaces (`#121417`, `#181b20`, `#1f2329`), one muted slate-blue action accent (`#7f9fbe` / `#9bb5ce`), solid fills, and Lucide icons. Subject colours are reserved for subject identity dots and data visualisation. Cards are used for independently actionable or grouped content, not as a nested wrapper for every text block. Decorative gradients, glow effects, emoji icons, multicoloured navigation, and unlabeled status dots are excluded from the current interface.
+
+## Accessible Overlay & Dialog Primitive Architecture (v1.2.0)
+
+Atlas provides a lightweight, dependency-free `Dialog` component (`components/ui/dialog.tsx`) to unify modal and overlay behaviors across the application:
+- **Accessible Name & Description**: Enforces `role="dialog"` and `aria-modal="true"`, wired to `titleId` (`aria-labelledby`) and optional `descriptionId` (`aria-describedby`).
+- **Focus Management & Trap**: Automatically focuses `initialFocusRef` (or the dialog container) upon opening, and traps keyboard focus within the modal via circular Tab / Shift+Tab cycling across all tabbable elements.
+- **Escape & Backdrop Handling**: Closes immediately on `Escape` keypress or clicking the backdrop surface.
+- **Focus Restoration**: Caches `document.activeElement` when opened and automatically restores focus to the trigger button when closed.
+- **Scroll Locking**: Disables background document scroll via `document.body.style.overflow = 'hidden'` while the dialog is open and restores original overflow styles on unmount.
+- **Touch Target & Viewport Compliance**: Minimum 44×44px touch targets on close and action buttons, with responsive `max-height: min(90vh, calc(100dvh - 32px))` and internal scroll containment to prevent viewport overflow on 320px screens.
+
+## Subject Controls & Guide Architecture (v1.2.0)
+
+Atlas implements a two-step Subject controls guide (`components/subjects/subject-controls-guide.tsx`) and canonical shared mappings:
+- **Canonical Mappings (`lib/subject-controls.ts`)**: Defines single source of truth for notes status cycle (`none → in_progress → complete`), status labels ("Not started", "In progress", "Complete"), and 1–5 confidence rating descriptions.
+- **Versioned State Persistence (`lib/subject-guide-state.ts`)**: Manages dismissal tracking under key `atlas_subject_controls_guide_v1`. Wraps `localStorage` access safely in `try/catch` and maintains an in-memory session cache so private browsing restrictions or quota errors do not cause runtime errors or repeated interruptions.
+- **Launcher Island (`components/subjects/subject-guide-launcher.tsx`)**: Minimal client launcher embedded beside the Chapters section header. Automatically opens on first unseen visit, and provides a permanently visible text-labeled "Guide" button for manual reopening at any time.
+- **Lazy Dialog Bundle**: Dynamically imports the guide modal (`LazySubjectControlsGuide`) to ensure zero impact on the initial subject page bundle.
 
 ## Data Flow
 The current data flow is:
@@ -71,31 +89,26 @@ Atlas uses a focused client state island on Past Papers (`components/papers/pape
 - **Minimal Client Boundary**: Keeps page shell, statistics, and charts server-rendered; only attempts list and tagger prompt subscribe to client state.
 - **Global Untagged Query Integrity**: On filtered subject views, retains global untagged query to ensure untagged papers across all subjects remain visible.
 
-## Responsive Layout System (Phase 2.11 & v1.1.0)
+## Responsive Layout System (Phase 2.11, v1.1.0 & v1.2.0)
 - **Responsive Navigation Header**: Uses explicit CSS Grid areas:
   - Desktop: `logo nav user` (logo → navigation → user controls)
   - Mobile (<640px): `logo user` on row 1, full-width `nav nav` on row 2
 - **Container-Responsive Daily Missions**:
   - Each mission card is an inline-size query container, so its layout follows the card's actual dashboard-column width rather than the browser viewport alone.
-  - Card width `≤640px`: flexible 2-tier layout (Row 1: checkbox, icon, wrapped title & description; Row 2: estimated time, action button, XP badge).
-  - Card width `>640px`: compact single-row layout (`checkbox + icon + text + actions + badge`). This keeps cards fluid while resizing desktop and split-screen windows as well as on tablets and phones.
+  - Card width `≤640px`: flexible 2-tier layout (Row 1: complete button/status indicator, icon, wrapped title & description; Row 2: estimated time, action button, XP badge).
+  - Card width `>640px`: compact single-row layout (`completion control + icon + text + actions + badge`). This keeps cards fluid while resizing desktop and split-screen windows as well as on tablets and phones.
 - **Mobile Touch Targets**: All interactive elements (navigation links, sign out, filter tabs, tagging buttons, paper action icons, inputs, status toggles, mission actions, route selection buttons) enforce ≥44×44px touch targets on mobile and tablet (≤768px).
-- **Zero Horizontal Overflow**: Responsive layout system (`.dashboard-main-grid`, `.subjects-grid`, `.past-papers-2col`, `.paper-card-responsive`, `.mission-card-inner`) verified at 320px, 375px, 390px, 768px, and desktop widths.
+- **Zero Horizontal Overflow**: Responsive layout system (`.dashboard-main-grid`, `.subjects-grid`, `.past-papers-2col`, `.paper-card-responsive`, `.chapter-row-responsive`, `.mission-card-inner`) verified at 320px, 375px, 390px, 768px, and desktop widths.
 
-## Release Versioning & Update Notification Architecture (v1.1.0 — Deployed and Production-Verified)
+## Release Versioning & Update Notification Architecture
 - **Authoritative Semantic Versioning (`lib/version.ts`)**:
   - `CURRENT_RELEASE` maintains product version, title, release date, and change highlights.
-  - Synchronized with `package.json` at version `1.1.0`.
-  - Release date finalized as `2026-08-28` after production smoke testing of merge commit `7071fa0`.
-  - Unobtrusive semantic version indicator displayed in the authenticated application footer shell (`Atlas v1.1.0`).
+  - Synchronized with `package.json` at version `1.1.0` (deployed and production-verified at feature merge `7071fa0` and release-closeout/tagged commit `5a8d69e6ee96cdcfb3c4e71e5c499222421164f8`; tag recorded, GitHub Release object absent).
+  - v1.2.0 is in development and locally prepared on branch `codex/v1.2.0-ui-foundation` (unreleased / not deployed until approved, merged, deployed, and smoke-tested).
 - **Latest-Only "What's New" Dialog (`components/whats-new-modal.tsx`)**:
-  - Client-rendered modal overlay rendered within the authenticated application layout.
-  - Blocking modal behavior while active: `aria-modal="true"`, focus trap, initial focus management on the confirm button, focus restoration to the previous active element on close, `Escape` key dismissal, and background scroll locking (`document.body.style.overflow = 'hidden'`).
-  - Safe client-side storage access (`lib/release-state.ts`) prevents SSR hydration mismatches and handles private-browsing storage exceptions safely.
+  - Refactored onto the shared `Dialog` component primitive.
   - Tracks the last seen release version using `localStorage` key `atlas_last_seen_release_version`.
-  - Automatically displays when an upgraded release version is detected.
-  - Storage acknowledgement is device/browser-local and does not require database tables, profile columns, or migrations.
-
+  - Automatically displays when an upgraded release version is detected, coordinated with the Subject controls guide to prevent simultaneous auto-opening.
 
 ## Mission Engine
 A core component of Atlas is the Mission Engine. It generates up to 3 daily missions per user by calculating a weighted score across multiple dimensions:
@@ -189,7 +202,7 @@ Study route is configured per enrolled subject:
 
 - Server Components share request-scoped authenticated user and profile reads, avoiding repeated token validation and profile queries within the same render.
 - The Subjects page reads readiness from the existing dashboard aggregate rather than issuing separate readiness calls for every enrolled subject.
-- Dynamic Past Papers charts and paper-entry forms are split from the initial client bundle and loaded when rendered or opened.
+- Dynamic Past Papers charts, paper-entry forms, and subject controls guide dialogs are split from the initial client bundle and loaded when rendered or opened.
 - The shared app route provides an immediate loading skeleton during server-rendered navigation.
 - Typography uses a system-font stack so page rendering and production builds do not depend on third-party font requests.
 

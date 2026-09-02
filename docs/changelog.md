@@ -7,13 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes are documented yet.
+Locally prepared changes in development for the v1.2.0 UI-foundation release (not yet merged, deployed, or tagged):
+
+### Added
+- Accessible dependency-free `Dialog` primitive (`components/ui/dialog.tsx`) supporting accessible name/description associations (`titleId`, `descriptionId`), initial focus management, circular focus trapping (Tab/Shift+Tab), Escape key dismissal, universal focus restoration on every closure path/unmount (`previousActiveElementRef`), body scroll locking, and 44×44px touch targets.
+- Two-step Subject controls guide dialog (`components/subjects/subject-controls-guide.tsx`, `components/subjects/subject-guide-launcher.tsx`) lazy-loaded on Subject detail views. Features versioned dismissal persistence (`atlas_subject_controls_guide_v1`), safe storage accessor (`lib/storage.ts`), coordination with What's New modal to prevent competing auto-opens, exact copy for confidence ratings and notes status tracking, visual 5-star example representations, "Step 1 of 2" / "Step 2 of 2" indicators, and a permanently visible "Guide" button beside Chapters.
+- Canonical shared mappings for chapter controls (`lib/subject-controls.ts`, `lib/subject-guide-state.ts`) ensuring status cycle (`none → in_progress → complete`), labels ("Not started", "In progress", "Complete"), and 1–5 confidence levels remain synchronized across UI and guide.
+- Semantic one-way complete action `<button type="button" aria-label="Complete mission: ...">` with minimum 44×44px touch targets for `MissionCard` completion, and separate `Undo` button.
+- Keyboard-operable `PaperCard` with accessible semantic link (`<Link href="...">`) and independent edit and delete buttons.
+- Native radio semantics and connected form labels on `RouteSetupSheet` (`<input type="radio">` with `<label>`) and `A2TransitionModal`.
+- Request caching via `React.cache()` on `getPaperDetail()` and `getSubjectDetail()` to deduplicate server reads during metadata generation and page rendering.
+- Accessible progress attributes (`role="progressbar"`, `aria-valuenow`, `aria-valuemin`, `aria-valuemax`, `aria-valuetext`) across `XpLevelBar`, `SubjectReadinessList`, and readiness progress bars.
+- Universal Framer Motion reduced-motion support via `<MotionProvider>` wrapping the app in `<MotionConfig reducedMotion="user">` and `useReducedMotion()` hooks.
+- Live region toast announcements (`role="status"`, `aria-live="polite"`, `aria-atomic="true"`) on `DashboardView`.
+- Comprehensive unit test suites in `tests/subject-controls-guide.test.ts` and `tests/accessibility-semantics.test.ts` verifying auto-opening, dismissal, versioning, safe/throwing storage fallback, modal auto-open coordination, rendered HTML structure, canonical status order, confidence levels, touch targets, and accessible radio/action semantics (131 tests across 17 files passing).
+
+### Changed
+- Refactored `WhatsNewModal`, `LogPaperModal`, `SubjectManager`, `A2TransitionModal`, and `RouteSetupSheet` to use the accessible `Dialog` primitive.
+- Global design system cleanup (`app/globals.css`): unified `--border-accent`, `.btn-icon` min 44×44px touch target, deduplicated skeleton styles, and comprehensive `@media (prefers-reduced-motion: reduce)` rules for animations, transitions, and loading shimmers.
+- Flattened Dashboard and Subject sections: removed redundant nested cards, replaced decorative emoji interface elements with Lucide icons (e.g. Star, CheckCircle2), and aligned colors to restrained neutral-dark with muted slate-blue accents.
+- Responsive app header and 320px viewport resilience: prevented user display name truncation overflow on narrow viewports while maintaining 44px mobile touch targets.
+- Route-level metadata defined across Dashboard, Subjects, Subject details, Past Papers, Sign In, and Onboarding.
 
 ---
 
 ## [1.1.0] - 2026-08-28
 
-Application-only release deployed to Vercel production at merge commit `7071fa0` and verified through production smoke testing. No Supabase migration was required.
+Application-only release deployed to Vercel production at merge commit `7071fa0` and verified through production smoke testing. The release-closeout and current tagged production commit is `5a8d69e6ee96cdcfb3c4e71e5c499222421164f8`. The `v1.1.0` Git tag is present, while the GitHub Release object is currently absent. No Supabase migration was required.
 
 ### Added
 - Authoritative user-facing release metadata module (`lib/version.ts`) synchronised with `package.json` at version `1.1.0`.
