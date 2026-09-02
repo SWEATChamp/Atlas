@@ -210,18 +210,21 @@ The performance and dashboard-polish release after Migration 026 does not change
    - All 134 unit and accessibility tests across 17 test files, TypeScript type checking, ESLint, Next.js Turbopack production build, and whitespace checks passed.
    - Release-notification lifecycle tests verified upgrade detection from 1.1.1 to 1.2.0, single-dismissal recording, and storage safety.
    - Zero changes to files under `supabase/migrations/` or `supabase/tests/`.
-   - Vercel Preview deployment verified:
-     - Source branch: `codex/v1.2.0-ui-foundation`
-     - Source commit: `c4e6a9647df1a9dd69ba13b4a3db27963c3dabae`
-     - Vercel status: Ready / Success
-     - Deployment dashboard identifier: `ApihahfPteHbQwYg5je6dVa8AymT`
-     - Stable Preview URL: `https://atlas-git-codex-v120-ui-foundation-atlas-726e.vercel.app`
-   - Authenticated Preview smoke testing on deployment `ApihahfPteHbQwYg5je6dVa8AymT` (commit `c4e6a9647df1a9dd69ba13b4a3db27963c3dabae`) confirmed the UI-foundation implementation prior to the release-metadata update:
-     - Sign In, Dashboard, Subjects, Subject details, Past Papers, and paper details rendered with consistent styling.
-     - Subject controls guide verified across first-visit auto-open, Step 1 → Step 2 Next/Back navigation, Escape key dismissal, focus trapping, focus restoration on close, manual reopen via "Guide" button beside Chapters, and dismissal persistence across refreshes.
-     - Zero horizontal overflow and compliant touch targets (≥44×44px) across 320px, 375px, 390px, 768px, and 1280px viewports.
-     - Zero browser console errors or unhandled warnings.
-   - Note: The v1.2.0 notification dialog and final release-candidate verification will be performed on the Preview deployment generated after the release-metadata commit is pushed.
+   - Two-stage Vercel Preview verification record:
+     - **Stage 1 (UI Foundation Baseline Verification)**:
+       - Source branch: `codex/v1.2.0-ui-foundation`
+       - Source commit: `c4e6a9647df1a9dd69ba13b4a3db27963c3dabae`
+       - Vercel status: Ready / Success
+       - Deployment dashboard identifier: `ApihahfPteHbQwYg5je6dVa8AymT`
+       - Stable Preview URL: `https://atlas-git-codex-v120-ui-foundation-atlas-726e.vercel.app`
+       - Smoke test results: Sign In followed by the authenticated Dashboard, Subjects, Subject details, Past Papers, and paper details rendered with consistent styling; Subject controls guide passed first-visit auto-open, Step 1 → Step 2 Next/Back navigation, Escape key dismissal, focus trapping, focus restoration on close, manual reopen via "Guide" button beside Chapters, and dismissal persistence across refreshes; zero horizontal overflow and compliant touch targets (≥44×44px) across 320px, 375px, 390px, 768px, and 1280px viewports; zero browser console errors.
+     - **Stage 2 (Final v1.2.0 Release-Candidate Verification)**:
+       - Source branch: `codex/v1.2.0-ui-foundation`
+       - Source commit: `3db79b0dfb942da000c28d4ea2fe8eab48704053`
+       - Vercel status: Ready / Success
+       - Deployment dashboard identifier: `7qSYmzFZLnK8nKioamjB7kDgEhtF`
+       - Stable Preview URL: `https://atlas-git-codex-v120-ui-foundation-atlas-726e.vercel.app`
+       - Smoke test results: Returning-user notification dialog displayed version `1.2.0`, title `Accessible UI Foundation & Subject Controls Guide`, and all four approved highlights; users previously dismissed at `1.1.1` were correctly prompted with the `1.2.0` update dialog; modal dismissal persisted after page reload; authenticated app footer displayed `Atlas v1.2.0`; Dashboard, Subjects, Subject details, Past Papers, and paper data loaded cleanly; zero browser console errors or unhandled warnings; zero application study records modified (only Preview-local dismissal state updated).
 
 ## General Production Configuration
 

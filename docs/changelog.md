@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Locally prepared and Preview-verified changes on branch `codex/v1.2.0-ui-foundation` for the v1.2.0 UI-foundation release (Preview deployment `ApihahfPteHbQwYg5je6dVa8AymT` from source commit `c4e6a9647df1a9dd69ba13b4a3db27963c3dabae` at `https://atlas-git-codex-v120-ui-foundation-atlas-726e.vercel.app`; unreleased and not deployed to production):
+Locally prepared and Preview-verified changes on branch `codex/v1.2.0-ui-foundation` for the v1.2.0 release (UI-foundation baseline verified on deployment `ApihahfPteHbQwYg5je6dVa8AymT` from commit `c4e6a9647df1a9dd69ba13b4a3db27963c3dabae`, and release candidate verified on deployment `7qSYmzFZLnK8nKioamjB7kDgEhtF` from commit `3db79b0dfb942da000c28d4ea2fe8eab48704053` at `https://atlas-git-codex-v120-ui-foundation-atlas-726e.vercel.app`; unreleased, unmerged, untagged, and not deployed to production):
 
 ### Added
 - Accessible dependency-free `Dialog` primitive (`components/ui/dialog.tsx`) supporting accessible name/description associations (`titleId`, `descriptionId`), initial focus management, circular focus trapping (Tab/Shift+Tab), Escape key dismissal, universal focus restoration on every closure path/unmount (`previousActiveElementRef`), body scroll locking, and 44×44px touch targets.
@@ -27,9 +27,9 @@ Locally prepared and Preview-verified changes on branch `codex/v1.2.0-ui-foundat
 - Global design system cleanup (`app/globals.css`): unified `--border-accent`, `.btn-icon` min 44×44px touch target, deduplicated skeleton styles, and comprehensive `@media (prefers-reduced-motion: reduce)` rules for animations, transitions, and loading shimmers.
 - Flattened Dashboard and Subject sections: removed redundant nested cards, replaced decorative emoji interface elements with Lucide icons (e.g. Star, CheckCircle2), and aligned colors to restrained neutral-dark with muted slate-blue accents.
 - Responsive app header and 320px viewport resilience: prevented user display name truncation overflow on narrow viewports while maintaining 44px mobile touch targets.
-- Authenticated Preview smoke testing verified across Sign In, Dashboard, Subjects, Subject details, Past Papers, and paper details on Vercel deployment `ApihahfPteHbQwYg5je6dVa8AymT` (source commit `c4e6a9647df1a9dd69ba13b4a3db27963c3dabae`) prior to the release-metadata update.
-- Verified Subject guide first-visit auto-open, Next/Back navigation, Escape key dismissal, focus trapping, focus restoration on close, manual reopen via "Guide" button, and dismissal persistence.
-- Verified zero horizontal overflow and touch target compliance (≥44×44px) across 320px, 375px, 390px, 768px, and 1280px viewports with zero browser errors or console warnings.
+- Two-stage Preview smoke testing verified on Vercel:
+  - **Stage 1 (UI Foundation Baseline, commit `c4e6a96`, deployment `ApihahfPteHbQwYg5je6dVa8AymT`)**: Verified Sign In followed by the authenticated Dashboard, Subjects, Subject details, Past Papers, and paper details; confirmed Subject guide first-visit auto-open, Next/Back navigation, Escape key dismissal, focus trapping, focus restoration on close, manual reopen via "Guide" button beside Chapters, and dismissal persistence across refreshes; verified zero horizontal overflow and compliant touch targets (≥44×44px) across 320px, 375px, 390px, 768px, and 1280px viewports with zero browser console errors.
+  - **Stage 2 (Release Candidate Metadata, commit `3db79b0`, deployment `7qSYmzFZLnK8nKioamjB7kDgEhtF`)**: Verified returning-user release update dialog displayed version `1.2.0`, title `Accessible UI Foundation & Subject Controls Guide`, and all four approved highlights; verified upgrade detection for users previously dismissed at `1.1.1`; verified dismissal persistence across page reload; verified authenticated footer display `Atlas v1.2.0`; verified Dashboard, Subjects, Subject details, Past Papers, and paper data loaded cleanly with zero browser warnings/errors and zero modifications to study records.
 
 ---
 
