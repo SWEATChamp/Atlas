@@ -197,7 +197,7 @@ The performance and dashboard-polish release after Migration 026 does not change
 
 ## Phase 2.13 / v1.2.0: Accessible UI Foundation & Subject Controls Guide
 
-> **Release status (In Development):** Locally prepared on branch `codex/v1.2.0-ui-foundation` (unreleased and undeployed). This is an application-only release requiring zero database migrations. It remains in development and is not deployed until explicitly approved, merged to `main`, deployed to Vercel, and smoke-tested.
+> **Release status (Locally Prepared & Preview-Verified):** Locally prepared on branch `codex/v1.2.0-ui-foundation` and Preview-verified on Vercel. This is an application-only release requiring zero database migrations. It remains unreleased and undeployed to production until explicitly approved, merged to `main`, deployed to Vercel production, and production-verified.
 
 1. Prepared v1.2.0 scope:
    - Extracted accessible, dependency-free `Dialog` component primitive (`components/ui/dialog.tsx`) with `titleId`/`descriptionId`, focus trapping, Escape dismissal, universal focus restoration on every close path/unmount, body scroll locking, and 44×44px touch targets.
@@ -206,6 +206,22 @@ The performance and dashboard-polish release after Migration 026 does not change
    - Canonical shared mappings (`lib/subject-controls.ts`, `STATUS_CYCLE`, `STATUS_CONFIG`, `CONFIDENCE_LEVELS`).
    - Semantic one-way complete action `<button type="button" aria-label="Complete mission: ...">` with separate `Undo` button, keyboard-operable `PaperCard` with native link semantics, and native radio semantics on study route configuration.
    - Request caching via `React.cache()` for `getPaperDetail` and `getSubjectDetail` to deduplicate metadata reads.
+2. Verification record:
+   - All 134 unit and accessibility tests across 17 test files, TypeScript type checking, ESLint, Next.js Turbopack production build, and whitespace checks passed.
+   - Release-notification lifecycle tests verified upgrade detection from 1.1.1 to 1.2.0, single-dismissal recording, and storage safety.
+   - Zero changes to files under `supabase/migrations/` or `supabase/tests/`.
+   - Vercel Preview deployment verified:
+     - Source branch: `codex/v1.2.0-ui-foundation`
+     - Source commit: `c4e6a9647df1a9dd69ba13b4a3db27963c3dabae`
+     - Vercel status: Ready / Success
+     - Deployment dashboard identifier: `ApihahfPteHbQwYg5je6dVa8AymT`
+     - Stable Preview URL: `https://atlas-git-codex-v120-ui-foundation-atlas-726e.vercel.app`
+   - Authenticated Preview smoke testing on deployment `ApihahfPteHbQwYg5je6dVa8AymT` (commit `c4e6a9647df1a9dd69ba13b4a3db27963c3dabae`) confirmed the UI-foundation implementation prior to the release-metadata update:
+     - Sign In, Dashboard, Subjects, Subject details, Past Papers, and paper details rendered with consistent styling.
+     - Subject controls guide verified across first-visit auto-open, Step 1 → Step 2 Next/Back navigation, Escape key dismissal, focus trapping, focus restoration on close, manual reopen via "Guide" button beside Chapters, and dismissal persistence across refreshes.
+     - Zero horizontal overflow and compliant touch targets (≥44×44px) across 320px, 375px, 390px, 768px, and 1280px viewports.
+     - Zero browser console errors or unhandled warnings.
+   - Note: The v1.2.0 notification dialog and final release-candidate verification will be performed on the Preview deployment generated after the release-metadata commit is pushed.
 
 ## General Production Configuration
 

@@ -21,7 +21,7 @@
 | Phase 2.11 Production Performance & Mobile Responsiveness | Merged and deployed to production (v1.0.0 baseline, commit `39427dd`) |
 | Phase 2.12 / v1.1.0 Dashboard Mobile Compatibility & Update Notifications | Deployed and production-verified on 2026-08-28 (merge commit `7071fa0`); annotated tag `v1.1.0` published at `5a8d69e` |
 | v1.1.1 Operational Patch: Singapore Infrastructure Migration | Deployed and production-verified on 2026-09-01 (merge commit `7b2203f`, closeout `8448e18`); annotated tag `v1.1.1` published |
-| Phase 2.13 / v1.2.0 Accessible UI Foundation & Subject Controls Guide | In development on branch `codex/v1.2.0-ui-foundation` (unreleased / undeployed) |
+| Phase 2.13 / v1.2.0 Accessible UI Foundation & Subject Controls Guide | Locally prepared on branch `codex/v1.2.0-ui-foundation` and Preview-verified (unreleased / undeployed) |
 | Release-candidate checks | 201 database tests and 134 unit tests pass; type check, lint, production build, and whitespace checks pass |
 | Google Docs integration | Not started |
 
@@ -131,7 +131,7 @@
 - [x] Create annotated release tag `v1.1.0` pointing to release-closeout commit `5a8d69e`.
 
 ## Phase 2.13 / v1.2.0: Accessible UI Foundation & Subject Controls Guide
-- **Status**: In development on branch `codex/v1.2.0-ui-foundation` (unreleased / not deployed until approved, merged, deployed, and smoke-tested).
+- **Status**: Locally prepared on branch `codex/v1.2.0-ui-foundation` and Preview-verified on Vercel deployment `ApihahfPteHbQwYg5je6dVa8AymT` (`https://atlas-git-codex-v120-ui-foundation-atlas-726e.vercel.app`) from commit `c4e6a96` (unreleased / undeployed to production).
 - [x] Extracted accessible, dependency-free `Dialog` component primitive (`components/ui/dialog.tsx`) with `titleId`/`descriptionId`, focus trapping, Escape dismissal, universal focus restoration on every close path/unmount, body scroll locking, and 44×44px touch targets.
 - [x] Refactored `WhatsNewModal`, `LogPaperModal`, `SubjectManager`, `A2TransitionModal`, and `RouteSetupSheet` to use the accessible `Dialog` primitive.
 - [x] Rationalized global design tokens in `app/globals.css`: added `--border-accent`, `.btn-icon` min 44×44px touch targets, unified skeleton styling, and comprehensive reduced-motion media query rules.
@@ -140,6 +140,10 @@
 - [x] Semantic one-way complete action `<button type="button" aria-label="Complete mission: ...">` with separate `Undo` button, keyboard-operable `PaperCard` with native link semantics, and native radio semantics on study route configuration.
 - [x] Deduplicated `getPaperDetail` and `getSubjectDetail` metadata reads via `React.cache()`.
 - [x] 19 unit tests across `tests/subject-controls-guide.test.ts` and `tests/accessibility-semantics.test.ts` (134 unit tests total passing).
+- [x] Verified Vercel Preview deployment (`ApihahfPteHbQwYg5je6dVa8AymT`) from source commit `c4e6a9647df1a9dd69ba13b4a3db27963c3dabae` for UI-foundation implementation prior to release metadata update.
+- [x] Authenticated Preview smoke testing across Sign In, Dashboard, Subjects, Subject details, Past Papers, and paper details.
+- [x] Verified Subject controls guide lifecycle: first-visit auto-open, Step 1/2 Next/Back navigation, Escape dismissal, focus trapping, focus restoration on close, manual reopen via "Guide" button, and dismissal persistence.
+- [x] Verified zero horizontal overflow and compliant touch targets (≥44×44px) across 320px, 375px, 390px, 768px, and 1280px viewports with zero browser console errors.
 
 ## Phase 3: Past Papers & Analytics
 - Past paper logging UI

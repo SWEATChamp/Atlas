@@ -1,6 +1,6 @@
 {
   "name": "a-level-atlas",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "private": true,
   "description": "A-Level Atlas is a mission-driven revision dashboard for Cambridge International AS & A Level students, combining syllabus progress, confidence, past-paper performance, daily study missions, readiness, XP, and study streaks in one place.",
   "engines": {

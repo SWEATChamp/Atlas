@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Locally prepared changes in development for the v1.2.0 UI-foundation release (not yet merged, deployed, or tagged):
+Locally prepared and Preview-verified changes on branch `codex/v1.2.0-ui-foundation` for the v1.2.0 UI-foundation release (Preview deployment `ApihahfPteHbQwYg5je6dVa8AymT` from source commit `c4e6a9647df1a9dd69ba13b4a3db27963c3dabae` at `https://atlas-git-codex-v120-ui-foundation-atlas-726e.vercel.app`; unreleased and not deployed to production):
 
 ### Added
 - Accessible dependency-free `Dialog` primitive (`components/ui/dialog.tsx`) supporting accessible name/description associations (`titleId`, `descriptionId`), initial focus management, circular focus trapping (Tab/Shift+Tab), Escape key dismissal, universal focus restoration on every closure path/unmount (`previousActiveElementRef`), body scroll locking, and 44×44px touch targets.
@@ -20,14 +20,16 @@ Locally prepared changes in development for the v1.2.0 UI-foundation release (no
 - Accessible progress attributes (`role="progressbar"`, `aria-valuenow`, `aria-valuemin`, `aria-valuemax`, `aria-valuetext`) across `XpLevelBar`, `SubjectReadinessList`, and readiness progress bars.
 - Universal Framer Motion reduced-motion support via `<MotionProvider>` wrapping the app in `<MotionConfig reducedMotion="user">` and `useReducedMotion()` hooks.
 - Live region toast announcements (`role="status"`, `aria-live="polite"`, `aria-atomic="true"`) on `DashboardView`.
-- Comprehensive unit test suites in `tests/subject-controls-guide.test.ts` and `tests/accessibility-semantics.test.ts` verifying auto-opening, dismissal, versioning, safe/throwing storage fallback, modal auto-open coordination, rendered HTML structure, canonical status order, confidence levels, touch targets, and accessible radio/action semantics (131 tests across 17 files passing).
+- Comprehensive unit test suites in `tests/subject-controls-guide.test.ts`, `tests/accessibility-semantics.test.ts`, `tests/release-notification.test.ts`, and `tests/version-sync.test.ts` verifying auto-opening, dismissal, versioning, safe/throwing storage fallback, modal auto-open coordination, rendered HTML structure, canonical status order, confidence levels, touch targets, and accessible radio/action semantics (134 tests across 17 files passing).
 
 ### Changed
 - Refactored `WhatsNewModal`, `LogPaperModal`, `SubjectManager`, `A2TransitionModal`, and `RouteSetupSheet` to use the accessible `Dialog` primitive.
 - Global design system cleanup (`app/globals.css`): unified `--border-accent`, `.btn-icon` min 44×44px touch target, deduplicated skeleton styles, and comprehensive `@media (prefers-reduced-motion: reduce)` rules for animations, transitions, and loading shimmers.
 - Flattened Dashboard and Subject sections: removed redundant nested cards, replaced decorative emoji interface elements with Lucide icons (e.g. Star, CheckCircle2), and aligned colors to restrained neutral-dark with muted slate-blue accents.
 - Responsive app header and 320px viewport resilience: prevented user display name truncation overflow on narrow viewports while maintaining 44px mobile touch targets.
-- Route-level metadata defined across Dashboard, Subjects, Subject details, Past Papers, Sign In, and Onboarding.
+- Authenticated Preview smoke testing verified across Sign In, Dashboard, Subjects, Subject details, Past Papers, and paper details on Vercel deployment `ApihahfPteHbQwYg5je6dVa8AymT` (source commit `c4e6a9647df1a9dd69ba13b4a3db27963c3dabae`) prior to the release-metadata update.
+- Verified Subject guide first-visit auto-open, Next/Back navigation, Escape key dismissal, focus trapping, focus restoration on close, manual reopen via "Guide" button, and dismissal persistence.
+- Verified zero horizontal overflow and touch target compliance (≥44×44px) across 320px, 375px, 390px, 768px, and 1280px viewports with zero browser errors or console warnings.
 
 ---
 
