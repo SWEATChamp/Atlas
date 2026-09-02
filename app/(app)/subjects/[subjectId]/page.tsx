@@ -5,7 +5,7 @@ import {
   Calculator, Sigma, Zap, FlaskConical, Leaf, Code2, TrendingUp,
   BookOpen, Globe, Type, BookMarked, Brain, Users, Briefcase,
   Receipt, Scale, Film, Waves, GraduationCap, ArrowLeft,
-  CheckCircle2, Clock, Circle,
+  CheckCircle2, Clock, Circle, Star,
   type LucideIcon,
 } from 'lucide-react'
 import { getSubjectDetail } from '@/lib/actions/subjects'
@@ -78,10 +78,12 @@ export default async function SubjectDetailPage({
       {/* Back link */}
       <Link
         href="/subjects"
+        className="touch-target-btn"
         style={{
           display: 'inline-flex',
           alignItems: 'center',
           gap: 6,
+          minHeight: 44,
           color: 'var(--text-muted)',
           fontSize: '0.875rem',
           textDecoration: 'none',
@@ -103,7 +105,7 @@ export default async function SubjectDetailPage({
       <div
         style={{
           background: 'var(--bg-card)',
-          border: `1px solid ${subject.color_hex}25`,
+          border: `1px solid var(--border-subtle)`,
           borderRadius: 'var(--radius-lg)',
           overflow: 'hidden',
         }}
@@ -155,7 +157,7 @@ export default async function SubjectDetailPage({
               { icon: <Clock size={14} color="var(--warning)" />, label: `${inProgressChapters} in progress`, color: 'var(--warning)' },
               { icon: <Circle size={14} color="var(--text-muted)" />, label: `${totalChapters - completedChapters - inProgressChapters} not started`, color: 'var(--text-muted)' },
               ...(avgConfidence !== null
-                ? [{ icon: <span style={{ fontSize: '0.8rem' }}>⭐</span>, label: `${avgConfidence.toFixed(1)}/5 confidence`, color: 'var(--text-secondary)' }]
+                ? [{ icon: <Star size={14} fill="var(--warning)" color="var(--warning)" />, label: `${avgConfidence.toFixed(1)}/5 confidence`, color: 'var(--text-secondary)' }]
                 : []),
             ].map((s, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

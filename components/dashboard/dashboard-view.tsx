@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Zap, Flame, Target, TrendingUp, AlertTriangle, AlertCircle, RotateCcw } from 'lucide-react'
+import { Zap, Flame, TrendingUp, AlertTriangle, AlertCircle, RotateCcw } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import MissionList from '@/components/dashboard/mission-list'
 import XpLevelBar from '@/components/dashboard/xp-level-bar'
@@ -23,7 +23,7 @@ import type { Subject, UserSubject } from '@/types'
 
 function greeting(timeZone: string): string {
   const h = hourInTimeZone(new Date(), timeZone)
-  if (h >= 5  && h < 12) return 'Good morning'
+  if (h >= 5 && h < 12) return 'Good morning'
   if (h >= 12 && h < 17) return 'Good afternoon'
   if (h >= 17 && h < 21) return 'Good evening'
   return 'Hey'
@@ -88,7 +88,7 @@ export default function DashboardView({ initialData, unconfirmedSubjects }: Dash
   const [toasts, setToasts] = useState<XpToast[]>([])
   const [generating, setGenerating] = useState(false)
 
-  // Sync state when server initialData updates (adjusting state during render)
+  // Sync state when server initialData updates
   if (prevInitialData !== initialData) {
     setPrevInitialData(initialData)
     setState({
@@ -197,32 +197,46 @@ export default function DashboardView({ initialData, unconfirmedSubjects }: Dash
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 920 }}>
-      {/* XP Toast stack */}
-      <div style={{ position: 'fixed', top: 80, right: 24, zIndex: 1000, display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'none' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 1200, margin: '0 auto', width: '100%' }}>
+      {/* Live XP Toast announcements */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        style={{
+          position: 'fixed',
+          top: 80,
+          right: 24,
+          zIndex: 1000,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+          pointerEvents: 'none',
+        }}
+      >
         <AnimatePresence>
           {toasts.map((t) => (
             <motion.div
               key={t.id}
-              initial={{ opacity: 0, x: 40, scale: 0.8 }}
+              initial={{ opacity: 0, x: 40, scale: 0.9 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 40, scale: 0.8 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              exit={{ opacity: 0, x: 40, scale: 0.9 }}
+              transition={{ duration: 0.2 }}
               style={{
                 background: t.levelUp
                   ? 'var(--accent-strong)'
                   : t.type === 'error'
-                  ? 'rgba(239, 68, 68, 0.92)'
-                  : 'var(--bg-card)',
-                border: `1px solid ${t.levelUp ? 'var(--accent-primary)' : t.type === 'error' ? 'var(--danger)' : 'var(--border-subtle)'}`,
+                  ? 'var(--danger)'
+                  : 'var(--bg-elevated)',
+                border: `1px solid ${t.levelUp ? 'var(--accent-primary)' : t.type === 'error' ? 'var(--danger)' : 'var(--border-muted)'}`,
                 borderRadius: 'var(--radius-md)',
                 padding: '10px 16px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
-                color: t.levelUp || t.type === 'error' ? '#fff' : 'var(--text-primary)',
+                color: '#fff',
                 fontSize: '0.875rem',
-                fontWeight: 700,
+                fontWeight: 600,
                 boxShadow: 'var(--shadow-md)',
                 pointerEvents: 'none',
               }}
@@ -262,100 +276,70 @@ export default function DashboardView({ initialData, unconfirmedSubjects }: Dash
             style={{
               margin: 0,
               fontSize: '1.5rem',
-              fontWeight: 800,
+              fontWeight: 700,
               letterSpacing: '-0.025em',
-              fontFamily: 'var(--font-display)',
+              color: 'var(--text-primary)',
             }}
           >
             {greeting(profile.timezone)}, {greetingName}
           </h1>
           <p style={{ margin: '4px 0 0', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
             {totalMissions > 0
-              ? `${completedToday}/${totalMissions} missions done today`
+              ? `${completedToday}/${totalMissions} missions completed today`
               : "Your missions are ready. Let's study!"}
           </p>
         </div>
 
-        {/* Quick stats */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {/* Streak chip */}
+        {/* Quick stats badges */}
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* Streak badge */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 6,
-              padding: '4px 0',
+              padding: '6px 12px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border-subtle)',
             }}
           >
-            <Flame size={16} color={streakActive ? '#FF7B35' : 'var(--text-muted)'} />
+            <Flame size={15} color={streakActive ? 'var(--warning)' : 'var(--text-muted)'} />
             <span
               style={{
-                fontWeight: 700,
-                fontSize: '0.9rem',
-                color: streakActive ? '#FF7B35' : 'var(--text-muted)',
+                fontWeight: 600,
+                fontSize: '0.8125rem',
+                color: streakActive ? 'var(--text-primary)' : 'var(--text-muted)',
               }}
             >
               {streak.current} day{streak.current !== 1 ? 's' : ''}
             </span>
           </div>
 
-          {/* Level chip */}
+          {/* Level badge */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 6,
-              padding: '4px 0',
+              padding: '6px 12px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border-subtle)',
             }}
           >
-            <Zap size={16} color="var(--accent-primary)" />
-            <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--accent-primary)' }}>
+            <Zap size={15} color="var(--accent-primary)" />
+            <span style={{ fontWeight: 600, fontSize: '0.8125rem', color: 'var(--text-primary)' }}>
               Lv.{profile.current_level} · {profile.level_title}
             </span>
           </div>
         </div>
       </div>
 
-      {/* ── Main content: Missions (left) + XP / Streak / Readiness (right) ── */}
+      {/* ── Main content: Missions (left) + XP / Streak (right) ── */}
       <div className="dashboard-main-grid">
-        {/* Left: Missions */}
-        <div className="card" style={{ padding: 'var(--space-5)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                background: 'var(--accent-soft)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Target size={17} color="var(--accent-primary)" />
-            </div>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, letterSpacing: '-0.01em' }}>
-                Today&apos;s Missions
-              </h2>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                Complete missions to earn XP
-              </div>
-            </div>
-            {totalMissions > 0 && (
-              <div
-                style={{
-                  marginLeft: 'auto',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.8rem',
-                  fontWeight: 700,
-                  color: 'var(--text-muted)',
-                }}
-              >
-                {completedToday}/{totalMissions}
-              </div>
-            )}
-          </div>
+        {/* Left: Missions list (flat section, not double-carded) */}
+        <section aria-label="Daily missions section" style={{ width: '100%', minWidth: 0 }}>
           <MissionList
             missions={activeMissions}
             examDateCoverage={has_exam_dates ? 'all' : examDateCoverage}
@@ -367,12 +351,12 @@ export default function DashboardView({ initialData, unconfirmedSubjects }: Dash
             onGenerate={handleGenerate}
             generating={generating}
           />
-        </div>
+        </section>
 
         {/* Right sidebar */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <aside aria-label="Progress summary" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* XP & Level card */}
-          <div className="card" style={{ padding: 'var(--space-5)' }}>
+          <div className="card" style={{ padding: '18px 20px' }}>
             <div
               style={{
                 fontSize: '0.7rem',
@@ -380,7 +364,7 @@ export default function DashboardView({ initialData, unconfirmedSubjects }: Dash
                 color: 'var(--text-muted)',
                 textTransform: 'uppercase',
                 letterSpacing: '0.06em',
-                marginBottom: 14,
+                marginBottom: 12,
               }}
             >
               XP & Level
@@ -393,7 +377,7 @@ export default function DashboardView({ initialData, unconfirmedSubjects }: Dash
           </div>
 
           {/* Streak card */}
-          <div className="card" style={{ padding: 'var(--space-5)' }}>
+          <div className="card" style={{ padding: '18px 20px' }}>
             <div
               style={{
                 fontSize: '0.7rem',
@@ -401,55 +385,72 @@ export default function DashboardView({ initialData, unconfirmedSubjects }: Dash
                 color: 'var(--text-muted)',
                 textTransform: 'uppercase',
                 letterSpacing: '0.06em',
-                marginBottom: 14,
+                marginBottom: 12,
               }}
             >
               Study Streak
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <Flame size={28} color={streakActive ? '#b98255' : 'var(--text-muted)'} />
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 'var(--radius-md)',
+                  background: streakActive ? 'rgba(196,160,93,0.15)' : 'var(--bg-overlay)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <Flame size={20} color={streakActive ? 'var(--warning)' : 'var(--text-muted)'} />
+              </div>
               <div>
                 <div
                   style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: '1.75rem',
-                    fontWeight: 800,
+                    fontSize: '1.5rem',
+                    fontWeight: 700,
+                    fontFamily: 'var(--font-mono)',
                     lineHeight: 1,
-                    color: streakActive ? '#FF7B35' : 'var(--text-muted)',
+                    color: 'var(--text-primary)',
                   }}
                 >
                   {streak.current}
                 </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                  day{streak.current !== 1 ? 's' : ''} · best: {streak.longest}
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 3 }}>
+                  day{streak.current !== 1 ? 's' : ''} · longest: {streak.longest}
                 </div>
               </div>
             </div>
             {!streakActive && streak.current > 0 && (
               <div
                 style={{
-                  marginTop: 10,
-                  fontSize: '0.7rem',
+                  marginTop: 12,
+                  fontSize: '0.75rem',
                   color: 'var(--warning)',
-                  background: 'rgba(251,191,36,0.08)',
-                  border: '1px solid rgba(251,191,36,0.15)',
-                  borderRadius: 6,
+                  background: 'rgba(196,160,93,0.08)',
+                  border: '1px solid rgba(196,160,93,0.2)',
+                  borderRadius: 'var(--radius-sm)',
                   padding: '6px 10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
                 }}
               >
-                <AlertTriangle size={13} style={{ verticalAlign: -2, marginRight: 6 }} />
-                Study today to keep your streak.
+                <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+                <span>Study today to keep your streak.</span>
               </div>
             )}
           </div>
-        </div>
+        </aside>
       </div>
 
       {/* ── Subject readiness ──────────────────────────────────────────────── */}
       {subject_readiness.length > 0 && (
         <section
+          aria-label="Subject readiness breakdown"
           style={{
-            paddingTop: 'var(--space-5)',
+            paddingTop: 'var(--space-6)',
             borderTop: '1px solid var(--border-subtle)',
           }}
         >
@@ -458,21 +459,21 @@ export default function DashboardView({ initialData, unconfirmedSubjects }: Dash
               style={{
                 width: 32,
                 height: 32,
-                borderRadius: 8,
-                background: 'rgba(52,211,153,0.1)',
+                borderRadius: 'var(--radius-sm)',
+                background: 'rgba(121,169,139,0.12)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <TrendingUp size={17} color="var(--success)" />
+              <TrendingUp size={16} color="var(--success)" />
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, letterSpacing: '-0.01em' }}>
+              <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 700, letterSpacing: '-0.015em', color: 'var(--text-primary)' }}>
                 Subject Readiness
               </h2>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                Notes 35% · Papers 40% · Confidence 25%
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Notes 35% · Past Papers 40% · Confidence 25%
               </div>
             </div>
           </div>

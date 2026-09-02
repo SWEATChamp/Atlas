@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ChapterRow from './chapter-row'
+import SubjectGuideLauncher from './subject-guide-launcher'
 import type { ComponentGroup } from '@/lib/actions/subjects'
 import type { SubjectPaperSelection } from '@/types'
 
@@ -45,7 +46,36 @@ export default function ChapterGroups({
   }, [groups, hasElectiveComponents, filterMode, selectedComponentNames])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* ── Chapters Header with permanently visible Guide action ───────── */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div>
+          <h2
+            style={{
+              fontSize: '1.25rem',
+              fontWeight: 700,
+              letterSpacing: '-0.02em',
+              margin: 0,
+              color: 'var(--text-primary)',
+            }}
+          >
+            Chapters
+          </h2>
+          <p style={{ margin: '2px 0 0', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+            Track your chapter notes and rate topic confidence.
+          </p>
+        </div>
+        <SubjectGuideLauncher subjectColor={subjectColor} />
+      </div>
+
       {/* View filter toggle for subjects with elective paper components. */}
       {hasElectiveComponents && selectedComponentNames && selectedComponentNames.length > 0 && (
         <div
@@ -57,21 +87,26 @@ export default function ChapterGroups({
             border: '1px solid var(--border-subtle)',
             borderRadius: 'var(--radius-md)',
             padding: '10px 16px',
+            gap: 12,
+            flexWrap: 'wrap',
           }}
         >
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+          <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
             Showing: <strong>{filterMode === 'selected' ? 'My Selected Papers' : 'All Components'}</strong>
           </span>
           <button
+            type="button"
             onClick={() => setFilterMode((m) => (m === 'selected' ? 'all' : 'selected'))}
+            className="chapter-filter-btn touch-target-btn"
             style={{
               background: 'transparent',
-              border: `1px solid ${subjectColor}`,
+              border: `1px solid var(--border-muted)`,
               borderRadius: 'var(--radius-sm)',
-              color: subjectColor,
+              color: 'var(--text-primary)',
               fontSize: '0.75rem',
               fontWeight: 600,
-              padding: '4px 10px',
+              padding: '0 14px',
+              minHeight: 44,
               cursor: 'pointer',
             }}
           >
@@ -87,8 +122,8 @@ export default function ChapterGroups({
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          style={{ display: 'flex', flexDirection: 'column', gap: 24 }}
+          transition={{ duration: 0.18 }}
+          style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
         >
           {filteredGroups.length === 0 ? (
             <div
@@ -100,7 +135,7 @@ export default function ChapterGroups({
                 borderRadius: 'var(--radius-lg)',
               }}
             >
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
                 No chapters found.
               </p>
             </div>
@@ -118,18 +153,18 @@ export default function ChapterGroups({
                     borderBottom: '1px solid var(--border-subtle)',
                   }}
                 >
-                  <h2
+                  <h3
                     style={{
-                      fontSize: '0.8rem',
+                      fontSize: '0.75rem',
                       fontWeight: 700,
                       letterSpacing: '0.06em',
                       textTransform: 'uppercase',
-                      color: subjectColor,
+                      color: 'var(--text-secondary)',
                       margin: 0,
                     }}
                   >
                     {group.name}
-                  </h2>
+                  </h3>
                   <span
                     style={{
                       fontSize: '0.7rem',

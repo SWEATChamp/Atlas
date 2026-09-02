@@ -25,8 +25,6 @@ function SubjectIcon({ name, color }: { name: string; color: string }) {
   return <Icon size={18} color={color} strokeWidth={2} />
 }
 
-interface Props { onNext: (subjectIds: string[]) => void }
-
 export function filterSubjectsByQuery(subjects: Subject[], query: string): Subject[] {
   const q = query.toLowerCase().trim()
   if (!q) return subjects
@@ -37,6 +35,8 @@ export function filterSubjectsByQuery(subjects: Subject[], query: string): Subje
     return false
   })
 }
+
+interface Props { onNext: (subjectIds: string[]) => void }
 
 export default function SubjectsStep({ onNext }: Props) {
   const [subjects, setSubjects] = useState<Subject[]>([])
@@ -87,7 +87,7 @@ export default function SubjectsStep({ onNext }: Props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', textAlign: 'center' }}>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', textAlign: 'center', margin: 0 }}>
         Select the subjects you&apos;re sitting for A-Level. You can add more later.
       </p>
 
@@ -109,14 +109,14 @@ export default function SubjectsStep({ onNext }: Props) {
           placeholder="Search subjects…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          style={{ paddingLeft: 40 }}
+          style={{ paddingLeft: 40, minHeight: 44 }}
         />
       </div>
 
       {/* Subject grid */}
       {loading ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
-          {Array.from({ length: 12 }).map((_, i) => (
+          {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="skeleton" style={{ height: 56, borderRadius: 'var(--radius-md)' }} />
           ))}
         </div>
@@ -139,16 +139,18 @@ export default function SubjectsStep({ onNext }: Props) {
                 type="button"
                 onClick={() => toggle(subject.id)}
                 whileTap={{ scale: 0.98 }}
+                className="touch-target-btn"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 10,
                   padding: '12px 14px',
+                  minHeight: 48,
                   borderRadius: 'var(--radius-md)',
-                  border: `1px solid ${isSelected ? 'var(--border-accent)' : 'var(--border-subtle)'}`,
+                  border: `1.5px solid ${isSelected ? 'var(--border-accent)' : 'var(--border-subtle)'}`,
                   background: isSelected
                     ? 'var(--accent-soft)'
-                    : 'var(--bg-overlay)',
+                    : 'var(--bg-elevated)',
                   cursor: 'pointer',
                   transition: 'all 150ms ease',
                   textAlign: 'left',
@@ -171,7 +173,7 @@ export default function SubjectsStep({ onNext }: Props) {
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    style={{ color: 'var(--accent-primary)' }}
+                    style={{ color: 'var(--accent-primary)', display: 'inline-flex' }}
                   >
                     <Check size={14} />
                   </motion.span>
@@ -187,14 +189,14 @@ export default function SubjectsStep({ onNext }: Props) {
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          style={{ fontSize: '0.8125rem', color: 'var(--accent-primary)', textAlign: 'center' }}
+          style={{ fontSize: '0.8125rem', color: 'var(--accent-primary)', textAlign: 'center', margin: 0 }}
         >
           {selected.length} subject{selected.length !== 1 ? 's' : ''} selected
         </motion.p>
       )}
 
       {error && (
-        <p style={{ fontSize: '0.8125rem', color: 'var(--danger)', textAlign: 'center' }}>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--danger)', textAlign: 'center', margin: 0 }}>
           {error}
         </p>
       )}
@@ -203,10 +205,10 @@ export default function SubjectsStep({ onNext }: Props) {
         type="button"
         onClick={handleSubmit}
         disabled={selected.length === 0 || submitting}
-        className="btn btn-primary"
-        whileHover={selected.length > 0 ? { scale: 1.02, y: -1 } : {}}
-        whileTap={selected.length > 0 ? { scale: 0.97 } : {}}
-        style={{ width: '100%', height: 52, fontSize: '1rem' }}
+        className="btn btn-primary touch-target-btn"
+        whileHover={selected.length > 0 ? { scale: 1.01, y: -1 } : {}}
+        whileTap={selected.length > 0 ? { scale: 0.98 } : {}}
+        style={{ width: '100%', height: 48, minHeight: 48, fontSize: '0.9375rem', fontWeight: 600 }}
       >
         {submitting ? (
           <Loader2 size={18} style={{ animation: 'spin 0.8s linear infinite' }} />

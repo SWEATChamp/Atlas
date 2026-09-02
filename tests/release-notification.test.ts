@@ -1,12 +1,17 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import {
   shouldShowReleaseNotification,
   getDismissedReleaseVersion,
   setDismissedReleaseVersion,
+  resetInMemoryReleaseState,
   STORAGE_KEY_LAST_SEEN_RELEASE,
 } from '@/lib/release-state'
 
 describe('Release Notification State', () => {
+  beforeEach(() => {
+    resetInMemoryReleaseState()
+  })
+
   it('shows notification when user has never dismissed any release (first visit)', () => {
     expect(shouldShowReleaseNotification('1.1.0', null)).toBe(true)
     expect(shouldShowReleaseNotification('1.1.0', '')).toBe(true)

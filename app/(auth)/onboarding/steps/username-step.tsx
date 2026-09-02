@@ -14,6 +14,7 @@ export default function UsernameStep({ onNext }: Props) {
   const [availability, setAvailability] = useState<Availability>('idle')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
   // Debounced availability check
   useEffect(() => {
     if (availability !== 'checking') return
@@ -93,6 +94,18 @@ export default function UsernameStep({ onNext }: Props) {
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div>
+        <label
+          htmlFor="username"
+          style={{
+            display: 'block',
+            fontSize: '0.8125rem',
+            fontWeight: 600,
+            color: 'var(--text-secondary)',
+            marginBottom: 8,
+          }}
+        >
+          Handle
+        </label>
         <div style={{ position: 'relative' }}>
           <input
             id="username"
@@ -104,7 +117,7 @@ export default function UsernameStep({ onNext }: Props) {
             maxLength={30}
             autoComplete="off"
             autoFocus
-            style={{ paddingRight: 44 }}
+            style={{ paddingRight: 44, minHeight: 48 }}
           />
           {value.length > 0 && (
             <div
@@ -140,10 +153,10 @@ export default function UsernameStep({ onNext }: Props) {
       <motion.button
         type="submit"
         disabled={!canSubmit}
-        className="btn btn-primary"
-        whileHover={canSubmit ? { scale: 1.02, y: -1 } : {}}
-        whileTap={canSubmit ? { scale: 0.97 } : {}}
-        style={{ width: '100%', height: 52, fontSize: '1rem' }}
+        className="btn btn-primary touch-target-btn"
+        whileHover={canSubmit ? { scale: 1.01, y: -1 } : {}}
+        whileTap={canSubmit ? { scale: 0.98 } : {}}
+        style={{ width: '100%', height: 48, minHeight: 48, fontSize: '0.9375rem', fontWeight: 600 }}
       >
         {loading ? (
           <Loader2 size={18} style={{ animation: 'spin 0.8s linear infinite' }} />

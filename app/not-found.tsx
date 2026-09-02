@@ -20,10 +20,11 @@ export default function NotFound() {
       }}
     >
       <div
-        className="glass-strong"
         style={{
           width: '100%',
           maxWidth: 460,
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-subtle)',
           borderRadius: 'var(--radius-xl)',
           padding: '48px 40px',
           display: 'flex',
@@ -32,18 +33,19 @@ export default function NotFound() {
           gap: 0,
           textAlign: 'center',
           position: 'relative',
-          zIndex: 10,
+          boxShadow: 'var(--shadow-md)',
         }}
       >
         {/* 404 number */}
         <div
           style={{
-            fontSize: '5rem',
+            fontSize: '4.5rem',
             fontWeight: 800,
             letterSpacing: '-0.04em',
             lineHeight: 1,
             marginBottom: 16,
             color: 'var(--accent-primary)',
+            fontFamily: 'var(--font-mono)',
           }}
         >
           404
@@ -52,27 +54,27 @@ export default function NotFound() {
         {/* Icon */}
         <div
           style={{
-            width: 56,
-            height: 56,
+            width: 52,
+            height: 52,
             borderRadius: 'var(--radius-lg)',
             background: 'var(--accent-soft)',
             border: '1px solid var(--border-accent)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            marginBottom: 24,
+            marginBottom: 20,
           }}
         >
-          <Compass size={26} color="var(--accent-primary)" />
+          <Compass size={24} color="var(--accent-primary)" />
         </div>
 
         <h1
           style={{
-            fontSize: '1.5rem',
+            fontSize: '1.35rem',
             fontWeight: 700,
             letterSpacing: '-0.02em',
             color: 'var(--text-primary)',
-            marginBottom: 10,
+            marginBottom: 8,
           }}
         >
           Page not found
@@ -81,9 +83,9 @@ export default function NotFound() {
         <p
           style={{
             color: 'var(--text-secondary)',
-            fontSize: '0.9rem',
-            lineHeight: 1.7,
-            marginBottom: 32,
+            fontSize: '0.875rem',
+            lineHeight: 1.6,
+            marginBottom: 28,
             maxWidth: 320,
           }}
         >
@@ -92,23 +94,21 @@ export default function NotFound() {
 
         <Link
           href="/dashboard"
+          className="btn btn-primary touch-target-btn"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: 8,
-            padding: '0 28px',
-            height: 48,
+            padding: '0 24px',
+            minHeight: 44,
             borderRadius: 'var(--radius-md)',
-            background: 'var(--accent-strong)',
-            color: '#fff',
             fontWeight: 600,
-            fontSize: '0.9375rem',
+            fontSize: '0.875rem',
             textDecoration: 'none',
-            fontFamily: 'var(--font-sans)',
           }}
         >
           <ArrowLeft size={16} />
-          Back to Dashboard
+          <span>Back to Dashboard</span>
         </Link>
       </div>
     </div>

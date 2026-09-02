@@ -2,9 +2,10 @@ import { defineConfig } from 'vitest/config'
 import path from 'path'
 
 export default defineConfig({
-  resolve: {
+  test: {
+    environment: 'jsdom',
     alias: {
-      '@': path.resolve(import.meta.dirname, './'),
+      '@': path.resolve(process.cwd(), './'),
     },
   },
 })

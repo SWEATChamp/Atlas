@@ -1,6 +1,5 @@
 'use client'
 
-import { motion } from 'framer-motion'
 import { signInWithGoogle } from '@/lib/supabase/actions'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
@@ -41,13 +40,12 @@ function LoginErrorBanner() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
+    <div
+      role="alert"
       style={{
         padding: '12px 16px',
-        background: 'rgba(248, 113, 113, 0.1)',
-        border: '1px solid rgba(248, 113, 113, 0.25)',
+        background: 'rgba(199, 123, 123, 0.1)',
+        border: '1px solid rgba(199, 123, 123, 0.25)',
         borderRadius: 'var(--radius-md)',
         color: 'var(--danger)',
         fontSize: '0.875rem',
@@ -56,7 +54,7 @@ function LoginErrorBanner() {
       }}
     >
       {messages[error] ?? 'An unexpected error occurred.'}
-    </motion.div>
+    </div>
   )
 }
 
@@ -67,79 +65,73 @@ export default function LoginPage() {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100dvh',
         padding: '24px 16px',
       }}
     >
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-        className="glass-strong"
+      <div
         style={{
           width: '100%',
           maxWidth: 420,
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-subtle)',
           borderRadius: 'var(--radius-lg)',
-          padding: '48px 40px',
+          boxShadow: 'var(--shadow-md)',
+          padding: '44px 36px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           gap: 0,
         }}
       >
-        {/* Logo */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.1, duration: 0.3 }}
+        {/* Logo Icon */}
+        <div
           style={{
-            width: 64,
-            height: 64,
+            width: 54,
+            height: 54,
             borderRadius: 'var(--radius-md)',
-            background: 'var(--accent-strong)',
+            background: 'var(--accent-soft)',
+            border: '1px solid var(--border-accent)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            marginBottom: 24,
-            fontSize: 28,
+            marginBottom: 20,
+            fontSize: 24,
             fontWeight: 800,
-            color: '#fff',
+            color: 'var(--accent-primary)',
             fontFamily: 'var(--font-sans)',
           }}
         >
           A
-        </motion.div>
+        </div>
 
         {/* Heading */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.4 }}
-          style={{ textAlign: 'center', marginBottom: 8 }}
-        >
+        <div style={{ textAlign: 'center', marginBottom: 8 }}>
           <h1
             style={{
-              fontSize: '1.75rem',
+              fontSize: '1.5rem',
               fontWeight: 700,
               letterSpacing: '-0.02em',
               color: 'var(--text-primary)',
-              marginBottom: 8,
+              marginBottom: 6,
             }}
           >
-            Welcome to{' '}
-            <span className="gradient-text">Atlas</span>
+            Welcome to Atlas
           </h1>
           <p
             style={{
               color: 'var(--text-secondary)',
-              fontSize: '0.9375rem',
-              lineHeight: 1.6,
+              fontSize: '0.875rem',
+              lineHeight: 1.5,
+              margin: 0,
             }}
           >
-            Your A-Level revision companion.
+            Your A-Level revision operating system.
             <br />
-            Track progress. Hit your target grades.
+            Track syllabus progress and hit target grades.
           </p>
-        </motion.div>
+        </div>
 
         {/* Divider */}
         <div
@@ -147,7 +139,7 @@ export default function LoginPage() {
             width: '100%',
             height: 1,
             background: 'var(--border-subtle)',
-            margin: '32px 0',
+            margin: '28px 0',
           }}
         />
 
@@ -159,68 +151,53 @@ export default function LoginPage() {
         </div>
 
         {/* Google Sign In */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35, duration: 0.4 }}
-          style={{ width: '100%' }}
-        >
+        <div style={{ width: '100%' }}>
           <form action={signInWithGoogle}>
-            <motion.button
+            <button
               type="submit"
-              whileHover={{ scale: 1.02, y: -1 }}
-              whileTap={{ scale: 0.97 }}
+              className="touch-target-btn"
               style={{
                 width: '100%',
-                height: 52,
+                height: 48,
+                minHeight: 48,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 12,
-                background: 'var(--bg-overlay)',
+                background: 'var(--bg-elevated)',
                 border: '1px solid var(--border-muted)',
                 borderRadius: 'var(--radius-md)',
                 color: 'var(--text-primary)',
                 fontSize: '0.9375rem',
-                fontWeight: 500,
+                fontWeight: 600,
                 fontFamily: 'var(--font-sans)',
                 cursor: 'pointer',
-                transition: 'border-color 150ms ease, box-shadow 150ms ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border-strong)'
-                e.currentTarget.style.boxShadow = 'var(--shadow-md)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border-muted)'
-                e.currentTarget.style.boxShadow = 'none'
+                transition: 'border-color 150ms ease, background 150ms ease',
               }}
             >
               <GoogleIcon />
-              Continue with Google
-            </motion.button>
+              <span>Continue with Google</span>
+            </button>
           </form>
-        </motion.div>
+        </div>
 
         {/* Footer note */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5, duration: 0.4 }}
+        <p
           style={{
             marginTop: 24,
             fontSize: '0.75rem',
             color: 'var(--text-muted)',
             textAlign: 'center',
-            lineHeight: 1.6,
+            lineHeight: 1.5,
+            marginBottom: 0,
           }}
         >
           By continuing, you agree to Atlas&apos;s{' '}
           <span style={{ color: 'var(--text-secondary)' }}>Terms of Service</span>{' '}
           and{' '}
           <span style={{ color: 'var(--text-secondary)' }}>Privacy Policy</span>.
-        </motion.p>
-      </motion.div>
+        </p>
+      </div>
     </div>
   )
 }

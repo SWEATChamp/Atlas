@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, BookOpen, Plus, Trash2, X } from 'lucide-react'
+import { AlertTriangle, BookOpen, Plus, Trash2 } from 'lucide-react'
+import { Dialog } from '@/components/ui/dialog'
 import {
   addSubjectEnrollment,
   archiveSubjectEnrollment,
@@ -38,21 +39,6 @@ export default function SubjectManager({
   const addableSubjects = availableSubjects.filter((subject) => !activeSubjectIds.has(subject.id))
   const mayAdd = canAddSubject(activeSubjects.length)
   const mayRemove = canRemoveSubject(activeSubjects.length)
-
-  useEffect(() => {
-    if (!isOpen) return
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !isPending) {
-        setConfirmingRemoval(null)
-        setError(null)
-        setIsOpen(false)
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, isPending])
 
   const closeManager = () => {
     if (isPending) return
@@ -104,176 +90,193 @@ export default function SubjectManager({
     <>
       <button
         type="button"
-        className="btn btn-primary"
+        className="btn btn-primary touch-target-btn"
+        style={{ minHeight: 44, padding: '0 16px' }}
         onClick={() => {
           setError(null)
           setIsOpen(true)
         }}
       >
         <Plus size={17} />
-        Add or remove
+        <span>Add or remove</span>
       </button>
 
-      {isOpen && (
-        <div
-          role="presentation"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.65)',
-            backdropFilter: 'blur(4px)',
-            zIndex: 100,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-          }}
-          onClick={(event) => {
-            if (event.target === event.currentTarget) closeManager()
-          }}
-        >
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="subject-manager-title"
-            aria-describedby={confirmingRemoval ? 'subject-removal-impact' : undefined}
+      <Dialog
+        isOpen={isOpen}
+        onClose={closeManager}
+        titleId="subject-manager-title"
+        descriptionId={confirmingRemoval ? 'subject-removal-impact' : undefined}
+        maxWidth={580}
+        showCloseButton
+        closeButtonAriaLabel="Close subject manager"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {/* Header */}
+          <div
             style={{
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-lg)',
-              width: '100%',
-              maxWidth: 580,
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              boxShadow: '0 20px 45px rgba(0, 0, 0, 0.4)',
+              padding: '18px 20px',
+              borderBottom: '1px solid var(--border-subtle)',
+              paddingRight: 48,
             }}
           >
-            <div
-              style={{
-                padding: '18px 18px',
-                borderBottom: '1px solid var(--border-subtle)',
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                gap: 16,
-              }}
+            <h2
+              id="subject-manager-title"
+              style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}
             >
-              <div>
-                <h2
-                  id="subject-manager-title"
-                  style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}
-                >
-                  {confirmingRemoval ? `Remove ${confirmingRemoval.subject.name}?` : 'Manage subjects'}
-                </h2>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '4px 0 0' }}>
-                  {confirmingRemoval
-                    ? 'This removes it from your active study plan.'
-                    : `${activeSubjects.length} of ${MAX_ACTIVE_SUBJECTS} active subjects`}
-                </p>
-              </div>
-              <button
-                type="button"
-                aria-label="Close subject manager"
-                onClick={closeManager}
-                disabled={isPending}
+              {confirmingRemoval ? `Remove ${confirmingRemoval.subject.name}?` : 'Manage subjects'}
+            </h2>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', margin: '4px 0 0' }}>
+              {confirmingRemoval
+                ? 'This removes it from your active study plan.'
+                : `${activeSubjects.length} of ${MAX_ACTIVE_SUBJECTS} active subjects`}
+            </p>
+          </div>
+
+          {confirmingRemoval ? (
+            <div style={{ padding: 20 }}>
+              <div
                 style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--text-muted)',
-                  cursor: isPending ? 'not-allowed' : 'pointer',
-                  width: 44,
-                  height: 44,
-                  minWidth: 44,
-                  minHeight: 44,
-                  padding: 0,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 'var(--radius-sm)',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 12,
+                  padding: 14,
+                  borderRadius: 'var(--radius-md)',
+                  background: 'rgba(199, 123, 123, 0.1)',
+                  border: '1px solid rgba(199, 123, 123, 0.25)',
                 }}
               >
-                <X size={20} />
-              </button>
-            </div>
+                <AlertTriangle size={20} color="var(--danger)" style={{ flexShrink: 0, marginTop: 1 }} />
+                <p
+                  id="subject-removal-impact"
+                  style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.55 }}
+                >
+                  {getRemovalImpactMessage(confirmingRemoval.subject.is_available)}
+                </p>
+              </div>
 
-            {confirmingRemoval ? (
-              <div style={{ padding: 18 }}>
-                <div
+              {error && (
+                <p role="alert" style={{ margin: '14px 0 0', color: 'var(--danger)', fontSize: '0.82rem' }}>
+                  {error}
+                </p>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-ghost touch-target-btn"
+                  style={{ minHeight: 44, padding: '0 16px' }}
+                  onClick={() => {
+                    setError(null)
+                    setConfirmingRemoval(null)
+                  }}
+                  disabled={isPending}
+                >
+                  Keep subject
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger touch-target-btn"
+                  style={{ minHeight: 44, padding: '0 18px' }}
+                  onClick={handleRemove}
+                  disabled={isPending}
+                >
+                  <Trash2 size={16} />
+                  <span>{isPending ? 'Removing...' : 'Remove subject'}</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {error && (
+                <p
+                  role="alert"
                   style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: 12,
-                    padding: 14,
+                    margin: 0,
+                    padding: '10px 12px',
+                    color: 'var(--danger)',
+                    background: 'rgba(199, 123, 123, 0.1)',
+                    border: '1px solid rgba(199, 123, 123, 0.25)',
                     borderRadius: 'var(--radius-md)',
-                    background: 'rgba(248, 113, 113, 0.08)',
-                    border: '1px solid rgba(248, 113, 113, 0.22)',
+                    fontSize: '0.82rem',
                   }}
                 >
-                  <AlertTriangle size={20} color="var(--danger)" style={{ flexShrink: 0, marginTop: 1 }} />
-                  <p
-                    id="subject-removal-impact"
-                    style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.55 }}
-                  >
-                    {getRemovalImpactMessage(confirmingRemoval.subject.is_available)}
-                  </p>
-                </div>
+                  {error}
+                </p>
+              )}
 
-                {error && (
-                  <p role="alert" style={{ margin: '14px 0 0', color: 'var(--danger)', fontSize: '0.82rem' }}>
-                    {error}
+              <div>
+                <h3 style={{ margin: '0 0 10px', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  Active subjects
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {activeSubjects.map(({ enrollment, subject }) => (
+                    <div
+                      key={enrollment.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                        padding: '12px 14px',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: 'var(--radius-md)',
+                        background: 'var(--bg-elevated)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            width: 10,
+                            height: 10,
+                            borderRadius: '50%',
+                            background: subject.color_hex,
+                            flexShrink: 0,
+                          }}
+                        />
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ color: 'var(--text-primary)', fontSize: '0.875rem', fontWeight: 600 }}>
+                            {subject.name}
+                          </div>
+                          <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+                            {subject.code ?? 'Custom subject'}
+                            {!subject.is_available ? ' · Legacy enrolment' : ''}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-ghost touch-target-btn"
+                        style={{ minHeight: 44, padding: '0 12px', color: 'var(--danger)' }}
+                        onClick={() => {
+                          setError(null)
+                          setConfirmingRemoval({ enrollment, subject })
+                        }}
+                        disabled={!mayRemove || isPending}
+                        title={!mayRemove ? 'Keep at least one active subject' : `Remove ${subject.name}`}
+                      >
+                        <Trash2 size={15} />
+                        <span>Remove</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                {!mayRemove && (
+                  <p style={{ margin: '8px 0 0', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                    Keep at least one subject in your study plan.
                   </p>
                 )}
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    onClick={() => {
-                      setError(null)
-                      setConfirmingRemoval(null)
-                    }}
-                    disabled={isPending}
-                  >
-                    Keep subject
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-danger"
-                    onClick={handleRemove}
-                    disabled={isPending}
-                  >
-                    <Trash2 size={16} />
-                    {isPending ? 'Removing...' : 'Remove subject'}
-                  </button>
-                </div>
               </div>
-            ) : (
-              <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 20 }}>
-                {error && (
-                  <p
-                    role="alert"
-                    style={{
-                      margin: 0,
-                      padding: '10px 12px',
-                      color: 'var(--danger)',
-                      background: 'rgba(248, 113, 113, 0.08)',
-                      border: '1px solid rgba(248, 113, 113, 0.2)',
-                      borderRadius: 'var(--radius-md)',
-                      fontSize: '0.82rem',
-                    }}
-                  >
-                    {error}
-                  </p>
-                )}
 
-                <div>
-                  <h3 style={{ margin: '0 0 10px', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                    Active subjects
-                  </h3>
+              <div>
+                <h3 style={{ margin: '0 0 10px', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  Add a supported subject
+                </h3>
+                {addableSubjects.length > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {activeSubjects.map(({ enrollment, subject }) => (
+                    {addableSubjects.map((subject) => (
                       <div
-                        key={enrollment.id}
+                        key={subject.id}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
@@ -285,7 +288,7 @@ export default function SubjectManager({
                           background: 'var(--bg-elevated)',
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <span
                             aria-hidden="true"
                             style={{
@@ -293,123 +296,57 @@ export default function SubjectManager({
                               height: 10,
                               borderRadius: '50%',
                               background: subject.color_hex,
-                              flexShrink: 0,
                             }}
                           />
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ color: 'var(--text-primary)', fontSize: '0.88rem', fontWeight: 600 }}>
+                          <div>
+                            <div style={{ color: 'var(--text-primary)', fontSize: '0.875rem', fontWeight: 600 }}>
                               {subject.name}
                             </div>
                             <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
-                              {subject.code ?? 'Custom subject'}
-                              {!subject.is_available ? ' · Legacy enrolment' : ''}
+                              {subject.code}
                             </div>
                           </div>
                         </div>
                         <button
                           type="button"
-                          className="btn btn-ghost"
-                          style={{ height: 36, paddingInline: 12, color: 'var(--danger)' }}
-                          onClick={() => {
-                            setError(null)
-                            setConfirmingRemoval({ enrollment, subject })
-                          }}
-                          disabled={!mayRemove || isPending}
-                          title={!mayRemove ? 'Keep at least one active subject' : `Remove ${subject.name}`}
+                          className="btn btn-primary touch-target-btn"
+                          style={{ minHeight: 44, padding: '0 16px' }}
+                          onClick={() => handleAdd(subject)}
+                          disabled={!mayAdd || isPending}
                         >
-                          <Trash2 size={15} />
-                          Remove
+                          <Plus size={15} />
+                          <span>{isPending && pendingSubjectId === subject.id ? 'Adding...' : 'Add'}</span>
                         </button>
                       </div>
                     ))}
                   </div>
-                  {!mayRemove && (
-                    <p style={{ margin: '8px 0 0', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                      Keep at least one subject in your study plan.
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <h3 style={{ margin: '0 0 10px', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                    Add a supported subject
-                  </h3>
-                  {addableSubjects.length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {addableSubjects.map((subject) => (
-                        <div
-                          key={subject.id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: 12,
-                            padding: '12px 14px',
-                            border: '1px solid var(--border-subtle)',
-                            borderRadius: 'var(--radius-md)',
-                            background: 'var(--bg-elevated)',
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <span
-                              aria-hidden="true"
-                              style={{
-                                width: 10,
-                                height: 10,
-                                borderRadius: '50%',
-                                background: subject.color_hex,
-                              }}
-                            />
-                            <div>
-                              <div style={{ color: 'var(--text-primary)', fontSize: '0.88rem', fontWeight: 600 }}>
-                                {subject.name}
-                              </div>
-                              <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
-                                {subject.code}
-                              </div>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            className="btn btn-primary"
-                            style={{ height: 36, paddingInline: 14 }}
-                            onClick={() => handleAdd(subject)}
-                            disabled={!mayAdd || isPending}
-                          >
-                            <Plus size={15} />
-                            {isPending && pendingSubjectId === subject.id ? 'Adding...' : 'Add'}
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        padding: 16,
-                        border: '1px solid var(--border-subtle)',
-                        borderRadius: 'var(--radius-md)',
-                        color: 'var(--text-muted)',
-                        fontSize: '0.82rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 9,
-                      }}
-                    >
-                      <BookOpen size={17} />
-                      All currently supported subjects are already active.
-                    </div>
-                  )}
-                  {!mayAdd && addableSubjects.length > 0 && (
-                    <p style={{ margin: '8px 0 0', color: 'var(--warning)', fontSize: '0.75rem' }}>
-                      You have reached the {MAX_ACTIVE_SUBJECTS}-subject limit. Remove one before adding another.
-                    </p>
-                  )}
-                </div>
+                ) : (
+                  <div
+                    style={{
+                      padding: 16,
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: 'var(--radius-md)',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.8125rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 9,
+                    }}
+                  >
+                    <BookOpen size={17} />
+                    <span>All currently supported subjects are already active.</span>
+                  </div>
+                )}
+                {!mayAdd && addableSubjects.length > 0 && (
+                  <p style={{ margin: '8px 0 0', color: 'var(--warning)', fontSize: '0.75rem' }}>
+                    You have reached the {MAX_ACTIVE_SUBJECTS}-subject limit. Remove one before adding another.
+                  </p>
+                )}
               </div>
-            )}
-          </section>
+            </div>
+          )}
         </div>
-      )}
+      </Dialog>
     </>
   )
 }

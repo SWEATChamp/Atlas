@@ -18,7 +18,6 @@ const STEPS = [
   { id: 4, label: 'Choose study routes' },
 ]
 
-
 function StepIndicator({ current }: { current: number }) {
   return (
     <div
@@ -40,7 +39,7 @@ function StepIndicator({ current }: { current: number }) {
                   : 'var(--bg-overlay)',
               borderColor:
                 step.id <= current ? 'var(--accent-primary)' : 'var(--border-subtle)',
-              scale: step.id === current ? 1.1 : 1,
+              scale: step.id === current ? 1.08 : 1,
             }}
             style={{
               width: 32,
@@ -117,53 +116,48 @@ function OnboardingContent() {
       }}
     >
       <motion.div
-        initial={{ opacity: 0, y: 24 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="glass-strong"
+        transition={{ duration: 0.4 }}
         style={{
           width: '100%',
           maxWidth: step === 2 ? 680 : step === 3 ? 580 : 480,
           borderRadius: 'var(--radius-xl)',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-subtle)',
+          boxShadow: 'var(--shadow-md)',
           padding: '40px 40px',
-          transition: 'max-width 400ms ease',
+          transition: 'max-width 300ms ease',
           position: 'relative',
         }}
       >
         {/* Cancel / back to login button */}
         <form action={signOut}>
-          <motion.button
+          <button
             type="submit"
             title="Cancel onboarding and sign out"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
+            className="touch-target-btn"
             style={{
               position: 'absolute',
-              top: 16,
-              right: 16,
+              top: 14,
+              right: 14,
               background: 'none',
               border: 'none',
               cursor: 'pointer',
               color: 'var(--text-muted)',
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
               gap: 6,
-              fontSize: '0.78rem',
-              padding: '4px 8px',
+              fontSize: '0.8125rem',
+              padding: '0 12px',
+              minHeight: 44,
+              minWidth: 44,
               borderRadius: 'var(--radius-sm)',
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'var(--text-secondary)'
-              e.currentTarget.style.background = 'var(--bg-overlay)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'var(--text-muted)'
-              e.currentTarget.style.background = 'none'
-            }}
           >
-            <X size={14} />
-            Cancel
-          </motion.button>
+            <X size={15} />
+            <span>Cancel</span>
+          </button>
         </form>
 
         {/* Header */}
@@ -174,7 +168,7 @@ function OnboardingContent() {
               fontWeight: 600,
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
-              color: 'var(--accent-secondary)',
+              color: 'var(--accent-primary)',
               marginBottom: 8,
             }}
           >
@@ -201,14 +195,13 @@ function OnboardingContent() {
             initial={{ opacity: 0, x: 16 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -16 }}
-            transition={{ duration: 0.25 }}
+            transition={{ duration: 0.2 }}
           >
             {step === 1 && <UsernameStep onNext={goNext} />}
             {step === 2 && <SubjectsStep onNext={goNext} />}
             {step === 3 && <ExamDatesStep subjectIds={enrolledSubjectIds} onNext={goNext} />}
             {step === 4 && <RouteStep subjectIds={enrolledSubjectIds} />}
           </motion.div>
-
         </AnimatePresence>
       </motion.div>
     </div>

@@ -29,10 +29,10 @@ export default async function SubjectsPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 6 }}>
+          <h1 className="text-heading-1" style={{ margin: 0 }}>
             My Subjects
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0' }}>
             {subjects.length} subject{subjects.length !== 1 ? 's' : ''} enrolled
           </p>
         </div>
@@ -44,14 +44,14 @@ export default async function SubjectsPage() {
           style={{
             textAlign: 'center',
             padding: '64px 32px',
-            background: 'var(--bg-elevated)',
+            background: 'var(--bg-card)',
             border: '1px solid var(--border-subtle)',
             borderRadius: 'var(--radius-lg)',
           }}
         >
           <BookOpen size={40} style={{ color: 'var(--text-muted)', marginBottom: 16 }} />
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-            No subjects enrolled. Complete onboarding to get started.
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
+            No subjects enrolled. Complete onboarding or add a subject to get started.
           </p>
         </div>
       ) : (

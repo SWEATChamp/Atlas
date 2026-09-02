@@ -1,8 +1,19 @@
+import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Clock, Calendar, BookOpen, FileText } from 'lucide-react'
 import { getPaperDetail } from '@/lib/actions/papers'
 import { formatDateOnly } from '@/lib/date'
+
+export async function generateMetadata(props: {
+  params: Promise<{ paperId: string }>
+}): Promise<Metadata> {
+  const params = await props.params
+  const paper = await getPaperDetail(params.paperId)
+  return {
+    title: paper ? `${paper.paper_code} · Past Papers` : 'Past Paper Details',
+  }
+}
 
 export default async function PaperDetailPage(props: {
   params: Promise<{ paperId: string }>
@@ -58,16 +69,26 @@ export default async function PaperDetailPage(props: {
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: '2.5rem', fontWeight: 800, lineHeight: 1 }}>
             {paper.score_raw}
-            <span style={{ fontSize: '1.5rem', color: 'var(--text-muted)', fontWeight: 400 }}> / {paper.score_max}</span>
+            <span style={{ fontSize: '1.25rem', color: 'var(--text-muted)', fontWeight: 400 }}>
+              /{paper.score_max}
+            </span>
           </div>
-          <div style={{ fontSize: '1.25rem', fontWeight: 700, color: pctColor, marginTop: 4 }}>
+          <div style={{ fontSize: '1.125rem', fontWeight: 700, color: pctColor, marginTop: 2 }}>
             {pct.toFixed(1)}%
           </div>
         </div>
       </div>
 
-      {/* ── Meta row ──────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+      {/* ── Metadata strip ─────────────────────────────────────────────────── */}
+      <div
+        className="card"
+        style={{
+          display: 'flex',
+          gap: 'var(--space-6)',
+          flexWrap: 'wrap',
+          padding: 'var(--space-3) var(--space-4)',
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: '0.875rem' }}>
           <Calendar size={14} style={{ color: 'var(--text-muted)' }} />
           {date}

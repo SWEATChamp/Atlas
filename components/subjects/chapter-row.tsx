@@ -4,6 +4,11 @@ import { useState, useTransition } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircle2, Circle, Clock, Star, Lock } from 'lucide-react'
 import { updateChapterStatus, updateChapterConfidence } from '@/lib/actions/chapters'
+import {
+  STATUS_CYCLE,
+  STATUS_CONFIG,
+  CONFIDENCE_LEVELS,
+} from '@/lib/subject-controls'
 import type { Chapter, UserChapter, NotesStatus } from '@/types'
 
 interface Props {
@@ -13,8 +18,6 @@ interface Props {
   subjectColor: string
   isAccessible?: boolean
 }
-
-const STATUS_CYCLE: NotesStatus[] = ['none', 'in_progress', 'complete']
 
 function StatusButton({
   status,
@@ -57,12 +60,7 @@ function StatusButton({
       <Circle size={20} color="var(--text-disabled)" strokeWidth={2} />
     )
 
-  const label =
-    status === 'complete'
-      ? 'Complete'
-      : status === 'in_progress'
-      ? 'In Progress'
-      : 'Not started'
+  const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.none
 
   return (
     <button
@@ -71,8 +69,9 @@ function StatusButton({
         e.stopPropagation()
         onClick()
       }}
-      title={`Notes: ${label} — click to cycle`}
-      aria-label={`Notes status: ${label}. Click to cycle status.`}
+      title={`Notes: ${config.label} — select to cycle`}
+      aria-label={`Notes status: ${config.label}. Select to cycle status.`}
+      className="touch-target-btn"
       style={{
         background: 'none',
         border: 'none',
@@ -82,23 +81,20 @@ function StatusButton({
         minWidth: 44,
         minHeight: 44,
         padding: 0,
-        borderRadius: 6,
+        borderRadius: 'var(--radius-sm)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        transition: 'transform 150ms ease',
         flexShrink: 0,
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.1)' }}
-      onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
     >
       <AnimatePresence mode="wait">
         <motion.span
           key={status}
-          initial={{ scale: 0.6, opacity: 0 }}
+          initial={{ scale: 0.7, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.6, opacity: 0 }}
-          transition={{ duration: 0.15 }}
+          exit={{ scale: 0.7, opacity: 0 }}
+          transition={{ duration: 0.12 }}
           style={{ display: 'flex', pointerEvents: 'none' }}
         >
           {icon}
@@ -127,9 +123,9 @@ function ConfidenceStars({
         style={{ display: 'flex', gap: 0, alignItems: 'center', opacity: 0.3, pointerEvents: 'none' }}
         title="Locked"
       >
-        {[1, 2, 3, 4, 5].map((n) => (
+        {CONFIDENCE_LEVELS.map((item) => (
           <div
-            key={n}
+            key={item.level}
             style={{
               width: 44,
               height: 44,
@@ -155,9 +151,10 @@ function ConfidenceStars({
   return (
     <div
       style={{ display: 'flex', gap: 0, alignItems: 'center' }}
-      title={value ? `Confidence: ${value}/5 — click same star to clear` : 'Set confidence (1–5 stars)'}
+      title={value ? `Confidence: ${value}/5 — select same star again to clear` : 'Set confidence (1–5 stars)'}
     >
-      {[1, 2, 3, 4, 5].map((n) => {
+      {CONFIDENCE_LEVELS.map((item) => {
+        const n = item.level
         const isLit = (hovered ?? value ?? 0) >= n
         return (
           <button
@@ -169,7 +166,8 @@ function ConfidenceStars({
             }}
             onMouseEnter={() => setHovered(n)}
             onMouseLeave={() => setHovered(null)}
-            aria-label={`Rate confidence ${n} of 5`}
+            aria-label={`Rate confidence ${n} of 5: ${item.description}`}
+            className="touch-target-btn"
             style={{
               background: 'none',
               border: 'none',
@@ -182,6 +180,7 @@ function ConfidenceStars({
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
+              borderRadius: 'var(--radius-sm)',
             }}
           >
             <Star
@@ -207,7 +206,7 @@ function ScorePill({ pct }: { pct: number }) {
 
   return (
     <div
-      title={`Paper avg: ${pct.toFixed(1)}%`}
+      title={`Paper average: ${pct.toFixed(1)}%`}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -235,13 +234,6 @@ function ScorePill({ pct }: { pct: number }) {
   )
 }
 
-// ── Status label (tooltip-quality, shown as tiny pill) ────────────────────────
-const STATUS_META: Record<NotesStatus, { label: string; color: string }> = {
-  none:        { label: 'Not started', color: 'var(--text-disabled)' },
-  in_progress: { label: 'In progress', color: 'var(--warning)' },
-  complete:    { label: 'Complete',    color: 'var(--success)' },
-}
-
 export default function ChapterRow({
   chapter,
   userChapter,
@@ -249,19 +241,22 @@ export default function ChapterRow({
   subjectColor,
   isAccessible = true,
 }: Props) {
-  const [status,     setStatus]     = useState<NotesStatus>(userChapter?.notes_status ?? 'none')
+  const [status, setStatus] = useState<NotesStatus>(userChapter?.notes_status ?? 'none')
   const [confidence, setConfidence] = useState<number | null>(userChapter?.confidence_level ?? null)
   const [, startTransition] = useTransition()
 
   const handleStatusClick = () => {
     if (!isAccessible) return
-    const currentIdx  = STATUS_CYCLE.indexOf(status)
-    const nextStatus  = STATUS_CYCLE[(currentIdx + 1) % STATUS_CYCLE.length]
-    const prevStatus  = status
+    const currentIdx = STATUS_CYCLE.indexOf(status)
+    const nextStatus = STATUS_CYCLE[(currentIdx + 1) % STATUS_CYCLE.length]
+    const prevStatus = status
     setStatus(nextStatus)
     startTransition(async () => {
       const result = await updateChapterStatus(chapter.id, nextStatus)
-      if (result.error) { console.error('Failed to update chapter status:', result.error); setStatus(prevStatus) }
+      if (result.error) {
+        console.error('Failed to update chapter status:', result.error)
+        setStatus(prevStatus)
+      }
     })
   }
 
@@ -271,7 +266,10 @@ export default function ChapterRow({
     setConfidence(level)
     startTransition(async () => {
       const result = await updateChapterConfidence(chapter.id, level)
-      if (result.error) { console.error('Failed to update chapter confidence:', result.error); setConfidence(prev) }
+      if (result.error) {
+        console.error('Failed to update chapter confidence:', result.error)
+        setConfidence(prev)
+      }
     })
   }
 
@@ -280,16 +278,15 @@ export default function ChapterRow({
     : status === 'complete'
     ? `${subjectColor}08`
     : status === 'in_progress'
-    ? 'rgba(251,191,36,0.04)'
+    ? 'rgba(196,160,93,0.06)'
     : 'transparent'
 
-  const { label: statusLabel, color: statusColor } = !isAccessible
+  const statusMeta = !isAccessible
     ? { label: 'Locked (A2 Stage)', color: 'var(--text-disabled)' }
-    : STATUS_META[status]
+    : STATUS_CONFIG[status] ?? STATUS_CONFIG.none
 
   return (
-    <motion.div
-      layout
+    <div
       className="chapter-row-responsive"
       style={{
         padding: '6px 12px',
@@ -331,15 +328,17 @@ export default function ChapterRow({
             </span>
             {chapter.title}
           </div>
-          {/* Status label — tiny, below title */}
-          <div style={{
-            fontSize: '0.68rem',
-            fontWeight: 600,
-            color: statusColor,
-            marginTop: 1,
-            letterSpacing: '0.02em',
-          }}>
-            {statusLabel}
+          {/* Status label below title */}
+          <div
+            style={{
+              fontSize: '0.68rem',
+              fontWeight: 600,
+              color: statusMeta.color,
+              marginTop: 1,
+              letterSpacing: '0.02em',
+            }}
+          >
+            {statusMeta.label}
           </div>
         </div>
 
@@ -379,6 +378,6 @@ export default function ChapterRow({
           onChange={handleConfidenceChange}
         />
       </div>
-    </motion.div>
+    </div>
   )
 }

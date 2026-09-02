@@ -1,5 +1,6 @@
 'use server'
 
+import { cache } from 'react'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
@@ -46,7 +47,7 @@ export async function getPapersForSubject(subjectId: string): Promise<PaperWithS
   return data as unknown as PaperWithSubject[]
 }
 
-export async function getPaperDetail(paperId: string): Promise<PaperWithQuestions | null> {
+export const getPaperDetail = cache(async (paperId: string): Promise<PaperWithQuestions | null> => {
   const { supabase, user } = await getAuthenticatedContext()
   if (!user) return null
 
@@ -66,7 +67,7 @@ export async function getPaperDetail(paperId: string): Promise<PaperWithQuestion
 
   if (error || !data) return null
   return data as unknown as PaperWithQuestions
-}
+})
 
 export async function getChapterAccuracy(subjectId: string): Promise<ChapterAccuracy[]> {
   const { supabase, user } = await getAuthenticatedContext()

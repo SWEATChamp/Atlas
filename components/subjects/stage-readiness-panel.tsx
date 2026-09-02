@@ -53,44 +53,51 @@ export default function StageReadinessPanel({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {(isStagedAs || isAsOnly) && (
             <button
+              type="button"
               onClick={() => setShowA2Modal(true)}
+              className="touch-target-btn"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 5,
-                padding: '4px 10px',
+                gap: 6,
+                padding: '0 14px',
+                minHeight: 44,
+                minWidth: 44,
                 borderRadius: 99,
                 background: `${subject.color_hex}15`,
                 border: `1px solid ${subject.color_hex}40`,
                 color: subject.color_hex,
-                fontSize: '0.75rem',
+                fontSize: '0.8125rem',
                 fontWeight: 600,
                 cursor: 'pointer',
               }}
             >
-              <Unlock size={13} />
-              Unlock A2
+              <Unlock size={14} />
+              <span>Unlock A2</span>
             </button>
           )}
 
           <button
+            type="button"
             onClick={() => setShowRouteModal(true)}
+            className="touch-target-btn btn btn-ghost"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 4,
-              padding: '4px 8px',
+              gap: 6,
+              padding: '0 14px',
+              minHeight: 44,
+              minWidth: 44,
               borderRadius: 'var(--radius-sm)',
-              background: 'var(--bg-elevated)',
               border: '1px solid var(--border-subtle)',
-              color: 'var(--text-muted)',
-              fontSize: '0.72rem',
+              color: 'var(--text-secondary)',
+              fontSize: '0.8125rem',
               fontWeight: 500,
               cursor: 'pointer',
             }}
           >
-            <Settings size={12} />
-            Route
+            <Settings size={14} />
+            <span>Route</span>
           </button>
         </div>
       </div>
@@ -98,27 +105,30 @@ export default function StageReadinessPanel({
       {isUnconfirmed && (
         <div
           style={{
-            padding: '12px 14px',
+            padding: '14px 16px',
             borderRadius: 'var(--radius-md)',
             background: 'var(--bg-elevated)',
             border: '1px dashed var(--border-muted)',
-            fontSize: '0.82rem',
+            fontSize: '0.875rem',
             color: 'var(--text-secondary)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            gap: 12,
+            flexWrap: 'wrap',
           }}
         >
           <span>Select your study path to activate readiness tracking.</span>
           <button
+            type="button"
             onClick={() => setShowRouteModal(true)}
+            className="btn btn-primary touch-target-btn"
             style={{
-              padding: '4px 12px',
+              padding: '0 16px',
+              minHeight: 44,
+              minWidth: 44,
               borderRadius: 'var(--radius-sm)',
-              background: subject.color_hex || 'var(--primary)',
-              border: 'none',
-              color: '#fff',
-              fontSize: '0.75rem',
+              fontSize: '0.8125rem',
               fontWeight: 600,
               cursor: 'pointer',
             }}
@@ -163,7 +173,7 @@ export default function StageReadinessPanel({
           <div
             style={{
               marginTop: 4,
-              padding: '12px 14px',
+              padding: '14px 16px',
               background: 'var(--bg-elevated)',
               border: '1px solid var(--border-subtle)',
               borderRadius: 'var(--radius-md)',
@@ -182,15 +192,15 @@ export default function StageReadinessPanel({
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 4,
-                    fontSize: '0.65rem',
+                    fontSize: '0.7rem',
                     fontWeight: 700,
                     color: 'var(--success)',
-                    background: 'rgba(52, 211, 153, 0.12)',
-                    padding: '2px 6px',
+                    background: 'rgba(121, 169, 139, 0.12)',
+                    padding: '2px 8px',
                     borderRadius: 4,
                   }}
                 >
-                  <CheckCircle2 size={11} />
+                  <CheckCircle2 size={12} />
                   Carried Forward
                 </span>
               )}
@@ -199,7 +209,7 @@ export default function StageReadinessPanel({
             {asResult ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Award size={16} color={subject.color_hex} />
+                  <Award size={18} color={subject.color_hex} />
                   <div>
                     <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                       {asResult.score_obtained} / {asResult.score_maximum}
@@ -213,24 +223,24 @@ export default function StageReadinessPanel({
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span
                     style={{
-                      fontSize: '0.7rem',
+                      fontSize: '0.75rem',
                       fontWeight: 600,
                       textTransform: 'capitalize',
                       color: asResult.result_type === 'actual' ? 'var(--text-primary)' : 'var(--warning)',
                       background: 'var(--bg-overlay)',
-                      padding: '2px 6px',
+                      padding: '2px 8px',
                       borderRadius: 4,
                     }}
                   >
                     {asResult.result_type === 'actual' ? 'Official Actual' : `${asResult.result_type} (Estimate)`}
                   </span>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                     {SESSION_MAP[asResult.exam_series] ?? asResult.exam_series} {asResult.exam_year}
                   </span>
                 </div>
               </div>
             ) : (
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
                 No AS examination result recorded yet.
               </div>
             )}
@@ -248,7 +258,7 @@ export default function StageReadinessPanel({
                 color: 'var(--text-muted)',
               }}
             >
-              <AlertCircle size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+              <AlertCircle size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
               <span>
                 Overall Projection: <strong style={{ color: 'var(--text-secondary)' }}>Projection unavailable</strong> (official weighting & boundary calibration pending)
               </span>

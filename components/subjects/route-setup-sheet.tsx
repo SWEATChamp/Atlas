@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { X, BookOpen, Layers, Award } from 'lucide-react'
+import { BookOpen, Layers, Award } from 'lucide-react'
+import { Dialog } from '@/components/ui/dialog'
 import { configureSubjectRoute } from '@/lib/actions/route'
 import PaperSelectionPanel, {
   getSubjectCombinations,
@@ -73,8 +74,6 @@ export default function RouteSetupSheet({
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  if (!isOpen) return null
-
   const handleRouteChange = (route: StudyRoute) => {
     const prevRoute = selectedRoute
     setSelectedRoute(route)
@@ -113,85 +112,42 @@ export default function RouteSetupSheet({
   }
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.65)',
-        backdropFilter: 'blur(4px)',
-        zIndex: 100,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
+    <Dialog
+      isOpen={isOpen}
+      onClose={onClose}
+      titleId="route-setup-title"
+      descriptionId="route-setup-desc"
+      maxWidth={540}
+      showCloseButton
+      closeButtonAriaLabel="Close route setup sheet"
     >
-      <div
-        style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 'var(--radius-lg)',
-          width: '100%',
-          maxWidth: 540,
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          boxShadow: 'var(--shadow-xl, 0 20px 25px -5px rgba(0,0,0,0.5))',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
         <div
           style={{
             padding: '20px 24px',
             borderBottom: '1px solid var(--border-subtle)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
+            paddingRight: 48,
           }}
         >
-          <div>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-              Configure Study Route
-            </h2>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '4px 0 0' }}>
-              {subject.name} {subject.code ? `(${subject.code})` : ''}
-            </p>
-          </div>
-          <button
-            type="button"
-            aria-label="Close route setup sheet"
-            onClick={onClose}
-            className="touch-target-btn"
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              width: 44,
-              height: 44,
-              minWidth: 44,
-              minHeight: 44,
-              padding: 0,
-              borderRadius: 'var(--radius-sm)',
-            }}
-          >
-            <X size={19} />
-          </button>
+          <h2 id="route-setup-title" style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+            Configure Study Route
+          </h2>
+          <p id="route-setup-desc" style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', margin: '4px 0 0' }}>
+            {subject.name} {subject.code ? `(${subject.code})` : ''}
+          </p>
         </div>
 
         {/* Body */}
         <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
           {error && (
             <div
+              role="alert"
               style={{
                 padding: '10px 14px',
                 borderRadius: 'var(--radius-md)',
-                background: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.25)',
+                background: 'rgba(199, 123, 123, 0.1)',
+                border: '1px solid rgba(199, 123, 123, 0.25)',
                 color: 'var(--danger)',
                 fontSize: '0.82rem',
               }}
@@ -201,18 +157,27 @@ export default function RouteSetupSheet({
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            <span
+              id="route-choice-label"
+              style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)' }}
+            >
               Select your qualification route
-            </label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            </span>
+            <div
+              role="radiogroup"
+              aria-labelledby="route-choice-label"
+              style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+            >
               {ROUTE_OPTIONS.map((opt) => {
                 const isSelected = selectedRoute === opt.id
                 const Icon = opt.icon
                 return (
-                  <div
+                  <label
                     key={opt.id}
-                    onClick={() => handleRouteChange(opt.id)}
+                    htmlFor={`route-${opt.id}`}
                     style={{
+                      width: '100%',
+                      textAlign: 'left',
                       padding: '14px 16px',
                       borderRadius: 'var(--radius-md)',
                       border: `1.5px solid ${isSelected ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
@@ -222,12 +187,33 @@ export default function RouteSetupSheet({
                       display: 'flex',
                       alignItems: 'flex-start',
                       gap: 12,
+                      minHeight: 44,
                     }}
                   >
+                    <input
+                      type="radio"
+                      id={`route-${opt.id}`}
+                      name="study_route"
+                      value={opt.id}
+                      checked={isSelected}
+                      onChange={() => handleRouteChange(opt.id)}
+                      style={{
+                        marginTop: 4,
+                        accentColor: 'var(--accent-primary)',
+                        width: 18,
+                        height: 18,
+                        minWidth: 18,
+                        minHeight: 18,
+                        flexShrink: 0,
+                        cursor: 'pointer',
+                      }}
+                    />
                     <div
                       style={{
                         width: 36,
                         height: 36,
+                        minWidth: 36,
+                        minHeight: 36,
                         borderRadius: 'var(--radius-md)',
                         background: isSelected ? 'var(--accent-soft)' : 'var(--bg-card)',
                         display: 'flex',
@@ -239,8 +225,8 @@ export default function RouteSetupSheet({
                     >
                       <Icon size={18} />
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
                         <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                           {opt.title}
                         </span>
@@ -252,7 +238,7 @@ export default function RouteSetupSheet({
                         {opt.description}
                       </p>
                     </div>
-                  </div>
+                  </label>
                 )
               })}
             </div>
@@ -281,42 +267,24 @@ export default function RouteSetupSheet({
         >
           <button
             type="button"
-            className="btn btn-ghost"
+            className="btn btn-ghost touch-target-btn"
             onClick={onClose}
             disabled={isPending}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border-subtle)',
-              color: 'var(--text-secondary)',
-              fontSize: '0.85rem',
-              fontWeight: 500,
-              cursor: 'pointer',
-            }}
+            style={{ minHeight: 44, padding: '0 16px' }}
           >
             Cancel
           </button>
           <button
             type="button"
-            className="btn btn-primary"
+            className="btn btn-primary touch-target-btn"
             onClick={handleSave}
             disabled={isPending}
-            style={{
-              padding: '8px 20px',
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--accent-primary)',
-              border: 'none',
-              color: '#fff',
-              fontSize: '0.85rem',
-              fontWeight: 600,
-              cursor: isPending ? 'not-allowed' : 'pointer',
-              opacity: isPending ? 0.7 : 1,
-            }}
+            style={{ minHeight: 44, padding: '0 20px' }}
           >
             {isPending ? 'Saving...' : 'Confirm Route'}
           </button>
         </div>
       </div>
-    </div>
+    </Dialog>
   )
 }

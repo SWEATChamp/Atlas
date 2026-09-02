@@ -1,6 +1,11 @@
+import type { Metadata } from 'next'
 import { getDashboardData } from '@/lib/actions/dashboard'
 import DashboardView from '@/components/dashboard/dashboard-view'
 import type { Subject, UserSubject } from '@/types'
+
+export const metadata: Metadata = {
+  title: 'Dashboard',
+}
 
 export default async function DashboardPage() {
   const data = await getDashboardData()
