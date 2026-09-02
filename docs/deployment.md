@@ -144,7 +144,7 @@ The performance and dashboard-polish release after Migration 026 does not change
 
 ## Phase 2.12 / v1.1.0: Dashboard Mobile Compatibility & Update Notifications
 
-> **Release status (2026-08-28):** Feature merge commit `7071fa0` was deployed to Vercel production and production-verified. The release-closeout and current tagged production commit is `5a8d69e6ee96cdcfb3c4e71e5c499222421164f8`. This was an application-only release: no Supabase backup, database migration, or migration-history repair was required. The `v1.1.0` Git tag is present, while the GitHub Release object is currently absent.
+> **Release status (2026-08-28):** Merged at `7071fa0`, deployed to Vercel production, and production-verified. This was an application-only release: no Supabase backup, database migration, or migration-history repair was required. Annotated release tag `v1.1.0` was published pointing to release-closeout commit `5a8d69e`.
 
 1. Delivered v1.1.0 scope:
    - Container-responsive Daily Mission cards in `components/dashboard/mission-card.tsx` and `app/globals.css`: a flexible 2-tier layout when the card itself is ≤640px wide and a clean single row above 640px, including fluid desktop and split-screen resizing.
@@ -159,10 +159,45 @@ The performance and dashboard-polish release after Migration 026 does not change
    - No files under `supabase/migrations/` or `supabase/tests/` changed.
    - Vercel production deployment completed successfully for merge commit `7071fa0`.
    - Production smoke testing confirmed authentication, responsive mission reflow without horizontal overflow, mission completion/undo, visible `Atlas v1.1.0`, and latest-only update-dialog behavior.
+3. **Release Tagging (Completed)**:
+   Annotated release tag `v1.1.0` (tag object `7f60c090027475733f72937f02665b25511b7646`) was published to `origin` pointing to release-closeout commit `5a8d69e6ee96cdcfb3c4e71e5c499222421164f8` with annotation `v1.1.0: MVP stabilization, mobile compatibility, and update notifications` (with application deployment at `7071fa0`).
+
+## v1.1.1 Operational Patch: Singapore Infrastructure Migration
+
+> **Release status (2026-09-01):** Merged at `7b2203f`, deployed to Vercel production, and production-verified. Release closeout merged at `8448e18c531dfc77c211f31d67c6fa5c1be8a333`, with annotated tag object `3e734da62b94247a098318f505204c4f0a8d6ea6` and [GitHub Release](https://github.com/SWEATChamp/Atlas/releases/tag/v1.1.1). This was an operational patch release moving database, authentication, and backend services to Singapore (`ap-southeast-1`). No new migration file, schema change, or migration-history repair was introduced by the v1.1.1 application release; the operational Sydney-to-Singapore cutover itself used a verified export and restore where all 27 canonical migration records (000–026) were restored and audited.
+
+1. Delivered v1.1.1 scope:
+   - Migrated production database, Auth, and Storage infrastructure to Singapore project `uvprmojmscndtwgkvjbi` (`ap-southeast-1`).
+   - Updated release metadata in `lib/version.ts`, `package.json`, and `package-lock.json` to version `1.1.1` with title `Singapore Infrastructure Migration`.
+   - Updated the release metadata displayed by the existing notification dialog to inform returning users about the Singapore migration.
+   - Updated version synchronization and release-state lifecycle unit tests for version `1.1.1` and date `2026-09-01`.
+2. Verification record:
+   - All 113 unit tests, TypeScript type checking, ESLint, Next.js production build, and whitespace checks passed before merge.
+   - Release-state lifecycle tests verified upgrade detection, single-dismissal recording, and storage safety.
+   - Zero changes to files under `supabase/migrations/` or `supabase/tests/`.
+   - Gate 3 postflight comparative audit verified byte-for-byte parity across all 10 structural and catalog dimensions between Sydney and Singapore.
+   - Preflight verified zero Storage objects in both projects.
+   - Production deployment verified on Vercel:
+     - Source merge commit: `7b2203fde2c49ab660347044522e09655dd14fca`
+     - Vercel status: Ready
+     - Deployment dashboard identifier: `FtFjyn6FxxVhtidpqrKynnCXUZ77`
+     - Immutable deployment URL: `https://atlas-8znzp8rci-atlas-726e.vercel.app`
+     - Production domain: `https://atlas-alpha-vert.vercel.app`
+   - Production smoke testing on the production domain confirmed:
+     - Authentication through Singapore Supabase succeeded on the production domain.
+     - Footer displayed `Atlas v1.1.1`.
+     - The Singapore migration notification displayed all four intended highlights.
+     - Dismissal persisted after reload.
+     - Dashboard missions, XP, readiness and streak data loaded.
+     - All five subjects loaded.
+     - Past-paper attempts and analytics loaded.
+     - No application records were modified during smoke testing.
+3. **Release Tagging (Completed)**:
+   Annotated release tag `v1.1.1` (tag object `3e734da62b94247a098318f505204c4f0a8d6ea6`) was published pointing to release-closeout commit `8448e18c531dfc77c211f31d67c6fa5c1be8a333` with annotation `v1.1.1: Singapore infrastructure migration` and published [GitHub Release](https://github.com/SWEATChamp/Atlas/releases/tag/v1.1.1).
 
 ## Phase 2.13 / v1.2.0: Accessible UI Foundation & Subject Controls Guide
 
-> **Release status (In Development):** Locally prepared on branch `codex/v1.2.0-ui-foundation`. This is an application-only release requiring zero database migrations. It remains in development / unreleased and is not deployed until explicitly approved, merged to `main`, deployed to Vercel, and smoke-tested.
+> **Release status (In Development):** Locally prepared on branch `codex/v1.2.0-ui-foundation` (unreleased and undeployed). This is an application-only release requiring zero database migrations. It remains in development and is not deployed until explicitly approved, merged to `main`, deployed to Vercel, and smoke-tested.
 
 1. Prepared v1.2.0 scope:
    - Extracted accessible, dependency-free `Dialog` component primitive (`components/ui/dialog.tsx`) with `titleId`/`descriptionId`, focus trapping, Escape dismissal, universal focus restoration on every close path/unmount, body scroll locking, and 44×44px touch targets.

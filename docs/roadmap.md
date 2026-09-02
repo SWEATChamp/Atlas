@@ -19,9 +19,10 @@
 | Phase 2.9 Application Performance & Dashboard Polish | Application-only changes deployed |
 | Phase 2.10 Application Performance Round 2 & State Reconciliation | Application-only changes deployed to production with active Speed Insights |
 | Phase 2.11 Production Performance & Mobile Responsiveness | Merged and deployed to production (v1.0.0 baseline, commit `39427dd`) |
-| Phase 2.12 / v1.1.0 Dashboard Mobile Compatibility & Update Notifications | Deployed and production-verified (feature merge `7071fa0`, tagged commit `5a8d69e6ee96cdcfb3c4e71e5c499222421164f8`); tag recorded, GitHub Release object absent |
-| Phase 2.13 / v1.2.0 Accessible UI Foundation & Subject Controls Guide | In development on branch `codex/v1.2.0-ui-foundation`; unreleased / not deployed |
-| Release-candidate checks | 201 database tests and 131 unit tests pass; type check, lint, production build, and whitespace checks pass |
+| Phase 2.12 / v1.1.0 Dashboard Mobile Compatibility & Update Notifications | Deployed and production-verified on 2026-08-28 (merge commit `7071fa0`); annotated tag `v1.1.0` published at `5a8d69e` |
+| v1.1.1 Operational Patch: Singapore Infrastructure Migration | Deployed and production-verified on 2026-09-01 (merge commit `7b2203f`, closeout `8448e18`); annotated tag `v1.1.1` published |
+| Phase 2.13 / v1.2.0 Accessible UI Foundation & Subject Controls Guide | In development on branch `codex/v1.2.0-ui-foundation` (unreleased / undeployed) |
+| Release-candidate checks | 201 database tests and 134 unit tests pass; type check, lint, production build, and whitespace checks pass |
 | Google Docs integration | Not started |
 
 ## Phase 0: Foundation (Complete)
@@ -115,7 +116,7 @@
 - [x] Passed all 98 unit tests, type checking, lint, Turbopack production build, and whitespace checks.
 
 ## Phase 2.12 / v1.1.0: Dashboard Mobile Compatibility & Update Notifications
-- **Status**: Application-only changes were merged at `7071fa0`, deployed to Vercel production, and production-verified on 2026-08-28. No database migration was required. The `v1.1.0` Git tag is present, while the GitHub Release object is currently absent.
+- **Status**: Application-only changes were merged at `7071fa0`, deployed to Vercel production, and production-verified on 2026-08-28. No database migration was required. Annotated release tag `v1.1.0` was published pointing to release-closeout commit `5a8d69e`.
 - [x] Container-responsive Daily Mission cards that use their own available width: a flexible 2-tier layout at ≤640px and a compact single row above 640px, eliminating overflow on mobile and keeping cards fluid while resizing desktop or split-screen windows.
 - [x] Enforced `minmax(0, 1fr)` and `min-width: 0` constraints across `.dashboard-main-grid` and mission card containers.
 - [x] Header logo touch target enforced at ≥44px height; "Configure {subject}" route button enforced at ≥44×44px.
@@ -127,6 +128,7 @@
 - [x] Passed all 112 unit tests (including version sync, release notification logic, and mission layout markup tests), type checking, lint, Turbopack production build, and whitespace checks.
 - [x] Review, commit, push, merge, and deploy the application release.
 - [x] Verify production authentication, responsive mission layout, mission actions, version display, and latest-only update dialog.
+- [x] Create annotated release tag `v1.1.0` pointing to release-closeout commit `5a8d69e`.
 
 ## Phase 2.13 / v1.2.0: Accessible UI Foundation & Subject Controls Guide
 - **Status**: In development on branch `codex/v1.2.0-ui-foundation` (unreleased / not deployed until approved, merged, deployed, and smoke-tested).
@@ -137,7 +139,7 @@
 - [x] Defined canonical shared mappings in `lib/subject-controls.ts` ensuring chapter controls and guide descriptions remain synchronized (`STATUS_CYCLE`, `STATUS_CONFIG`, `CONFIDENCE_LEVELS`).
 - [x] Semantic one-way complete action `<button type="button" aria-label="Complete mission: ...">` with separate `Undo` button, keyboard-operable `PaperCard` with native link semantics, and native radio semantics on study route configuration.
 - [x] Deduplicated `getPaperDetail` and `getSubjectDetail` metadata reads via `React.cache()`.
-- [x] 19 unit tests across `tests/subject-controls-guide.test.ts` and `tests/accessibility-semantics.test.ts` (131 unit tests total passing).
+- [x] 19 unit tests across `tests/subject-controls-guide.test.ts` and `tests/accessibility-semantics.test.ts` (134 unit tests total passing).
 
 ## Phase 3: Past Papers & Analytics
 - Past paper logging UI

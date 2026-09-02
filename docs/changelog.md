@@ -31,6 +31,18 @@ Locally prepared changes in development for the v1.2.0 UI-foundation release (no
 
 ---
 
+## [1.1.1] - 2026-09-01
+
+Operational patch release deployed to Vercel production at merge commit `7b2203f` and verified through production smoke testing. Migrated Atlas database, authentication, and backend services from Sydney (`ap-southeast-2`) to Singapore (`ap-southeast-1`). This release involved no new database migration: all 27 canonical migration records (000–026) were restored, verified, and audited during the project migration.
+
+### Changed
+- Migrated production database, Auth, and Storage infrastructure to Singapore (`ap-southeast-1`), placing services closer to the primary user base.
+- Updated application release metadata in `lib/version.ts`, `package.json`, and `package-lock.json` to version `1.1.1` (`Singapore Infrastructure Migration`).
+- Updated release metadata displayed by the existing release notification dialog to present Singapore Infrastructure Migration highlights to returning users.
+- Updated semantic version synchronization and release-state lifecycle unit tests for version `1.1.1` and date `2026-09-01`.
+
+---
+
 ## [1.1.0] - 2026-08-28
 
 Application-only release deployed to Vercel production at merge commit `7071fa0` and verified through production smoke testing. The release-closeout and current tagged production commit is `5a8d69e6ee96cdcfb3c4e71e5c499222421164f8`. The `v1.1.0` Git tag is present, while the GitHub Release object is currently absent. No Supabase migration was required.
