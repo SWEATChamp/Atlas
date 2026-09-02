@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, RotateCcw, Home } from 'lucide-react'
 import Link from 'next/link'
 
 /**
@@ -28,12 +28,13 @@ export default function GlobalError({
           margin: 0,
           minHeight: '100dvh',
           background: '#101216',
-          color: '#f4f2ed',
-          fontFamily: 'system-ui, sans-serif',
+          color: '#f1eee8',
+          fontFamily: "'Avenir Next', Inter, ui-sans-serif, system-ui, sans-serif",
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           padding: '24px 16px',
+          boxSizing: 'border-box',
         }}
       >
         <div
@@ -41,34 +42,35 @@ export default function GlobalError({
             width: '100%',
             maxWidth: 440,
             background: '#1d2229',
-            border: '1px solid rgba(248,113,113,0.2)',
+            border: '1px solid #292f37',
             borderRadius: 12,
-            padding: '48px 36px',
+            padding: '40px 28px',
             textAlign: 'center',
+            boxSizing: 'border-box',
           }}
         >
           <div
             style={{
               width: 56,
               height: 56,
-              borderRadius: 14,
-              background: 'rgba(248,113,113,0.12)',
-              border: '1px solid rgba(248,113,113,0.2)',
+              borderRadius: 8,
+              background: 'rgba(199, 123, 123, 0.15)',
+              border: '1px solid rgba(199, 123, 123, 0.25)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               margin: '0 auto 20px',
             }}
           >
-            <AlertTriangle size={26} color="#d17676" />
+            <AlertTriangle size={26} color="#c77b7b" />
           </div>
 
           <h1
             style={{
-              fontSize: '1.5rem',
+              fontSize: '1.375rem',
               fontWeight: 700,
               letterSpacing: '-0.02em',
-              margin: '0 0 10px',
+              margin: '0 0 8px',
             }}
           >
             Atlas encountered a critical error
@@ -76,58 +78,69 @@ export default function GlobalError({
 
           <p
             style={{
-              color: '#a6abb3',
-              fontSize: '0.9rem',
-              lineHeight: 1.7,
-              margin: '0 0 28px',
+              color: '#b2b8c0',
+              fontSize: '0.875rem',
+              lineHeight: 1.6,
+              margin: '0 0 24px',
             }}
           >
-            Something went wrong at the application level.
+            An unexpected application error occurred.
             {error.digest && (
               <>
                 {' '}Error ID:{' '}
-                <code style={{ fontFamily: 'monospace', color: '#f87171' }}>
+                <code style={{ fontFamily: 'monospace', color: '#c77b7b' }}>
                   {error.digest}
                 </code>
               </>
             )}
           </p>
 
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button
+              type="button"
               onClick={unstable_retry}
               style={{
-                flex: 1,
-                height: 48,
-                borderRadius: 10,
+                flex: '1 1 140px',
+                height: 44,
+                minHeight: 44,
+                borderRadius: 8,
                 background: '#4c7094',
                 border: 'none',
                 color: '#fff',
-                fontSize: '0.9375rem',
+                fontSize: '0.875rem',
                 fontWeight: 600,
                 cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
               }}
             >
+              <RotateCcw size={15} />
               Try again
             </button>
             <Link
               href="/"
               style={{
-                flex: 1,
-                height: 48,
-                borderRadius: 10,
+                flex: '1 1 140px',
+                height: 44,
+                minHeight: 44,
+                borderRadius: 8,
                 background: 'transparent',
-                border: '1px solid rgba(255,255,255,0.1)',
-                color: '#a6abb3',
-                fontSize: '0.9375rem',
+                border: '1px solid #343c46',
+                color: '#b2b8c0',
+                fontSize: '0.875rem',
                 fontWeight: 500,
                 cursor: 'pointer',
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 textDecoration: 'none',
+                gap: 6,
+                boxSizing: 'border-box',
               }}
             >
+              <Home size={15} />
               Go home
             </Link>
           </div>

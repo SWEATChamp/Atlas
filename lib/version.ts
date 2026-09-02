@@ -10,13 +10,13 @@ export interface ReleaseInfo {
  * releaseDate is finalized only after the release passes production smoke testing.
  */
 export const CURRENT_RELEASE: ReleaseInfo = {
-  version: '1.1.1',
-  title: 'Singapore Infrastructure Migration',
-  releaseDate: '2026-09-01',
+  version: '1.2.0',
+  title: 'Accessible UI Foundation & Subject Controls Guide',
+  releaseDate: '2026-09-02',
   changes: [
-    'Atlas services have moved to Singapore, closer to most users.',
-    'Accounts, subjects, progress, missions, past papers and XP were preserved during migration.',
-    'Authentication and data services now use the Singapore infrastructure.',
-    'Returning users may need to sign in again after the move.',
+    'A calmer, more consistent interface now spans Dashboard, Subjects, Past Papers, onboarding, and sign-in.',
+    'A new Subject Guide explains confidence stars and notes-status controls and can be reopened beside Chapters.',
+    'Keyboard navigation, focus handling, screen-reader semantics, and reduced-motion support have been improved.',
+    'Mobile and tablet layouts now remain readable with larger touch targets and no horizontal overflow.',
   ],
 }

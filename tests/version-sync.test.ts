@@ -5,8 +5,8 @@ import packageJson from '../package.json'
 describe('Semantic Version Synchronization', () => {
   it('synchronizes package.json version with CURRENT_RELEASE metadata', () => {
     expect(packageJson.version).toBe(CURRENT_RELEASE.version)
-    expect(CURRENT_RELEASE.version).toBe('1.1.1')
-    expect(CURRENT_RELEASE.releaseDate).toBe('2026-09-01')
+    expect(CURRENT_RELEASE.version).toBe('1.2.0')
+    expect(CURRENT_RELEASE.releaseDate).toBe('2026-09-02')
   })
 
   it('contains complete release metadata structure', () => {

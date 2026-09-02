@@ -74,10 +74,10 @@ export default function SubjectCard({ data }: { data: SubjectWithProgress }) {
           cursor: 'pointer',
         }}
       >
-        {/* Colour accent bar */}
+        {/* Subtle Subject Accent Border */}
         <div
           style={{
-            height: 4,
+            height: 3,
             background: subject.color_hex,
           }}
         />
@@ -91,8 +91,8 @@ export default function SubjectCard({ data }: { data: SubjectWithProgress }) {
                   width: 42,
                   height: 42,
                   borderRadius: 'var(--radius-md)',
-                  background: `${subject.color_hex}18`,
-                  border: `1px solid ${subject.color_hex}30`,
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-subtle)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -139,11 +139,11 @@ export default function SubjectCard({ data }: { data: SubjectWithProgress }) {
                 style={{
                   padding: '3px 10px',
                   borderRadius: 99,
-                  background: `${subject.color_hex}18`,
-                  border: `1px solid ${subject.color_hex}30`,
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-subtle)',
                   fontSize: '0.75rem',
                   fontWeight: 700,
-                  color: subject.color_hex,
+                  color: 'var(--text-primary)',
                   flexShrink: 0,
                 }}
               >
@@ -162,7 +162,7 @@ export default function SubjectCard({ data }: { data: SubjectWithProgress }) {
             </div>
 
             {isUnconfirmed ? (
-              <div style={{ fontSize: '0.75rem', color: 'var(--warning)', fontStyle: 'italic' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--warning)' }}>
                 Configure study route to track readiness
               </div>
             ) : isSeparateStages ? (
@@ -194,7 +194,7 @@ export default function SubjectCard({ data }: { data: SubjectWithProgress }) {
                 { label: 'Total', value: totalChapters, color: 'var(--text-muted)' },
               ].map((s) => (
                 <div key={s.label} style={{ textAlign: 'center', flex: 1 }}>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: s.color }}>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: s.color, fontVariantNumeric: 'tabular-nums' }}>
                     {s.value}
                   </div>
                   <div style={{ fontSize: '0.65rem', color: 'var(--text-disabled)', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>

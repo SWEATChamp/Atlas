@@ -7,7 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes are documented yet.
+Locally prepared and Preview-verified changes on branch `codex/v1.2.0-ui-foundation` for the v1.2.0 release (UI-foundation baseline verified on deployment `ApihahfPteHbQwYg5je6dVa8AymT` from commit `c4e6a9647df1a9dd69ba13b4a3db27963c3dabae`, and release candidate verified on deployment `7qSYmzFZLnK8nKioamjB7kDgEhtF` from commit `3db79b0dfb942da000c28d4ea2fe8eab48704053` at `https://atlas-git-codex-v120-ui-foundation-atlas-726e.vercel.app`; unreleased, unmerged, untagged, and not deployed to production):
+
+### Added
+- Accessible dependency-free `Dialog` primitive (`components/ui/dialog.tsx`) supporting accessible name/description associations (`titleId`, `descriptionId`), initial focus management, circular focus trapping (Tab/Shift+Tab), Escape key dismissal, universal focus restoration on every closure path/unmount (`previousActiveElementRef`), body scroll locking, and 44×44px touch targets.
+- Two-step Subject controls guide dialog (`components/subjects/subject-controls-guide.tsx`, `components/subjects/subject-guide-launcher.tsx`) lazy-loaded on Subject detail views. Features versioned dismissal persistence (`atlas_subject_controls_guide_v1`), safe storage accessor (`lib/storage.ts`), coordination with What's New modal to prevent competing auto-opens, exact copy for confidence ratings and notes status tracking, visual 5-star example representations, "Step 1 of 2" / "Step 2 of 2" indicators, and a permanently visible "Guide" button beside Chapters.
+- Canonical shared mappings for chapter controls (`lib/subject-controls.ts`, `lib/subject-guide-state.ts`) ensuring status cycle (`none → in_progress → complete`), labels ("Not started", "In progress", "Complete"), and 1–5 confidence levels remain synchronized across UI and guide.
+- Semantic one-way complete action `<button type="button" aria-label="Complete mission: ...">` with minimum 44×44px touch targets for `MissionCard` completion, and separate `Undo` button.
+- Keyboard-operable `PaperCard` with accessible semantic link (`<Link href="...">`) and independent edit and delete buttons.
+- Native radio semantics and connected form labels on `RouteSetupSheet` (`<input type="radio">` with `<label>`) and `A2TransitionModal`.
+- Request caching via `React.cache()` on `getPaperDetail()` and `getSubjectDetail()` to deduplicate server reads during metadata generation and page rendering.
+- Accessible progress attributes (`role="progressbar"`, `aria-valuenow`, `aria-valuemin`, `aria-valuemax`, `aria-valuetext`) across `XpLevelBar`, `SubjectReadinessList`, and readiness progress bars.
+- Universal Framer Motion reduced-motion support via `<MotionProvider>` wrapping the app in `<MotionConfig reducedMotion="user">` and `useReducedMotion()` hooks.
+- Live region toast announcements (`role="status"`, `aria-live="polite"`, `aria-atomic="true"`) on `DashboardView`.
+- Comprehensive unit test suites in `tests/subject-controls-guide.test.ts`, `tests/accessibility-semantics.test.ts`, `tests/release-notification.test.ts`, and `tests/version-sync.test.ts` verifying auto-opening, dismissal, versioning, safe/throwing storage fallback, modal auto-open coordination, rendered HTML structure, canonical status order, confidence levels, touch targets, and accessible radio/action semantics (134 tests across 17 files passing).
+
+### Changed
+- Refactored `WhatsNewModal`, `LogPaperModal`, `SubjectManager`, `A2TransitionModal`, and `RouteSetupSheet` to use the accessible `Dialog` primitive.
+- Global design system cleanup (`app/globals.css`): unified `--border-accent`, `.btn-icon` min 44×44px touch target, deduplicated skeleton styles, and comprehensive `@media (prefers-reduced-motion: reduce)` rules for animations, transitions, and loading shimmers.
+- Flattened Dashboard and Subject sections: removed redundant nested cards, replaced decorative emoji interface elements with Lucide icons (e.g. Star, CheckCircle2), and aligned colors to restrained neutral-dark with muted slate-blue accents.
+- Responsive app header and 320px viewport resilience: prevented user display name truncation overflow on narrow viewports while maintaining 44px mobile touch targets.
+- Two-stage Preview smoke testing verified on Vercel:
+  - **Stage 1 (UI Foundation Baseline, commit `c4e6a96`, deployment `ApihahfPteHbQwYg5je6dVa8AymT`)**: Verified Sign In followed by the authenticated Dashboard, Subjects, Subject details, Past Papers, and paper details; confirmed Subject guide first-visit auto-open, Next/Back navigation, Escape key dismissal, focus trapping, focus restoration on close, manual reopen via "Guide" button beside Chapters, and dismissal persistence across refreshes; verified zero horizontal overflow and compliant touch targets (≥44×44px) across 320px, 375px, 390px, 768px, and 1280px viewports with zero browser console errors.
+  - **Stage 2 (Release Candidate Metadata, commit `3db79b0`, deployment `7qSYmzFZLnK8nKioamjB7kDgEhtF`)**: Verified returning-user release update dialog displayed version `1.2.0`, title `Accessible UI Foundation & Subject Controls Guide`, and all four approved highlights; verified upgrade detection for users previously dismissed at `1.1.1`; verified dismissal persistence across page reload; verified authenticated footer display `Atlas v1.2.0`; verified Dashboard, Subjects, Subject details, Past Papers, and paper data loaded cleanly with zero browser warnings/errors and zero modifications to study records.
 
 ---
 
@@ -25,7 +47,7 @@ Operational patch release deployed to Vercel production at merge commit `7b2203f
 
 ## [1.1.0] - 2026-08-28
 
-Application-only release deployed to Vercel production at merge commit `7071fa0` and verified through production smoke testing. No Supabase migration was required.
+Application-only release deployed to Vercel production at merge commit `7071fa0` and verified through production smoke testing. The release-closeout and current tagged production commit is `5a8d69e6ee96cdcfb3c4e71e5c499222421164f8`. The `v1.1.0` Git tag is present, while the GitHub Release object is currently absent. No Supabase migration was required.
 
 ### Added
 - Authoritative user-facing release metadata module (`lib/version.ts`) synchronised with `package.json` at version `1.1.0`.

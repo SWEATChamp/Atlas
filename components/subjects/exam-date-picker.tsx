@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useTransition } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { CalendarDays, Check, X } from 'lucide-react'
 import { updateExamDate } from '@/lib/actions/subjects'
 
@@ -35,6 +35,7 @@ export default function ExamDatePicker({
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const ref = useRef<HTMLDivElement>(null)
+  const prefersReduced = useReducedMotion()
 
   useEffect(() => {
     function closeOnOutsideClick(event: MouseEvent) {
@@ -77,40 +78,44 @@ export default function ExamDatePicker({
         type="button"
         onClick={() => setOpen(value => !value)}
         title="Change exam date"
+        aria-label={`Exam date: ${countdownLabel ?? formatDate(savedDate)}. Click to change.`}
         aria-expanded={open}
+        className="touch-target-btn"
         style={{
           display: 'inline-flex',
           alignItems: 'center',
           gap: 6,
-          padding: '3px 9px',
+          padding: '0 12px',
+          minHeight: 44,
+          minWidth: 44,
           borderRadius: 99,
           border: '1px solid var(--border-subtle)',
           background: 'var(--bg-overlay)',
           color: countdownColor,
           fontFamily: 'var(--font-sans)',
-          fontSize: '0.75rem',
+          fontSize: '0.8125rem',
           fontWeight: 600,
           cursor: 'pointer',
         }}
       >
-        <CalendarDays size={13} />
+        <CalendarDays size={14} />
         <span>{countdownLabel ?? formatDate(savedDate)}</span>
       </button>
 
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: -6, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.97 }}
-            transition={{ duration: 0.15 }}
+            initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.97 }}
+            animate={prefersReduced ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+            exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.97 }}
+            transition={{ duration: prefersReduced ? 0 : 0.15 }}
             style={{
               position: 'absolute',
               top: 'calc(100% + 8px)',
               left: 0,
               zIndex: 100,
-              width: 250,
-              padding: 12,
+              width: 270,
+              padding: 14,
               borderRadius: 'var(--radius-md)',
               border: '1px solid var(--border-subtle)',
               background: 'var(--bg-elevated)',
@@ -123,7 +128,7 @@ export default function ExamDatePicker({
                 display: 'block',
                 marginBottom: 7,
                 color: 'var(--text-secondary)',
-                fontSize: '0.72rem',
+                fontSize: '0.75rem',
                 fontWeight: 700,
               }}
             >
@@ -137,7 +142,8 @@ export default function ExamDatePicker({
               disabled={isPending}
               style={{
                 width: '100%',
-                height: 40,
+                height: 44,
+                minHeight: 44,
                 padding: '0 10px',
                 borderRadius: 'var(--radius-sm)',
                 border: '1px solid var(--border-muted)',
@@ -145,35 +151,35 @@ export default function ExamDatePicker({
                 color: 'var(--text-primary)',
                 colorScheme: 'dark',
                 fontFamily: 'var(--font-sans)',
-                fontSize: '0.85rem',
+                fontSize: '0.875rem',
               }}
             />
 
             {error && (
-              <p style={{ margin: '7px 0 0', color: 'var(--danger)', fontSize: '0.72rem' }}>
+              <p style={{ margin: '7px 0 0', color: 'var(--danger)', fontSize: '0.75rem' }}>
                 {error}
               </p>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
               <button
                 type="button"
                 onClick={close}
                 disabled={isPending}
-                className="btn btn-ghost"
-                style={{ height: 32, padding: '0 10px', fontSize: '0.75rem' }}
+                className="btn btn-ghost touch-target-btn"
+                style={{ height: 44, minHeight: 44, padding: '0 14px', fontSize: '0.8125rem' }}
               >
-                <X size={13} />
+                <X size={14} />
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={save}
                 disabled={isPending || !date || date === savedDate}
-                className="btn btn-primary"
-                style={{ height: 32, padding: '0 10px', fontSize: '0.75rem' }}
+                className="btn btn-primary touch-target-btn"
+                style={{ height: 44, minHeight: 44, padding: '0 14px', fontSize: '0.8125rem' }}
               >
-                <Check size={13} />
+                <Check size={14} />
                 {isPending ? 'Saving…' : 'Save'}
               </button>
             </div>

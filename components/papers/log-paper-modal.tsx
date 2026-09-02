@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { X, Plus, Trash2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Plus, Trash2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Dialog } from '@/components/ui/dialog'
 import { createClient } from '@/lib/supabase/client'
 import { logPaper, updatePaper, LogPaperInput, QuestionInput } from '@/lib/actions/papers'
 import { dateInTimeZone } from '@/lib/date'
@@ -471,45 +472,35 @@ export function LogPaperModal({
     : null
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-4)' }}>
-      {/* Backdrop */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        style={{ position: 'absolute', inset: 0, background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(4px)' }}
-      />
-
-      {/* Modal dialog */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 16 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 16 }}
-        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-        style={{
-          position: 'relative', width: '100%', maxWidth: step === 2 ? 680 : 540,
-          maxHeight: '90vh', display: 'flex', flexDirection: 'column',
-          background: 'var(--bg-elevated)', borderRadius: 'var(--radius-xl)',
-          border: '1px solid var(--border-subtle)', boxShadow: '0 24px 48px rgba(0, 0, 0, 0.4)',
-          overflow: 'hidden', transition: 'max-width 200ms ease',
-        }}
-      >
+    <Dialog
+      isOpen={true}
+      onClose={onClose}
+      titleId="log-paper-dialog-title"
+      descriptionId="log-paper-dialog-desc"
+      maxWidth={step === 2 ? 680 : 540}
+      showCloseButton
+      closeButtonAriaLabel="Close log paper modal"
+      contentStyle={{
+        background: 'var(--bg-elevated)',
+        borderRadius: 'var(--radius-xl)',
+        border: '1px solid var(--border-subtle)',
+        boxShadow: '0 24px 48px rgba(0, 0, 0, 0.4)',
+        overflow: 'hidden',
+      }}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-4) var(--space-6)', borderBottom: '1px solid var(--border-subtle)' }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+            <h2 id="log-paper-dialog-title" style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600, color: 'var(--text-primary)' }}>
               {step === 3 ? 'Paper Logged!' : isEditing ? 'Edit Past Paper' : 'Log Past Paper'}
             </h2>
             {step < 3 && (
-              <p style={{ margin: '2px 0 0', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+              <p id="log-paper-dialog-desc" style={{ margin: '2px 0 0', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
                 Step {step} of 2 — {step === 1 ? 'Paper Details' : 'Question Breakdown'}
               </p>
             )}
           </div>
-          <button onClick={onClose} className="btn-icon" style={{ color: 'var(--text-muted)' }}>
-            <X size={18} />
-          </button>
         </div>
 
         {/* Unconfigured MVP Subject Banner */}
@@ -810,7 +801,7 @@ export function LogPaperModal({
             <p style={{ margin: 0, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{previewCode}</p>
           </motion.div>
         )}
-      </motion.div>
-    </div>
+      </div>
+    </Dialog>
   )
 }

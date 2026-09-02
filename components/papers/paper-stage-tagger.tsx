@@ -21,8 +21,8 @@ export default function PaperStageTagger({
   return (
     <div
       style={{
-        background: 'rgba(91, 127, 255, 0.06)',
-        border: '1px solid rgba(91, 127, 255, 0.2)',
+        background: 'var(--accent-soft)',
+        border: '1px solid var(--border-accent)',
         borderRadius: 'var(--radius-lg)',
         padding: '16px 20px',
         display: 'flex',
@@ -32,7 +32,7 @@ export default function PaperStageTagger({
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Tag size={16} color="var(--primary)" />
+          <Tag size={16} color="var(--accent-primary)" />
           <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
             Tag Past Paper Stage ({untaggedPapers.length} untagged {untaggedPapers.length === 1 ? 'paper' : 'papers'})
           </span>
@@ -47,8 +47,8 @@ export default function PaperStageTagger({
             alignItems: 'center',
             gap: 8,
             padding: '8px 12px',
-            background: 'rgba(239, 68, 68, 0.1)',
-            border: '1px solid var(--danger)',
+            background: 'rgba(199, 123, 123, 0.1)',
+            border: '1px solid rgba(199, 123, 123, 0.25)',
             borderRadius: 'var(--radius-sm)',
             color: 'var(--danger)',
             fontSize: '0.8rem',
@@ -104,7 +104,7 @@ export default function PaperStageTagger({
                       gap: 6,
                       padding: '4px 10px',
                       borderRadius: 'var(--radius-sm)',
-                      background: 'rgba(91, 127, 255, 0.12)',
+                      background: 'var(--accent-soft)',
                       color: 'var(--accent-primary)',
                       fontSize: '0.75rem',
                       fontWeight: 600,
@@ -120,7 +120,7 @@ export default function PaperStageTagger({
                       onClick={() => onTag(paper.id, 'as')}
                       disabled={isPending}
                       aria-label={`Tag ${paper.paper_code} as AS`}
-                      className="btn btn-ghost tagger-stage-btn"
+                      className="btn btn-ghost tagger-stage-btn touch-target-btn"
                       style={{
                         padding: '8px 14px',
                         minHeight: 44,
@@ -144,7 +144,7 @@ export default function PaperStageTagger({
                       onClick={() => onTag(paper.id, 'a2')}
                       disabled={isPending}
                       aria-label={`Tag ${paper.paper_code} as A2`}
-                      className="btn btn-ghost tagger-stage-btn"
+                      className="btn btn-ghost tagger-stage-btn touch-target-btn"
                       style={{
                         padding: '8px 14px',
                         minHeight: 44,

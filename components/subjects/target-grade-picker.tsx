@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useRef, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
 import { updateTargetGrade } from '@/lib/actions/subjects'
 
@@ -19,6 +19,7 @@ export default function TargetGradePicker({ subjectId, currentGrade, color }: Pr
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
   const ref = useRef<HTMLDivElement>(null)
+  const prefersReduced = useReducedMotion()
 
   // Close on outside click
   useEffect(() => {
@@ -43,18 +44,23 @@ export default function TargetGradePicker({ subjectId, currentGrade, color }: Pr
     <div ref={ref} style={{ position: 'relative' }}>
       {/* Trigger badge */}
       <button
-        className="target-grade-trigger"
+        type="button"
+        className="target-grade-trigger touch-target-btn"
         onClick={() => setOpen((v) => !v)}
         title="Change target grade"
+        aria-label={`Target grade: ${grade}. Click to change.`}
+        aria-expanded={open}
         style={{
           display: 'inline-flex',
           alignItems: 'center',
           gap: 4,
-          padding: '3px 10px',
+          padding: '0 12px',
+          minHeight: 44,
+          minWidth: 44,
           borderRadius: 99,
           background: `${color}18`,
           border: `1.5px solid ${color}40`,
-          fontSize: '0.75rem',
+          fontSize: '0.8125rem',
           fontWeight: 700,
           color,
           cursor: 'pointer',
@@ -72,7 +78,7 @@ export default function TargetGradePicker({ subjectId, currentGrade, color }: Pr
       >
         Target {grade}
         <ChevronDown
-          size={12}
+          size={13}
           style={{
             transform: open ? 'rotate(180deg)' : 'rotate(0)',
             transition: 'transform 200ms ease',
@@ -84,10 +90,10 @@ export default function TargetGradePicker({ subjectId, currentGrade, color }: Pr
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: -6, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.95 }}
-            transition={{ duration: 0.15 }}
+            initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.95 }}
+            animate={prefersReduced ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+            exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.95 }}
+            transition={{ duration: prefersReduced ? 0 : 0.15 }}
             style={{
               position: 'absolute',
               top: 'calc(100% + 8px)',
@@ -99,7 +105,7 @@ export default function TargetGradePicker({ subjectId, currentGrade, color }: Pr
               boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
               padding: 6,
               display: 'flex',
-              gap: 4,
+              gap: 6,
             }}
           >
             {GRADES.map((g) => {
@@ -107,21 +113,29 @@ export default function TargetGradePicker({ subjectId, currentGrade, color }: Pr
               return (
                 <motion.button
                   key={g}
-                  className="target-grade-option"
+                  type="button"
+                  className="target-grade-option touch-target-btn"
                   onClick={() => handleSelect(g)}
-                  whileTap={{ scale: 0.88 }}
+                  whileTap={prefersReduced ? undefined : { scale: 0.88 }}
+                  aria-label={`Select grade ${g}`}
+                  aria-pressed={selected}
                   style={{
-                    width: 36,
-                    height: 36,
+                    width: 44,
+                    height: 44,
+                    minWidth: 44,
+                    minHeight: 44,
                     borderRadius: 'var(--radius-sm)',
                     border: `1.5px solid ${selected ? color : 'var(--border-subtle)'}`,
                     background: selected ? color : 'transparent',
                     color: selected ? '#fff' : 'var(--text-secondary)',
-                    fontSize: '0.8125rem',
+                    fontSize: '0.875rem',
                     fontWeight: 700,
                     cursor: 'pointer',
                     transition: 'all 120ms ease',
                     fontFamily: 'var(--font-sans)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                   onMouseEnter={(e) => {
                     if (!selected) {

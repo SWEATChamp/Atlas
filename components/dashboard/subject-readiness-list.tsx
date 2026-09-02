@@ -14,7 +14,7 @@ export default function SubjectReadinessList({ subjects }: SubjectReadinessListP
   if (subjects.length === 0) return null
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {subjects.map((s, i) => {
         const isUnconfirmed = s.study_route === 'unconfirmed'
         const hasSeparateStages = s.study_route === 'full_level' || (s.study_route === 'staged' && s.current_stage === 'a2')
@@ -29,13 +29,13 @@ export default function SubjectReadinessList({ subjects }: SubjectReadinessListP
               display: 'flex',
               alignItems: 'center',
               gap: 4,
-              padding: '3px 8px',
-              borderRadius: 99,
+              padding: '2px 8px',
+              borderRadius: 'var(--radius-full)',
               background:
                 days <= 14
-                  ? 'rgba(248,113,113,0.12)'
+                  ? 'rgba(199,123,123,0.12)'
                   : days <= 60
-                  ? 'rgba(251,191,36,0.10)'
+                  ? 'rgba(196,160,93,0.10)'
                   : 'var(--bg-overlay)',
               color:
                 days <= 14
@@ -44,12 +44,12 @@ export default function SubjectReadinessList({ subjects }: SubjectReadinessListP
                   ? 'var(--warning)'
                   : 'var(--text-muted)',
               fontSize: '0.7rem',
-              fontWeight: 700,
+              fontWeight: 600,
               whiteSpace: 'nowrap',
             }}
           >
-            <Calendar size={10} />
-            {examCountdown}
+            <Calendar size={11} />
+            <span>{examCountdown}</span>
           </div>
         ) : null
 
@@ -59,10 +59,8 @@ export default function SubjectReadinessList({ subjects }: SubjectReadinessListP
             href={`/subjects/${s.subject_id}`}
             style={{ textDecoration: 'none', color: 'inherit' }}
           >
-            <motion.div
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.06 }}
+            <div
+              className="card card-interactive"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -73,11 +71,6 @@ export default function SubjectReadinessList({ subjects }: SubjectReadinessListP
                 background: 'var(--bg-card)',
                 border: '1px solid var(--border-subtle)',
                 cursor: 'pointer',
-                transition: 'border-color 150ms, background 150ms',
-              }}
-              whileHover={{
-                borderColor: s.color_hex + '60',
-                backgroundColor: s.color_hex + '06',
               }}
             >
               {/* Left: Dot & Name */}
@@ -99,6 +92,7 @@ export default function SubjectReadinessList({ subjects }: SubjectReadinessListP
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
+                      color: 'var(--text-primary)',
                     }}
                   >
                     {s.subject_name}
@@ -123,11 +117,18 @@ export default function SubjectReadinessList({ subjects }: SubjectReadinessListP
                       </span>
                     </div>
                   ) : (
-                    <div style={{ height: 4, width: 100, borderRadius: 2, background: 'var(--bg-overlay)', marginTop: 4, overflow: 'hidden' }}>
+                    <div
+                      role="progressbar"
+                      aria-valuenow={Math.round(s.as_readiness ?? 0)}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label={`${s.subject_name} AS readiness`}
+                      style={{ height: 4, width: 100, borderRadius: 2, background: 'var(--bg-overlay)', marginTop: 4, overflow: 'hidden' }}
+                    >
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${Math.min(s.as_readiness ?? 0, 100)}%` }}
-                        transition={{ duration: 0.8, ease: 'easeOut', delay: 0.1 + i * 0.06 }}
+                        transition={{ duration: 0.6, ease: 'easeOut', delay: 0.05 + i * 0.04 }}
                         style={{
                           height: '100%',
                           borderRadius: 2,
@@ -163,7 +164,7 @@ export default function SubjectReadinessList({ subjects }: SubjectReadinessListP
                 {examChip}
                 <ChevronRight size={14} color="var(--text-muted)" />
               </div>
-            </motion.div>
+            </div>
           </Link>
         )
       })}

@@ -1,5 +1,7 @@
 # Development Roadmap
 
+> **Master Plan Reference:** This roadmap tracks implementation and release progress against the authoritative master product plan in [`goal.md`](../goal.md). Refer to `goal.md` for long-term product direction, milestone objectives, calculation rules, and verification standards.
+
 ## Current Status
 
 | Phase | Status |
@@ -20,8 +22,9 @@
 | Phase 2.10 Application Performance Round 2 & State Reconciliation | Application-only changes deployed to production with active Speed Insights |
 | Phase 2.11 Production Performance & Mobile Responsiveness | Merged and deployed to production (v1.0.0 baseline, commit `39427dd`) |
 | Phase 2.12 / v1.1.0 Dashboard Mobile Compatibility & Update Notifications | Deployed and production-verified on 2026-08-28 (merge commit `7071fa0`); annotated tag `v1.1.0` published at `5a8d69e` |
-| v1.1.1 Operational Patch: Singapore Infrastructure Migration | Deployed and production-verified on 2026-09-01 (merge commit `7b2203f`); annotated tag pending |
-| Release-candidate checks | 201 database tests and 113 unit tests pass; type check, lint, production build, and whitespace checks pass |
+| v1.1.1 Operational Patch: Singapore Infrastructure Migration | Deployed and production-verified on 2026-09-01 (merge commit `7b2203f`, closeout `8448e18`); annotated tag `v1.1.1` published |
+| Phase 2.13 / v1.2.0 Accessible UI Foundation & Subject Controls Guide | Locally prepared on branch `codex/v1.2.0-ui-foundation` and Preview-verified (unreleased / undeployed) |
+| Release-candidate checks | 201 database tests and 134 unit tests pass; type check, lint, production build, and whitespace checks pass |
 | Google Docs integration | Not started |
 
 ## Phase 0: Foundation (Complete)
@@ -89,7 +92,7 @@
 - [x] Remove the redundant dashboard chapter-data query.
 - [x] Add route loading skeletons and defer heavy Past Papers UI.
 - [x] Remove third-party font requests.
-- [x] Pass 72 unit tests, type checking, lint, production build, and whitespace checks.
+- [x] Pass unit tests, type checking, lint, production build, and whitespace checks.
 
 ## Phase 2.10: Application Performance Round 2 & State Reconciliation
 - **Status**: Completed and deployed to production on 2026-08-27.
@@ -128,6 +131,23 @@
 - [x] Review, commit, push, merge, and deploy the application release.
 - [x] Verify production authentication, responsive mission layout, mission actions, version display, and latest-only update dialog.
 - [x] Create annotated release tag `v1.1.0` pointing to release-closeout commit `5a8d69e`.
+
+## Phase 2.13 / v1.2.0: Accessible UI Foundation & Subject Controls Guide
+- **Status**: Locally prepared on branch `codex/v1.2.0-ui-foundation` and Preview-verified across two stages (UI foundation baseline on deployment `ApihahfPteHbQwYg5je6dVa8AymT` from commit `c4e6a96`, and final release candidate on deployment `7qSYmzFZLnK8nKioamjB7kDgEhtF` from commit `3db79b0` at `https://atlas-git-codex-v120-ui-foundation-atlas-726e.vercel.app`); unreleased and undeployed to production.
+- [x] Extracted accessible, dependency-free `Dialog` component primitive (`components/ui/dialog.tsx`) with `titleId`/`descriptionId`, focus trapping, Escape dismissal, universal focus restoration on every close path/unmount, body scroll locking, and 44×44px touch targets.
+- [x] Refactored `WhatsNewModal`, `LogPaperModal`, `SubjectManager`, `A2TransitionModal`, and `RouteSetupSheet` to use the accessible `Dialog` primitive.
+- [x] Rationalized global design tokens in `app/globals.css`: added `--border-accent`, `.btn-icon` min 44×44px touch targets, unified skeleton styling, and comprehensive reduced-motion media query rules.
+- [x] Implemented two-step Subject controls guide dialog (`components/subjects/subject-controls-guide.tsx`, `components/subjects/subject-guide-launcher.tsx`) with lazy-loading, versioned persistence (`atlas_subject_controls_guide_v1`), in-memory session fallback, coordination with What's New modal to prevent competing auto-opens, exact canonical copy with 5-star visual examples, and a permanently visible "Guide" button beside Chapters.
+- [x] Defined canonical shared mappings in `lib/subject-controls.ts` ensuring chapter controls and guide descriptions remain synchronized (`STATUS_CYCLE`, `STATUS_CONFIG`, `CONFIDENCE_LEVELS`).
+- [x] Semantic one-way complete action `<button type="button" aria-label="Complete mission: ...">` with separate `Undo` button, keyboard-operable `PaperCard` with native link semantics, and native radio semantics on study route configuration.
+- [x] Deduplicated `getPaperDetail` and `getSubjectDetail` metadata reads via `React.cache()`.
+- [x] 19 unit tests across `tests/subject-controls-guide.test.ts` and `tests/accessibility-semantics.test.ts` (134 unit tests total passing).
+- [x] Verified Stage 1 Vercel Preview deployment (`ApihahfPteHbQwYg5je6dVa8AymT`) from commit `c4e6a9647df1a9dd69ba13b4a3db27963c3dabae` for UI foundation baseline.
+- [x] Stage 1 Preview smoke testing across Sign In followed by the authenticated Dashboard, Subjects, Subject details, Past Papers, and paper details.
+- [x] Verified Subject controls guide lifecycle: first-visit auto-open, Step 1/2 Next/Back navigation, Escape dismissal, focus trapping, focus restoration on close, manual reopen via "Guide" button, and dismissal persistence.
+- [x] Verified zero horizontal overflow and compliant touch targets (≥44×44px) across 320px, 375px, 390px, 768px, and 1280px viewports with zero browser console errors.
+- [x] Verified Stage 2 Vercel Preview deployment (`7qSYmzFZLnK8nKioamjB7kDgEhtF`) from commit `3db79b0dfb942da000c28d4ea2fe8eab48704053` for v1.2.0 release candidate.
+- [x] Authenticated Stage 2 Preview smoke testing: verified v1.2.0 returning-user notification title, four highlights, upgrade detection from v1.1.1, dismissal persistence, `Atlas v1.2.0` footer, and zero study-record modifications.
 
 ## Phase 3: Past Papers & Analytics
 - Past paper logging UI

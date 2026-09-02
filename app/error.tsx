@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect } from 'react'
-import { motion } from 'framer-motion'
 import { AlertTriangle, RotateCcw, Home } from 'lucide-react'
 
 /**
@@ -33,16 +32,13 @@ export default function Error({
         overflow: 'hidden',
       }}
     >
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+      <div
         className="glass-strong"
         style={{
           width: '100%',
           maxWidth: 460,
-          borderRadius: 'var(--radius-xl)',
-          padding: '48px 40px',
+          borderRadius: 'var(--radius-lg)',
+          padding: '40px 28px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -50,36 +46,34 @@ export default function Error({
           textAlign: 'center',
           position: 'relative',
           zIndex: 10,
-          border: '1px solid rgba(248,113,113,0.2)',
+          border: '1px solid var(--border-subtle)',
+          background: 'var(--bg-card)',
         }}
       >
         {/* Icon */}
-        <motion.div
-          initial={{ scale: 0.7, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
+        <div
           style={{
-            width: 64,
-            height: 64,
-            borderRadius: 'var(--radius-lg)',
-            background: 'rgba(248,113,113,0.15)',
-            border: '1px solid rgba(248,113,113,0.25)',
+            width: 56,
+            height: 56,
+            borderRadius: 'var(--radius-md)',
+            background: 'rgba(199, 123, 123, 0.15)',
+            border: '1px solid rgba(199, 123, 123, 0.25)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            marginBottom: 24,
+            marginBottom: 20,
           }}
         >
-          <AlertTriangle size={28} color="var(--danger)" />
-        </motion.div>
+          <AlertTriangle size={26} color="var(--danger)" />
+        </div>
 
         <h1
           style={{
-            fontSize: '1.5rem',
+            fontSize: '1.375rem',
             fontWeight: 700,
             letterSpacing: '-0.02em',
             color: 'var(--text-primary)',
-            marginBottom: 10,
+            marginBottom: 8,
           }}
         >
           Something went wrong
@@ -88,13 +82,13 @@ export default function Error({
         <p
           style={{
             color: 'var(--text-secondary)',
-            fontSize: '0.9rem',
-            lineHeight: 1.7,
-            marginBottom: 8,
+            fontSize: '0.875rem',
+            lineHeight: 1.6,
+            marginBottom: 16,
             maxWidth: 340,
           }}
         >
-          An unexpected error occurred. This has been logged automatically.
+          An unexpected error occurred. Please try again or return to the dashboard.
         </p>
 
         {/* Error message (dev only) */}
@@ -102,14 +96,14 @@ export default function Error({
           <code
             style={{
               display: 'block',
-              background: 'rgba(248,113,113,0.08)',
-              border: '1px solid rgba(248,113,113,0.15)',
+              background: 'rgba(199, 123, 123, 0.08)',
+              border: '1px solid rgba(199, 123, 123, 0.2)',
               borderRadius: 'var(--radius-sm)',
-              padding: '8px 14px',
+              padding: '8px 12px',
               fontSize: '0.75rem',
               color: 'var(--danger)',
               fontFamily: 'var(--font-mono)',
-              marginBottom: 8,
+              marginBottom: 12,
               wordBreak: 'break-word',
               maxWidth: '100%',
               textAlign: 'left',
@@ -120,35 +114,32 @@ export default function Error({
         )}
 
         {error.digest && (
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-disabled)', marginBottom: 32 }}>
+          <p style={{ fontSize: '0.7rem', color: 'var(--text-disabled)', marginBottom: 24 }}>
             Error ID: <span style={{ fontFamily: 'var(--font-mono)' }}>{error.digest}</span>
           </p>
         )}
 
-        <div style={{ width: '100%', display: 'flex', gap: 10, marginTop: 16 }}>
-          <motion.button
+        <div style={{ width: '100%', display: 'flex', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
+          <button
+            type="button"
             onClick={unstable_retry}
-            whileHover={{ scale: 1.02, y: -1 }}
-            whileTap={{ scale: 0.97 }}
             className="btn btn-primary"
-            style={{ flex: 1, height: 48 }}
+            style={{ flex: '1 1 140px', minHeight: 44 }}
           >
             <RotateCcw size={16} />
             Try again
-          </motion.button>
+          </button>
 
-          <motion.a
+          <a
             href="/dashboard"
-            whileHover={{ scale: 1.02, y: -1 }}
-            whileTap={{ scale: 0.97 }}
             className="btn btn-ghost"
-            style={{ flex: 1, height: 48, textDecoration: 'none' }}
+            style={{ flex: '1 1 140px', minHeight: 44, textDecoration: 'none' }}
           >
             <Home size={16} />
             Dashboard
-          </motion.a>
+          </a>
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }

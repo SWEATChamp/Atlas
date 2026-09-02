@@ -110,16 +110,18 @@ function GradePicker({
           <motion.button
             key={g}
             type="button"
+            className="touch-target-btn"
             onClick={() => onChange(g)}
             whileTap={{ scale: 0.9 }}
             style={{
               flex: 1,
-              height: 38,
+              height: 44,
+              minHeight: 44,
               borderRadius: 'var(--radius-md)',
               border: `1.5px solid ${selected ? color : 'var(--border-subtle)'}`,
               background: selected ? color : 'var(--bg-base)',
               color: selected ? '#fff' : 'var(--text-muted)',
-              fontSize: '0.8125rem',
+              fontSize: '0.875rem',
               fontWeight: 700,
               fontFamily: 'var(--font-sans)',
               cursor: 'pointer',

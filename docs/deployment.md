@@ -10,6 +10,9 @@ Atlas uses Vercel for the Next.js application and Supabase for authentication an
 - Initial production smoke checks passed for authentication retry, preserved enrolments, route-aware chapters, paper component filtering, and mission completion/undo XP accounting.
 - A fresh logical backup was completed before Migrations 025–026. Both migrations were applied in order on 2026-08-27, remote history was confirmed through 026, and all eight hosted boundary checks returned `true`.
 - The matching Migrations 025–026 application hotfix is deployed. Production smoke testing confirmed valid readiness countdowns, all five active MVP subjects, and the removal confirmation/cancel path.
+- Phase 2.11 (Production Performance & Mobile Responsiveness) is merged and deployed as baseline `v1.0.0` (commit `39427dd`).
+- Phase 2.12 / v1.1.0 (Dashboard Mobile Compatibility & Update Notifications) was deployed to Vercel production at merge commit `7071fa0` and production-verified. The release closeout and tagged production commit is `5a8d69e6ee96cdcfb3c4e71e5c499222421164f8`. The `v1.1.0` Git tag is present, while the GitHub Release object is currently absent.
+- Phase 2.13 / v1.2.0 (Accessible UI Foundation & Subject Controls Guide) is in development and locally prepared on branch `codex/v1.2.0-ui-foundation`. It is an application-only release requiring zero database migrations. It remains unreleased and is not deployed until explicitly approved, merged to `main`, deployed to Vercel, and smoke-tested.
 - Do not rerun Migrations 024–026. Any further production correction must use a reviewed forward-only migration.
 
 ## Migration 024 Release Order
@@ -161,7 +164,7 @@ The performance and dashboard-polish release after Migration 026 does not change
 
 ## v1.1.1 Operational Patch: Singapore Infrastructure Migration
 
-> **Release status (2026-09-01):** Merged at `7b2203f`, deployed to Vercel production, and production-verified. This was an operational patch release moving database, authentication, and backend services to Singapore (`ap-southeast-1`). No new migration file, schema change, or migration-history repair was introduced by the v1.1.1 application release; the operational Sydney-to-Singapore cutover itself used a verified export and restore where all 27 canonical migration records (000–026) were restored and audited. The annotated `v1.1.1` Git tag remains pending explicit approval.
+> **Release status (2026-09-01):** Merged at `7b2203f`, deployed to Vercel production, and production-verified. Release closeout merged at `8448e18c531dfc77c211f31d67c6fa5c1be8a333`, with annotated tag object `3e734da62b94247a098318f505204c4f0a8d6ea6` and [GitHub Release](https://github.com/SWEATChamp/Atlas/releases/tag/v1.1.1). This was an operational patch release moving database, authentication, and backend services to Singapore (`ap-southeast-1`). No new migration file, schema change, or migration-history repair was introduced by the v1.1.1 application release; the operational Sydney-to-Singapore cutover itself used a verified export and restore where all 27 canonical migration records (000–026) were restored and audited.
 
 1. Delivered v1.1.1 scope:
    - Migrated production database, Auth, and Storage infrastructure to Singapore project `uvprmojmscndtwgkvjbi` (`ap-southeast-1`).
@@ -189,12 +192,39 @@ The performance and dashboard-polish release after Migration 026 does not change
      - All five subjects loaded.
      - Past-paper attempts and analytics loaded.
      - No application records were modified during smoke testing.
-3. **Release Tagging (Remaining)**:
-   After explicit user approval, create and push the annotated Git tag from the finalized release-closeout commit:
-   ```bash
-   git tag -a v1.1.1 -m "v1.1.1: Singapore infrastructure migration"
-   git push origin v1.1.1
-   ```
+3. **Release Tagging (Completed)**:
+   Annotated release tag `v1.1.1` (tag object `3e734da62b94247a098318f505204c4f0a8d6ea6`) was published pointing to release-closeout commit `8448e18c531dfc77c211f31d67c6fa5c1be8a333` with annotation `v1.1.1: Singapore infrastructure migration` and published [GitHub Release](https://github.com/SWEATChamp/Atlas/releases/tag/v1.1.1).
+
+## Phase 2.13 / v1.2.0: Accessible UI Foundation & Subject Controls Guide
+
+> **Release status (Locally Prepared & Preview-Verified):** Locally prepared on branch `codex/v1.2.0-ui-foundation` and Preview-verified on Vercel. This is an application-only release requiring zero database migrations. It remains unreleased and undeployed to production until explicitly approved, merged to `main`, deployed to Vercel production, and production-verified.
+
+1. Prepared v1.2.0 scope:
+   - Extracted accessible, dependency-free `Dialog` component primitive (`components/ui/dialog.tsx`) with `titleId`/`descriptionId`, focus trapping, Escape dismissal, universal focus restoration on every close path/unmount, body scroll locking, and 44×44px touch targets.
+   - Refactored `WhatsNewModal`, `LogPaperModal`, `SubjectManager`, `A2TransitionModal`, and `RouteSetupSheet` onto `<Dialog>`.
+   - Two-step Subject controls guide dialog (`components/subjects/subject-controls-guide.tsx`, `components/subjects/subject-guide-launcher.tsx`) with versioned persistence (`atlas_subject_controls_guide_v1`), safe storage accessor (`lib/storage.ts`), coordination to prevent competing What's New auto-opening, 5-star visual example representation, and permanently visible "Guide" button beside Chapters.
+   - Canonical shared mappings (`lib/subject-controls.ts`, `STATUS_CYCLE`, `STATUS_CONFIG`, `CONFIDENCE_LEVELS`).
+   - Semantic one-way complete action `<button type="button" aria-label="Complete mission: ...">` with separate `Undo` button, keyboard-operable `PaperCard` with native link semantics, and native radio semantics on study route configuration.
+   - Request caching via `React.cache()` for `getPaperDetail` and `getSubjectDetail` to deduplicate metadata reads.
+2. Verification record:
+   - All 134 unit and accessibility tests across 17 test files, TypeScript type checking, ESLint, Next.js Turbopack production build, and whitespace checks passed.
+   - Release-notification lifecycle tests verified upgrade detection from 1.1.1 to 1.2.0, single-dismissal recording, and storage safety.
+   - Zero changes to files under `supabase/migrations/` or `supabase/tests/`.
+   - Two-stage Vercel Preview verification record:
+     - **Stage 1 (UI Foundation Baseline Verification)**:
+       - Source branch: `codex/v1.2.0-ui-foundation`
+       - Source commit: `c4e6a9647df1a9dd69ba13b4a3db27963c3dabae`
+       - Vercel status: Ready / Success
+       - Deployment dashboard identifier: `ApihahfPteHbQwYg5je6dVa8AymT`
+       - Stable Preview URL: `https://atlas-git-codex-v120-ui-foundation-atlas-726e.vercel.app`
+       - Smoke test results: Sign In followed by the authenticated Dashboard, Subjects, Subject details, Past Papers, and paper details rendered with consistent styling; Subject controls guide passed first-visit auto-open, Step 1 → Step 2 Next/Back navigation, Escape key dismissal, focus trapping, focus restoration on close, manual reopen via "Guide" button beside Chapters, and dismissal persistence across refreshes; zero horizontal overflow and compliant touch targets (≥44×44px) across 320px, 375px, 390px, 768px, and 1280px viewports; zero browser console errors.
+     - **Stage 2 (Final v1.2.0 Release-Candidate Verification)**:
+       - Source branch: `codex/v1.2.0-ui-foundation`
+       - Source commit: `3db79b0dfb942da000c28d4ea2fe8eab48704053`
+       - Vercel status: Ready / Success
+       - Deployment dashboard identifier: `7qSYmzFZLnK8nKioamjB7kDgEhtF`
+       - Stable Preview URL: `https://atlas-git-codex-v120-ui-foundation-atlas-726e.vercel.app`
+       - Smoke test results: Returning-user notification dialog displayed version `1.2.0`, title `Accessible UI Foundation & Subject Controls Guide`, and all four approved highlights; users previously dismissed at `1.1.1` were correctly prompted with the `1.2.0` update dialog; modal dismissal persisted after page reload; authenticated app footer displayed `Atlas v1.2.0`; Dashboard, Subjects, Subject details, Past Papers, and paper data loaded cleanly; zero browser console errors or unhandled warnings; zero application study records modified (only Preview-local dismissal state updated).
 
 ## General Production Configuration
 

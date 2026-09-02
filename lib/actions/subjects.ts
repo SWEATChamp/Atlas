@@ -1,5 +1,6 @@
 'use server'
 
+import { cache } from 'react'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
@@ -225,9 +226,9 @@ export async function getAvailableMvpSubjects(): Promise<Subject[]> {
  * Get full detail for one subject including chapters grouped by component,
  * stage readiness scores, paper selections, and stage results.
  */
-export async function getSubjectDetail(
+export const getSubjectDetail = cache(async (
   subjectId: string
-): Promise<SubjectDetailData | null> {
+): Promise<SubjectDetailData | null> => {
   const [{ supabase, user }, profile] = await Promise.all([
     getAuthenticatedContext(),
     getCurrentProfile(),
@@ -425,7 +426,7 @@ export async function getSubjectDetail(
     readiness: legacyScore,
     daysUntilExam: daysUntilDate(enrollment.exam_date, timeZone),
   }
-}
+})
 
 /**
  * Update the target grade for an enrolled subject.

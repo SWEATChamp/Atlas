@@ -217,26 +217,47 @@ export default function RouteStep({ subjectIds }: { subjectIds: string[] }) {
                 {ROUTE_OPTIONS.map((opt) => {
                   const isSelected = entry.route === opt.id
                   const Icon = opt.icon
+                  const inputId = `onboarding-route-${us.subject_id}-${opt.id}`
                   return (
-                    <div
+                    <label
                       key={opt.id}
-                      onClick={() => handleRouteChange(us.subject_id, opt.id, subject.code)}
+                      htmlFor={inputId}
                       style={{
-                        padding: '10px 12px',
+                        padding: '12px 14px',
                         borderRadius: 'var(--radius-md)',
                         border: `1.5px solid ${isSelected ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
                         background: isSelected ? 'var(--accent-soft)' : 'var(--bg-base)',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 10,
+                        gap: 12,
                         transition: 'all 150ms ease',
+                        minHeight: 44,
                       }}
                     >
+                      <input
+                        type="radio"
+                        id={inputId}
+                        name={`route-${us.subject_id}`}
+                        value={opt.id}
+                        checked={isSelected}
+                        onChange={() => handleRouteChange(us.subject_id, opt.id, subject.code)}
+                        style={{
+                          accentColor: 'var(--accent-primary)',
+                          width: 18,
+                          height: 18,
+                          minWidth: 18,
+                          minHeight: 18,
+                          flexShrink: 0,
+                          cursor: 'pointer',
+                        }}
+                      />
                       <div
                         style={{
-                          width: 28,
-                          height: 28,
+                          width: 32,
+                          height: 32,
+                          minWidth: 32,
+                          minHeight: 32,
                           borderRadius: 'var(--radius-sm)',
                           background: isSelected ? 'var(--accent-soft)' : 'var(--bg-overlay)',
                           display: 'flex',
@@ -246,19 +267,22 @@ export default function RouteStep({ subjectIds }: { subjectIds: string[] }) {
                           flexShrink: 0,
                         }}
                       >
-                        <Icon size={15} />
+                        <Icon size={16} />
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
+                          <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                             {opt.title}
                           </span>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>
                             {opt.subtitle}
                           </span>
                         </div>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '2px 0 0', lineHeight: 1.4 }}>
+                          {opt.description}
+                        </p>
                       </div>
-                    </div>
+                    </label>
                   )
                 })}
               </div>

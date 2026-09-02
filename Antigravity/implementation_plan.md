@@ -4,7 +4,7 @@
 > **Historical Document (Archived)**: This document reflects early design notes prior to Migrations 020–024. For current schema, business logic, and API contracts, consult `docs/` and `supabase/migrations/`.
 
 > [!IMPORTANT]
-> This plan has been implemented and is not the current release checklist. Migrations 024–026 and their matching application changes are deployed. Phase 2.10 and Phase 2.11 established the v1.0.0 production baseline. Phase 2.12 / v1.1.0 (Dashboard Mobile Compatibility & Update Notifications) was merged at `7071fa0`, deployed, and production-verified on 2026-08-28; only the annotated Git tag remains pending explicit approval. Use `docs/roadmap.md` and `docs/deployment.md` for the current release sequence.
+> This plan has been implemented and is not the current release checklist. Migrations 024–026 and their matching application changes are deployed. Phase 2.10 and Phase 2.11 established the v1.0.0 production baseline. Phase 2.12 / v1.1.0 (Dashboard Mobile Compatibility & Update Notifications) was deployed to Vercel production at merge commit `7071fa0` and production-verified; the release-closeout and current tagged production commit is `5a8d69e6ee96cdcfb3c4e71e5c499222421164f8` (the `v1.1.0` Git tag is present, while the GitHub Release object is currently absent). Phase 2.13 / v1.2.0 (Accessible UI Foundation & Subject Controls Guide) is in development on branch `codex/v1.2.0-ui-foundation` (unreleased / not deployed). Use `docs/roadmap.md` and `docs/deployment.md` for the current release sequence.
 
 ## Overview
 

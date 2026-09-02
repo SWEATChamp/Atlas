@@ -17,24 +17,25 @@ export default function XpLevelBar({ totalXp, level, levelTitle }: XpLevelBarPro
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {/* Level badge + title */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{
-          width: 40,
-          height: 40,
-          borderRadius: 'var(--radius-md)',
-          background: 'var(--accent-strong)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontFamily: 'var(--font-display)',
-          fontWeight: 800,
-          fontSize: '1.125rem',
-          color: '#fff',
-          flexShrink: 0,
-        }}>
+        <div
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--accent-strong)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: 800,
+            fontSize: '1.125rem',
+            color: '#fff',
+            flexShrink: 0,
+          }}
+        >
           {level}
         </div>
         <div>
-          <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', lineHeight: 1.2 }}>
+          <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text-primary)', lineHeight: 1.2 }}>
             {levelTitle}
           </div>
           <div style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
@@ -42,29 +43,36 @@ export default function XpLevelBar({ totalXp, level, levelTitle }: XpLevelBarPro
           </div>
         </div>
         <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9rem', fontWeight: 700, color: 'var(--accent-primary)' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9375rem', fontWeight: 700, color: 'var(--accent-primary)' }}>
             {totalXp.toLocaleString()}
           </div>
           <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Total XP</div>
         </div>
       </div>
 
-      {/* Progress bar */}
+      {/* Accessible progress bar */}
       <div>
-        <div style={{
-          height: 8,
-          borderRadius: 4,
-          background: 'var(--bg-overlay)',
-          overflow: 'hidden',
-          position: 'relative',
-        }}>
+        <div
+          role="progressbar"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuetext={isMaxLevel ? 'Max level reached' : `${pct}% progress to Level ${level + 1}`}
+          style={{
+            height: 6,
+            borderRadius: 'var(--radius-full)',
+            background: 'var(--bg-overlay)',
+            overflow: 'hidden',
+            position: 'relative',
+          }}
+        >
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${pct}%` }}
-            transition={{ duration: 1, ease: 'easeOut', delay: 0.2 }}
+            transition={{ duration: 0.8, ease: 'easeOut', delay: 0.1 }}
             style={{
               height: '100%',
-              borderRadius: 4,
+              borderRadius: 'var(--radius-full)',
               background: 'var(--accent-primary)',
             }}
           />

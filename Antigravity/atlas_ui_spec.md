@@ -2,10 +2,10 @@
 ### High-Fidelity Page Design · v1.0 · July 2026
 
 > [!NOTE]
-> **Historical Document (Archived)**: This document reflects early design notes prior to Migrations 020–024. For current schema, business logic, and API contracts, consult `docs/` and `supabase/migrations/`.
+> **Historical Document (Archived)**: This document reflects early design notes prior to Migrations 020–026. For current schema, business logic, and API contracts, consult `docs/` and `supabase/migrations/`.
 
 > [!IMPORTANT]
-> **Current UI direction (August 2026)**: The visual rules below are archival and must not drive new work. The implemented interface uses neutral dark surfaces, one muted-blue action accent, solid fills, Lucide icons, restrained motion, and cards only for independently actionable or meaningfully grouped content. Subject colours may identify subjects or chart series, but must not become multicoloured navigation. Do not add decorative gradients, glow effects, emoji UI icons, nested cards, or unlabeled status dots. The current source of truth is `app/globals.css` and the Interface Direction section of `docs/architecture.md`.
+> **Current UI direction (v1.2.0 UI Foundation)**: The visual rules below are archival and must not drive new work. The implemented interface uses calm, restrained neutral dark surfaces (`--bg-base: #101216`, `--bg-elevated: #15181d`, `--bg-card: #1d2229`), one muted slate-blue action accent (`--accent-primary: #7f9fbe`), solid fills, Lucide vector icons (no emojis), an accessible dependency-free `Dialog` component with universal focus restoration, a two-step Subject controls guide (`atlas_subject_controls_guide_v1`) with 5-star visual examples, and cards only for independently actionable or meaningfully grouped content. Subject colours identify subjects or chart series, but never become multicoloured navigation. Do not add decorative gradients, glow effects, emoji UI icons, nested cards, or unlabeled status dots. Current releases: v1.1.0 is deployed and production-verified (feature merge `7071fa0`, release-closeout/current tagged commit `5a8d69e6ee96cdcfb3c4e71e5c499222421164f8`; tag recorded, GitHub Release object absent). v1.2.0 is in development on branch `codex/v1.2.0-ui-foundation` (unreleased / not deployed). The current source of truth is `app/globals.css`, `docs/ui-guidelines.md`, and `docs/architecture.md`.
 
 > **Design Language**: Linear × Apple Fitness × Duolingo × Arc Browser  
 > Dark Mode First · Mission Control Aesthetic · Premium SaaS

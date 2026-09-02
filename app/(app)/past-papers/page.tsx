@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { getAuthenticatedContext, getCurrentProfile } from '@/lib/supabase/authenticated'
 import { getAllPapersWithSubjects, getPapersForSubject, getChapterAccuracy, getUntaggedPapers } from '@/lib/actions/papers'
 import { LogPaperButton } from '@/components/papers/log-paper-button'
@@ -9,6 +10,10 @@ import {
   PaperAttemptsListSlot,
 } from '@/components/papers/paper-stage-provider'
 import type { PaperWithSubject } from '@/types'
+
+export const metadata: Metadata = {
+  title: 'Past Papers',
+}
 
 export default async function PastPapersPage(props: {
   searchParams?: Promise<{ subject?: string }>

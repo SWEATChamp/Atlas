@@ -1,7 +1,7 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { Zap, PartyPopper, RefreshCw, Calendar, BookOpen, Clock } from 'lucide-react'
+import { Zap, CheckCircle2, RefreshCw, Calendar, BookOpen, Clock } from 'lucide-react'
 import MissionCard from './mission-card'
 import type { DailyMission, CompleteMissionResult } from '@/lib/actions/dashboard'
 import type { UndoMissionResult, ReplaceMissionResult } from '@/types/database'
@@ -86,8 +86,8 @@ export default function MissionList({
               gap: 10,
               padding: '10px 14px',
               borderRadius: 'var(--radius-md)',
-              background: 'rgba(251,191,36,0.08)',
-              border: '1px solid rgba(251,191,36,0.2)',
+              background: 'rgba(196,160,93,0.08)',
+              border: '1px solid rgba(196,160,93,0.2)',
             }}
           >
             <Calendar size={15} color="var(--warning)" style={{ flexShrink: 0, marginTop: 1 }} />
@@ -147,14 +147,13 @@ export default function MissionList({
   }
 
   return (
-    <div style={{ position: 'relative' }}>
-      {/* Header */}
+    <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Section Header */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: 16,
           gap: 12,
           flexWrap: 'wrap',
         }}
@@ -167,6 +166,7 @@ export default function MissionList({
                 fontWeight: 700,
                 color: 'var(--text-primary)',
                 margin: 0,
+                letterSpacing: '-0.015em',
               }}
             >
               Daily Missions
@@ -178,19 +178,19 @@ export default function MissionList({
                     fontSize: '0.75rem',
                     fontWeight: 600,
                     padding: '2px 8px',
-                    borderRadius: 99,
-                    background: allDone ? 'rgba(52,211,153,0.15)' : 'var(--bg-elevated)',
-                    color: allDone ? 'var(--success)' : 'var(--text-muted)',
-                    border: `1px solid ${allDone ? 'rgba(52,211,153,0.3)' : 'var(--border-subtle)'}`,
+                    borderRadius: 'var(--radius-full)',
+                    background: allDone ? 'rgba(121,169,139,0.15)' : 'var(--bg-elevated)',
+                    color: allDone ? 'var(--success)' : 'var(--text-secondary)',
+                    border: `1px solid ${allDone ? 'rgba(121,169,139,0.3)' : 'var(--border-subtle)'}`,
                   }}
                 >
-                  {completedCount}/{activeMissions.length} done
+                  {completedCount}/{activeMissions.length} completed
                 </span>
                 {totalEstimatedMinutes > 0 && (
                   <span
                     style={{
                       fontSize: '0.75rem',
-                      color: 'var(--text-secondary)',
+                      color: 'var(--text-muted)',
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: 4,
@@ -203,40 +203,33 @@ export default function MissionList({
               </>
             )}
           </div>
-          <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+          <p style={{ margin: '2px 0 0', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
             Complete missions to earn XP and level up
           </p>
         </div>
 
         {/* Generate / Refresh button */}
         <button
-          className="mission-header-btn"
+          type="button"
+          className="mission-header-btn touch-target-btn"
           onClick={onGenerate}
           disabled={generating}
+          aria-label={generating ? 'Generating missions' : activeMissions.length === 0 ? 'Generate Missions' : 'Refresh daily missions'}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: 6,
-            padding: '6px 12px',
+            padding: '0 14px',
             borderRadius: 'var(--radius-sm)',
             background: 'var(--bg-card)',
             border: '1px solid var(--border-subtle)',
             color: 'var(--text-secondary)',
-            fontSize: '0.75rem',
+            fontSize: '0.8125rem',
             fontWeight: 600,
             cursor: generating ? 'not-allowed' : 'pointer',
             transition: 'all 150ms ease',
             opacity: generating ? 0.6 : 1,
-          }}
-          onMouseEnter={(e) => {
-            if (!generating) {
-              e.currentTarget.style.borderColor = 'var(--text-secondary)'
-              e.currentTarget.style.color = 'var(--text-primary)'
-            }
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = 'var(--border-subtle)'
-            e.currentTarget.style.color = 'var(--text-secondary)'
+            minHeight: 44,
           }}
         >
           <RefreshCw
@@ -245,7 +238,7 @@ export default function MissionList({
               animation: generating ? 'spin 1s linear infinite' : 'none',
             }}
           />
-          {generating ? 'Generating…' : activeMissions.length === 0 ? 'Generate Missions' : 'Refresh'}
+          <span>{generating ? 'Generating…' : activeMissions.length === 0 ? 'Generate Missions' : 'Refresh'}</span>
         </button>
       </div>
 
@@ -257,25 +250,25 @@ export default function MissionList({
         {allDone && (
           <motion.div
             initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-            animate={{ opacity: 1, height: 'auto', marginBottom: 16 }}
+            animate={{ opacity: 1, height: 'auto', marginBottom: 4 }}
             exit={{ opacity: 0, height: 0, marginBottom: 0 }}
             style={{
-              background: 'var(--accent-soft)',
-              border: '1px solid var(--border-accent)',
+              background: 'rgba(121,169,139,0.08)',
+              border: '1px solid rgba(121,169,139,0.25)',
               borderRadius: 'var(--radius-md)',
-              padding: '12px 16px',
+              padding: '14px 16px',
               display: 'flex',
               alignItems: 'center',
-              gap: 10,
+              gap: 12,
             }}
           >
-            <PartyPopper size={20} color="var(--accent-primary)" style={{ flexShrink: 0 }} />
+            <CheckCircle2 size={20} color="var(--success)" style={{ flexShrink: 0 }} />
             <div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                 All missions complete for today
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 1 }}>
-                Great work! Missions refresh tomorrow, or attempt a past paper for bonus XP.
+              <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: 2 }}>
+                Great work! Missions refresh tomorrow, or log a past paper attempt for additional XP.
               </div>
             </div>
           </motion.div>
@@ -286,7 +279,7 @@ export default function MissionList({
       {activeMissions.length === 0 ? (
         <div
           style={{
-            padding: '32px 16px',
+            padding: '36px 20px',
             textAlign: 'center',
             borderRadius: 'var(--radius-md)',
             background: 'var(--bg-card)',
@@ -303,13 +296,14 @@ export default function MissionList({
           >
             No missions generated for today yet
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 12 }}>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: 14 }}>
             {examDateCoverage === 'all' && hasChapterData
               ? 'Click below to generate your personalised daily study missions.'
               : 'Add your exam dates and start revising chapters to unlock daily missions.'}
           </div>
           {examDateCoverage === 'all' && hasChapterData && (
             <button
+              type="button"
               className="btn btn-primary"
               onClick={onGenerate}
               disabled={generating}
@@ -317,18 +311,15 @@ export default function MissionList({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
-                padding: '8px 16px',
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--accent-primary)',
-                border: 'none',
-                color: '#fff',
+                padding: '0 18px',
+                minHeight: 40,
                 fontSize: '0.8125rem',
                 fontWeight: 600,
                 cursor: 'pointer',
               }}
             >
               <Zap size={14} />
-              Generate Missions
+              <span>Generate Missions</span>
             </button>
           )}
         </div>

@@ -21,13 +21,13 @@ Release status and known limitations:
 - Migration 024 was backed up, applied, and verified on 2026-08-27; all 18 hosted catalogue and data-preservation checks passed. The matching application release was deployed to Vercel on 2026-08-27. Production smoke testing confirmed authentication, preserved enrolments, route-aware chapter access, paper-form component filtering, and mission completion/undo XP accounting.
 - Migrations 025–026 were backed up, applied, recorded, and verified on hosted Supabase on 2026-08-27; all eight hosted boundary checks returned `true`. The matching dashboard and subject-management application changes are deployed. Production smoke testing confirmed valid readiness countdowns, the five active MVP subjects, and the required removal confirmation flow.
 - Phase 2.10 (Application Performance Round 2 & Speed Insights) is deployed to production with active Speed Insights telemetry.
-- Phase 2.11 (Production Performance & Mobile Responsiveness) is merged and deployed to Vercel production as baseline `v1.0.0` (commit `39427dd`).
 - v1.1.0 (Dashboard Mobile Compatibility & Update Notifications) was deployed and production-verified on 2026-08-28 at merge commit `7071fa0`, with annotated tag `v1.1.0` published from release-closeout commit `5a8d69e`. Daily Mission cards respond to their own available width across desktop, split-screen, tablet, and phone layouts; the release also includes mobile overflow fixes, 44×44px touch targets, visible semantic versioning (`Atlas v1.1.0`), and an accessible latest-only "What's New" dialog. All 112 unit tests passed.
-- v1.1.1 (Singapore Infrastructure Migration) was deployed to Vercel production and verified on 2026-09-01 at merge commit `7b2203f`. Database, authentication, and backend services were migrated from Sydney to Singapore (`ap-southeast-1`). All 27 existing migration records were restored, verified, and audited during project migration; accounts, subjects, progress, missions, past papers, and XP were preserved intact. The annotated Git tag `v1.1.1` remains pending explicit approval.
+- v1.1.1 (Singapore Infrastructure Migration) was deployed to Vercel production and verified on 2026-09-01 at merge commit `7b2203f` (with release-closeout merge commit `8448e18c531dfc77c211f31d67c6fa5c1be8a333`, annotated tag object `3e734da62b94247a098318f505204c4f0a8d6ea6`, and [GitHub Release](https://github.com/SWEATChamp/Atlas/releases/tag/v1.1.1)). Database, authentication, and backend services were migrated from Sydney to Singapore (`ap-southeast-1`). All 27 existing migration records were restored, verified, and audited during project migration; accounts, subjects, progress, missions, past papers, and XP were preserved intact.
+- v1.2.0 (Accessible UI Foundation & Subject Controls Guide) is locally prepared on branch `codex/v1.2.0-ui-foundation` and Preview-verified across two stages: the UI-foundation baseline at commit `c4e6a9647df1a9dd69ba13b4a3db27963c3dabae` (deployment `ApihahfPteHbQwYg5je6dVa8AymT`), and the final release-candidate metadata update at commit `3db79b0dfb942da000c28d4ea2fe8eab48704053` (deployment `7qSYmzFZLnK8nKioamjB7kDgEhtF` at `https://atlas-git-codex-v120-ui-foundation-atlas-726e.vercel.app`). Preview smoke testing confirmed UI consistency across Sign In followed by the authenticated Dashboard, Subjects, Subject details, Past Papers, and paper details, full Subject-guide lifecycle, 320–1280px responsiveness with compliant touch targets and zero overflow, returning-user v1.2.0 notification highlights with upgrade detection from v1.1.1 and dismissal persistence, visible `Atlas v1.2.0` footer, and zero browser console errors. v1.2.0 remains unreleased, unmerged, untagged, and undeployed to production.
 - Mission undo reverses attempt-linked XP and recalculates the streak from remaining activity; chapter review timestamps remain unchanged in the MVP.
 - Google Docs integration has not started.
 
-See [the roadmap](docs/roadmap.md) for the current plan.
+See the master product plan in [goal.md](goal.md) and the implementation roadmap in [docs/roadmap.md](docs/roadmap.md) for current planning and execution status.
 
 ## Current study structure
 
@@ -112,6 +112,7 @@ npm run start  # Run the production build locally
 
 ## Documentation
 
+- [Master Product Plan](goal.md)
 - [Architecture](docs/architecture.md)
 - [Database](docs/database.md)
 - [API](docs/api.md)
@@ -119,6 +120,7 @@ npm run start  # Run the production build locally
 - [Deployment](docs/deployment.md)
 - [Roadmap](docs/roadmap.md)
 - [Changelog](docs/changelog.md)
+- [UI Guidelines](docs/ui-guidelines.md)
 - [Contributing](docs/contributing.md)
 
 ## Repository safety

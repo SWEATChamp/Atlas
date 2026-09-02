@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { X, Unlock, AlertTriangle, ChevronRight } from 'lucide-react'
+import { Unlock, AlertTriangle, ChevronRight } from 'lucide-react'
+import { Dialog } from '@/components/ui/dialog'
 import { transitionToA2 } from '@/lib/actions/route'
 import type { Subject, UserSubject, ResultType, PaperSession } from '@/types'
 
@@ -27,8 +28,6 @@ export default function A2TransitionModal({
   const [carryForward, setCarryForward] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-
-  if (!isOpen) return null
 
   const isAsOnly = enrollment.study_route === 'as_only'
 
@@ -105,36 +104,16 @@ export default function A2TransitionModal({
   }
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.65)',
-        backdropFilter: 'blur(4px)',
-        zIndex: 100,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
+    <Dialog
+      isOpen={isOpen}
+      onClose={onClose}
+      titleId="a2-modal-title"
+      descriptionId="a2-modal-desc"
+      maxWidth={520}
+      showCloseButton
+      closeButtonAriaLabel="Close A2 transition modal"
     >
-      <div
-        style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 'var(--radius-lg)',
-          width: '100%',
-          maxWidth: 520,
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          boxShadow: 'var(--shadow-xl, 0 20px 25px -5px rgba(0,0,0,0.5))',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
         <div
           style={{
@@ -142,64 +121,45 @@ export default function A2TransitionModal({
             borderBottom: '1px solid var(--border-subtle)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            gap: 12,
+            paddingRight: 48,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 'var(--radius-md)',
-                background: `${subject.color_hex}20`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: subject.color_hex,
-              }}
-            >
-              <Unlock size={18} />
-            </div>
-            <div>
-              <h2 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-                Unlock A2 Content
-              </h2>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
-                {subject.name}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            aria-label="Close A2 transition modal"
-            onClick={onClose}
-            className="touch-target-btn"
+          <div
             style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              width: 44,
-              height: 44,
-              minWidth: 44,
-              minHeight: 44,
-              padding: 0,
-              borderRadius: 'var(--radius-sm)',
+              width: 36,
+              height: 36,
+              borderRadius: 'var(--radius-md)',
+              background: `${subject.color_hex}20`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: subject.color_hex,
+              flexShrink: 0,
             }}
           >
-            <X size={19} />
-          </button>
+            <Unlock size={18} />
+          </div>
+          <div>
+            <h2 id="a2-modal-title" style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+              Unlock A2 Content
+            </h2>
+            <p id="a2-modal-desc" style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+              {subject.name}
+            </p>
+          </div>
         </div>
 
         {/* Body */}
         <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
           {error && (
             <div
+              role="alert"
               style={{
                 padding: '10px 14px',
                 borderRadius: 'var(--radius-md)',
-                background: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.25)',
+                background: 'rgba(199, 123, 123, 0.1)',
+                border: '1px solid rgba(199, 123, 123, 0.25)',
                 color: 'var(--danger)',
                 fontSize: '0.82rem',
               }}
@@ -215,24 +175,28 @@ export default function A2TransitionModal({
                   style={{
                     padding: '12px 14px',
                     borderRadius: 'var(--radius-md)',
-                    background: 'rgba(255, 171, 0, 0.08)',
-                    border: '1px solid rgba(255, 171, 0, 0.2)',
+                    background: 'rgba(196, 160, 93, 0.08)',
+                    border: '1px solid rgba(196, 160, 93, 0.2)',
                     display: 'flex',
                     alignItems: 'flex-start',
                     gap: 10,
                   }}
                 >
                   <AlertTriangle size={18} color="var(--warning)" style={{ flexShrink: 0, marginTop: 2 }} />
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
                     Your current route is <strong>AS Level Only</strong>. Unlocking A2 content will convert your route to <strong>Staged A Level</strong>.
                   </div>
                 </div>
               )}
 
               {!isAsOnly && (
-                <div
+                <button
+                  type="button"
                   onClick={() => setMode('normal')}
+                  className="touch-target-btn"
                   style={{
+                    width: '100%',
+                    textAlign: 'left',
                     padding: '16px',
                     borderRadius: 'var(--radius-md)',
                     border: '1.5px solid var(--border-subtle)',
@@ -242,10 +206,9 @@ export default function A2TransitionModal({
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     gap: 12,
+                    minHeight: 44,
                     transition: 'border-color 150ms ease',
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = subject.color_hex)}
-                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border-subtle)')}
                 >
                   <div>
                     <div style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -256,12 +219,16 @@ export default function A2TransitionModal({
                     </div>
                   </div>
                   <ChevronRight size={18} color="var(--text-muted)" />
-                </div>
+                </button>
               )}
 
-              <div
+              <button
+                type="button"
                 onClick={() => setMode('manual')}
+                className="touch-target-btn"
                 style={{
+                  width: '100%',
+                  textAlign: 'left',
                   padding: '16px',
                   borderRadius: 'var(--radius-md)',
                   border: '1.5px solid var(--border-subtle)',
@@ -271,10 +238,9 @@ export default function A2TransitionModal({
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   gap: 12,
+                  minHeight: 44,
                   transition: 'border-color 150ms ease',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = subject.color_hex)}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border-subtle)')}
               >
                 <div>
                   <div style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -285,7 +251,7 @@ export default function A2TransitionModal({
                   </div>
                 </div>
                 <ChevronRight size={18} color="var(--text-muted)" />
-              </div>
+              </button>
             </div>
           )}
 
@@ -297,67 +263,46 @@ export default function A2TransitionModal({
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                  <label htmlFor="score-obtained-input" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
                     Score Obtained
                   </label>
                   <input
+                    id="score-obtained-input"
                     type="number"
                     value={scoreObtained}
                     onChange={(e) => setScoreObtained(e.target.value)}
                     placeholder="e.g. 85"
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'var(--bg-elevated)',
-                      border: '1px solid var(--border-subtle)',
-                      color: 'var(--text-primary)',
-                      fontSize: '0.85rem',
-                      marginTop: 4,
-                    }}
+                    className="input"
+                    style={{ width: '100%', marginTop: 4, minHeight: 44 }}
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                  <label htmlFor="score-max-input" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
                     Total Available
                   </label>
                   <input
+                    id="score-max-input"
                     type="number"
                     value={scoreMaximum}
                     onChange={(e) => setScoreMaximum(e.target.value)}
                     placeholder="e.g. 100"
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'var(--bg-elevated)',
-                      border: '1px solid var(--border-subtle)',
-                      color: 'var(--text-primary)',
-                      fontSize: '0.85rem',
-                      marginTop: 4,
-                    }}
+                    className="input"
+                    style={{ width: '100%', marginTop: 4, minHeight: 44 }}
                   />
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                  <label htmlFor="exam-series-select" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
                     Exam Series
                   </label>
                   <select
+                    id="exam-series-select"
                     value={examSeries}
                     onChange={(e) => setExamSeries(e.target.value as PaperSession)}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'var(--bg-elevated)',
-                      border: '1px solid var(--border-subtle)',
-                      color: 'var(--text-primary)',
-                      fontSize: '0.85rem',
-                      marginTop: 4,
-                    }}
+                    className="input"
+                    style={{ width: '100%', marginTop: 4, minHeight: 44 }}
                   >
                     <option value="may_jun">May/June</option>
                     <option value="oct_nov">Oct/Nov</option>
@@ -365,23 +310,16 @@ export default function A2TransitionModal({
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                  <label htmlFor="exam-year-input" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
                     Exam Year
                   </label>
                   <input
+                    id="exam-year-input"
                     type="number"
                     value={examYear}
                     onChange={(e) => setExamYear(parseInt(e.target.value, 10))}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'var(--bg-elevated)',
-                      border: '1px solid var(--border-subtle)',
-                      color: 'var(--text-primary)',
-                      fontSize: '0.85rem',
-                      marginTop: 4,
-                    }}
+                    className="input"
+                    style={{ width: '100%', marginTop: 4, minHeight: 44 }}
                   />
                 </div>
               </div>
@@ -391,10 +329,11 @@ export default function A2TransitionModal({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
-                  fontSize: '0.82rem',
+                  fontSize: '0.8125rem',
                   color: 'var(--text-primary)',
                   cursor: 'pointer',
                   marginTop: 4,
+                  minHeight: 44,
                 }}
               >
                 <input
@@ -408,33 +347,18 @@ export default function A2TransitionModal({
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
                 <button
                   type="button"
-                  className="btn btn-ghost"
+                  className="btn btn-ghost touch-target-btn"
                   onClick={() => setMode('select')}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-subtle)',
-                    color: 'var(--text-secondary)',
-                    fontSize: '0.85rem',
-                  }}
+                  style={{ minHeight: 44 }}
                 >
                   Back
                 </button>
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="btn btn-primary touch-target-btn"
                   onClick={handleNormalSubmit}
                   disabled={isPending}
-                  style={{
-                    padding: '8px 18px',
-                    borderRadius: 'var(--radius-md)',
-                    background: subject.color_hex || 'var(--primary)',
-                    border: 'none',
-                    color: '#fff',
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    cursor: isPending ? 'not-allowed' : 'pointer',
-                  }}
+                  style={{ background: subject.color_hex || 'var(--accent-primary)', minHeight: 44 }}
                 >
                   {isPending ? 'Unlocking...' : 'Unlock A2'}
                 </button>
@@ -448,9 +372,9 @@ export default function A2TransitionModal({
                 style={{
                   padding: '12px 14px',
                   borderRadius: 'var(--radius-md)',
-                  background: 'rgba(91, 127, 255, 0.08)',
-                  border: '1px solid rgba(91, 127, 255, 0.25)',
-                  fontSize: '0.82rem',
+                  background: 'var(--accent-soft)',
+                  border: '1px solid var(--border-accent)',
+                  fontSize: '0.8125rem',
                   color: 'var(--text-secondary)',
                   lineHeight: 1.4,
                 }}
@@ -461,33 +385,18 @@ export default function A2TransitionModal({
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
                 <button
                   type="button"
-                  className="btn btn-ghost"
+                  className="btn btn-ghost touch-target-btn"
                   onClick={() => setMode('select')}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-subtle)',
-                    color: 'var(--text-secondary)',
-                    fontSize: '0.85rem',
-                  }}
+                  style={{ minHeight: 44 }}
                 >
                   Back
                 </button>
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="btn btn-primary touch-target-btn"
                   onClick={() => handleManualSubmit(false)}
                   disabled={isPending}
-                  style={{
-                    padding: '8px 18px',
-                    borderRadius: 'var(--radius-md)',
-                    background: subject.color_hex || 'var(--primary)',
-                    border: 'none',
-                    color: '#fff',
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    cursor: isPending ? 'not-allowed' : 'pointer',
-                  }}
+                  style={{ background: subject.color_hex || 'var(--accent-primary)', minHeight: 44 }}
                 >
                   {isPending ? 'Unlocking...' : 'Unlock Now'}
                 </button>
@@ -496,6 +405,6 @@ export default function A2TransitionModal({
           )}
         </div>
       </div>
-    </div>
+    </Dialog>
   )
 }
