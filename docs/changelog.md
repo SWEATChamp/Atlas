@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.2.0] - 2026-09-02
 
-UI foundation and accessibility release merged via PR #12 at merge commit `abed20ba325e99113813a8860be7f4a22c1fc39c` (feature branch head `bff4c5b0cc24d435187e7a1974a19a7c9fd30687`), deployed to Vercel production (`9RCwZ6xAY7ohAqxNn2msJzcCXcUi` on `https://atlas-alpha-vert.vercel.app` via Singapore `sin1`), and verified through authenticated production smoke testing. This release involved zero database migrations. Formal annotated tag `v1.2.0` and GitHub Release closeout remain pending.
+UI foundation and accessibility release merged via PR #12 at merge commit `abed20ba325e99113813a8860be7f4a22c1fc39c` (with release-closeout merge commit `a4ea17993e0f9250eb1c50a41d930a8c4f5a4d2c`, annotated tag object `1c4524fcd1f747a7e00674d7c0aa8551f2180d94`, and published [GitHub Release](https://github.com/SWEATChamp/Atlas/releases/tag/v1.2.0)), deployed to Vercel production (`9RCwZ6xAY7ohAqxNn2msJzcCXcUi` and documentation deployment `8shqSC2QMjNVMsVn6ABoc36xWvm4` on `https://atlas-alpha-vert.vercel.app` via Singapore `sin1`), and verified through authenticated production smoke testing. This release involved zero database migrations.
 
 ### Added
 - Accessible dependency-free `Dialog` primitive (`components/ui/dialog.tsx`) supporting accessible name/description associations (`titleId`, `descriptionId`), initial focus management, circular focus trapping (Tab/Shift+Tab), Escape key dismissal, universal focus restoration on every closure path/unmount (`previousActiveElementRef`), body scroll locking, and 44×44px touch targets.

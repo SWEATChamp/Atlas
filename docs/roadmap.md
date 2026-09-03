@@ -23,7 +23,7 @@
 | Phase 2.11 Production Performance & Mobile Responsiveness | Merged and deployed to production (v1.0.0 baseline, commit `39427dd`) |
 | Phase 2.12 / v1.1.0 Dashboard Mobile Compatibility & Update Notifications | Deployed and production-verified on 2026-08-28 (merge commit `7071fa0`); annotated tag `v1.1.0` published at `5a8d69e` |
 | v1.1.1 Operational Patch: Singapore Infrastructure Migration | Deployed and production-verified on 2026-09-01 (merge commit `7b2203f`, closeout `8448e18`); annotated tag `v1.1.1` published |
-| Phase 2.13 / v1.2.0 Accessible UI Foundation & Subject Controls Guide | Merged (PR #12, commit `abed20b`), production-deployed (`9RCwZ6xAY7ohAqxNn2msJzcCXcUi`), and production-verified; tag/release pending |
+| Phase 2.13 / v1.2.0 Accessible UI Foundation & Subject Controls Guide | Deployed and production-verified on 2026-09-02 (merge commit `abed20b`, closeout `a4ea179`); annotated tag `v1.2.0` and GitHub Release published |
 | Release-candidate checks | 201 database tests and 134 unit tests pass; type check, lint, production build, and whitespace checks pass |
 | Google Docs integration | Not started |
 
@@ -133,7 +133,7 @@
 - [x] Create annotated release tag `v1.1.0` pointing to release-closeout commit `5a8d69e`.
 
 ## Phase 2.13 / v1.2.0: Accessible UI Foundation & Subject Controls Guide
-- **Status**: Production-complete (merged via PR #12 at merge commit `abed20ba325e99113813a8860be7f4a22c1fc39c`, deployed to Vercel production deployment `9RCwZ6xAY7ohAqxNn2msJzcCXcUi`, and production-verified; formal annotated tag `v1.2.0` and GitHub Release pending).
+- **Status**: Complete and formally released (merged via PR #12 at merge commit `abed20ba325e99113813a8860be7f4a22c1fc39c`, deployed to Vercel production `9RCwZ6xAY7ohAqxNn2msJzcCXcUi`, production-verified, closed out via PR #13 at merge commit `a4ea17993e0f9250eb1c50a41d930a8c4f5a4d2c`, annotated tag `v1.2.0` published, and stable GitHub Release published).
 - [x] Extracted accessible, dependency-free `Dialog` component primitive (`components/ui/dialog.tsx`) with `titleId`/`descriptionId`, focus trapping, Escape dismissal, universal focus restoration on every close path/unmount, body scroll locking, and 44×44px touch targets.
 - [x] Refactored `WhatsNewModal`, `LogPaperModal`, `SubjectManager`, `A2TransitionModal`, and `RouteSetupSheet` to use the accessible `Dialog` primitive.
 - [x] Rationalized global design tokens in `app/globals.css`: added `--border-accent`, `.btn-icon` min 44×44px touch targets, unified skeleton styling, and comprehensive reduced-motion media query rules.
@@ -152,6 +152,8 @@
 - [x] Verified zero horizontal overflow across 320px, 375px, 390px, 768px, and 1280px viewports on Dashboard, Subjects, and Past Papers with zero browser console errors.
 - [x] Verified Past Paper detail view loaded correctly and separately passed the 320px overflow and touch-target check.
 - [x] Verified minimum 44×44px touch targets across touch-oriented layouts from 320px through 768px.
+- [x] Create annotated release tag `v1.2.0` pointing to release-closeout commit `a4ea17993e0f9250eb1c50a41d930a8c4f5a4d2c`.
+- [x] Publish stable GitHub Release for `v1.2.0`.
 
 ## Phase 3: Past Papers & Analytics
 - Past paper logging UI
