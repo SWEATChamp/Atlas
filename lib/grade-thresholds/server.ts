@@ -13,6 +13,13 @@ export {
   runGradeThresholdImportPipeline,
 } from './import-pipeline'
 
+export {
+  handleScheduledGradeThresholdRequest,
+  runScheduledGradeThresholdImport,
+  sanitizeImportAudit,
+  verifyCronAuthorization,
+} from './scheduled-import'
+
 export type {
   CreateImportRunParams,
   DownloadCambridgePdfOptions,
@@ -32,3 +39,14 @@ export type {
   WeightingEntryInfo,
   WeightingSourceInfo,
 } from './import-pipeline'
+
+export type {
+  CronAuthorizationResult,
+  HandleScheduledImportRequestOptions,
+  RunScheduledImportOptions,
+  SanitizedImportAudit,
+  ScheduledImportReport,
+  ScheduledSourceCheck,
+  ScheduledSourceCheckStatus,
+  ScheduledWeightingCheck,
+} from './scheduled-import'

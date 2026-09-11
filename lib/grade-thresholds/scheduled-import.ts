@@ -1,0 +1,400 @@
+import 'server-only'
+
+import { createHash, timingSafeEqual } from 'node:crypto'
+import {
+  downloadCambridgePdf,
+  runGradeThresholdImportPipeline,
+  type DownloadCambridgePdfOptions,
+  type GradeThresholdPersistence,
+  type ImportPipelineResult,
+  type RunImportPipelineOptions,
+} from './import-pipeline'
+import { CAMBRIDGE_JUNE_2026_SOURCES } from './source-manifest'
+import { sha256Hex } from './parser'
+import type { CambridgeThresholdSource } from './types'
+import {
+  CAMBRIDGE_WEIGHTING_SOURCE,
+  type CambridgeWeightingSourceManifest,
+} from './weighting-source'
+
+const MINIMUM_CRON_SECRET_LENGTH = 16
+
+export type CronAuthorizationResult =
+  | 'authorized'
+  | 'unauthorized'
+  | 'misconfigured'
+
+export type ScheduledSourceCheckStatus =
+  | 'unchanged'
+  | 'pending_review'
+  | 'change_detected'
+  | 'check_failed'
+  | 'unknown_subject'
+
+export interface ScheduledSourceCheck {
+  syllabusCode: string
+  year: number
+  series: CambridgeThresholdSource['series']
+  status: ScheduledSourceCheckStatus
+  observedChecksumSha256?: string
+  storedPublicationId?: string
+}
+
+export interface ScheduledWeightingCheck {
+  status: Exclude<ScheduledSourceCheckStatus, 'unknown_subject'>
+  observedChecksumSha256?: string
+  reviewedSubjects: number
+  pendingSubjects: number
+  missingSubjects: number
+}
+
+export interface SanitizedImportAudit {
+  runId: string
+  status: ImportPipelineResult['status']
+  stats: ImportPipelineResult['stats']
+  weighting?: {
+    status: NonNullable<ImportPipelineResult['weighting']>['status']
+    issueCodes: string[]
+  }
+  publications: Array<{
+    syllabusCode: string
+    year: number
+    series: CambridgeThresholdSource['series']
+    status: ImportPipelineResult['publications'][number]['status']
+    revisionNumber?: number
+    publicationId?: string
+    issueCodes: string[]
+  }>
+}
+
+export interface ScheduledImportReport {
+  ok: boolean
+  outcome: 'no_change' | 'review_required' | 'partial_failure' | 'failed'
+  checkedAt: string
+  sourceChecks: ScheduledSourceCheck[]
+  weightingCheck?: ScheduledWeightingCheck
+  importAudit?: SanitizedImportAudit
+}
+
+export interface RunScheduledImportOptions {
+  persistence: GradeThresholdPersistence
+  sources?: readonly CambridgeThresholdSource[]
+  includeWeighting?: boolean
+  weightingSource?: CambridgeWeightingSourceManifest
+  downloadPdf?: (
+    url: string,
+    options?: DownloadCambridgePdfOptions,
+  ) => Promise<{ bytes: Uint8Array; contentType: string }>
+  runPipeline?: (
+    options: RunImportPipelineOptions,
+  ) => Promise<ImportPipelineResult>
+  now?: () => Date
+}
+
+export interface HandleScheduledImportRequestOptions {
+  cronSecret: string | undefined
+  execute: () => Promise<ScheduledImportReport>
+}
+
+function digest(value: string): Buffer {
+  return createHash('sha256').update(value, 'utf8').digest()
+}
+
+/**
+ * Verifies the Vercel Cron bearer token without comparing secret-length strings.
+ * A missing or too-short server secret is a configuration failure, not a valid
+ * empty credential.
+ */
+export function verifyCronAuthorization(
+  authorizationHeader: string | null,
+  cronSecret: string | undefined,
+): CronAuthorizationResult {
+  if (!cronSecret || cronSecret.length < MINIMUM_CRON_SECRET_LENGTH) {
+    return 'misconfigured'
+  }
+
+  if (!authorizationHeader) {
+    return 'unauthorized'
+  }
+
+  const supplied = digest(authorizationHeader)
+  const expected = digest(`Bearer ${cronSecret}`)
+  return timingSafeEqual(supplied, expected) ? 'authorized' : 'unauthorized'
+}
+
+export function sanitizeImportAudit(
+  result: ImportPipelineResult,
+): SanitizedImportAudit {
+  return {
+    runId: result.runId,
+    status: result.status,
+    stats: result.stats,
+    weighting: result.weighting
+      ? {
+          status: result.weighting.status,
+          issueCodes: result.weighting.issues.map((issue) => issue.code),
+        }
+      : undefined,
+    publications: result.publications.map((publication) => ({
+      syllabusCode: publication.syllabusCode,
+      year: publication.year,
+      series: publication.series,
+      status: publication.status,
+      revisionNumber: publication.revisionNumber,
+      publicationId: publication.publicationId,
+      issueCodes: publication.issues.map((issue) => issue.code),
+    })),
+  }
+}
+
+/**
+ * Checks configured, independently reviewed Cambridge sources and only invokes
+ * the mutating importer when a checksum is not already stored. Publications
+ * are always staged for review; this boundary can never auto-publish them.
+ */
+export async function runScheduledGradeThresholdImport(
+  options: RunScheduledImportOptions,
+): Promise<ScheduledImportReport> {
+  const persistence = options.persistence
+  const sources = options.sources ?? CAMBRIDGE_JUNE_2026_SOURCES
+  const includeWeighting = options.includeWeighting ?? true
+  const weightingSource = options.weightingSource ?? CAMBRIDGE_WEIGHTING_SOURCE
+  const download = options.downloadPdf ?? downloadCambridgePdf
+  const runPipeline = options.runPipeline ?? runGradeThresholdImportPipeline
+  const checkedAt = (options.now ?? (() => new Date()))().toISOString()
+
+  const downloadCache = new Map<
+    string,
+    Promise<{ bytes: Uint8Array; contentType: string }>
+  >()
+  const cachedDownload = (url: string) => {
+    let pending = downloadCache.get(url)
+    if (!pending) {
+      pending = download(url)
+      downloadCache.set(url, pending)
+    }
+    return pending
+  }
+
+  const subjectCache = new Map<
+    string,
+    ReturnType<GradeThresholdPersistence['getSubjectBySyllabus']>
+  >()
+  const getSubject = (syllabusCode: string) => {
+    let pending = subjectCache.get(syllabusCode)
+    if (!pending) {
+      pending = persistence.getSubjectBySyllabus(syllabusCode)
+      subjectCache.set(syllabusCode, pending)
+    }
+    return pending
+  }
+
+  const sourceChecks = await Promise.all(
+    sources.map(async (source): Promise<ScheduledSourceCheck> => {
+      try {
+        const [{ bytes }, subject] = await Promise.all([
+          cachedDownload(source.pdfUrl),
+          getSubject(source.syllabusCode),
+        ])
+        const observedChecksumSha256 = sha256Hex(bytes)
+
+        if (!subject) {
+          return {
+            syllabusCode: source.syllabusCode,
+            year: source.year,
+            series: source.series,
+            status: 'unknown_subject',
+            observedChecksumSha256,
+          }
+        }
+
+        const stored = await persistence.findPublicationByChecksum(
+          subject.id,
+          source.year,
+          source.series,
+          observedChecksumSha256,
+        )
+        const matchesConfiguredChecksum =
+          observedChecksumSha256 === source.expectedChecksumSha256
+        const isPublished =
+          stored?.publicationStatus === 'published' && stored.isActive
+
+        return {
+          syllabusCode: source.syllabusCode,
+          year: source.year,
+          series: source.series,
+          status: !matchesConfiguredChecksum
+            ? stored
+              ? 'pending_review'
+              : 'change_detected'
+            : !stored
+              ? 'change_detected'
+              : isPublished
+                ? 'unchanged'
+                : 'pending_review',
+          observedChecksumSha256,
+          storedPublicationId: stored?.id,
+        }
+      } catch {
+        return {
+          syllabusCode: source.syllabusCode,
+          year: source.year,
+          series: source.series,
+          status: 'check_failed',
+        }
+      }
+    }),
+  )
+
+  let weightingCheck: ScheduledWeightingCheck | undefined
+  if (includeWeighting) {
+    try {
+      const { bytes } = await cachedDownload(weightingSource.pdfUrl)
+      const observedChecksumSha256 = sha256Hex(bytes)
+      const matchesConfiguredChecksum =
+        observedChecksumSha256 === weightingSource.expectedChecksumSha256
+      let reviewedSubjects = 0
+      let pendingSubjects = 0
+      let missingSubjects = 0
+
+      for (const source of sources) {
+        const subject = await getSubject(source.syllabusCode)
+        if (!subject) {
+          missingSubjects += 1
+          continue
+        }
+
+        const stored = await persistence.getWeightingSource(
+          subject.id,
+          source.year,
+          source.series,
+          observedChecksumSha256,
+        )
+        if (!stored) {
+          missingSubjects += 1
+        } else if (stored.reviewStatus === 'approved') {
+          reviewedSubjects += 1
+        } else {
+          pendingSubjects += 1
+        }
+      }
+
+      weightingCheck = {
+        status:
+          !matchesConfiguredChecksum && missingSubjects === 0
+            ? 'pending_review'
+            : missingSubjects > 0
+            ? 'change_detected'
+            : pendingSubjects > 0
+              ? 'pending_review'
+              : 'unchanged',
+        observedChecksumSha256,
+        reviewedSubjects,
+        pendingSubjects,
+        missingSubjects,
+      }
+    } catch {
+      weightingCheck = {
+        status: 'check_failed',
+        reviewedSubjects: 0,
+        pendingSubjects: 0,
+        missingSubjects: sources.length,
+      }
+    }
+  }
+
+  const requiresImport =
+    sourceChecks.some((check) =>
+      ['change_detected', 'check_failed', 'unknown_subject'].includes(
+        check.status,
+      ),
+    ) ||
+    (weightingCheck !== undefined &&
+      ['change_detected', 'check_failed'].includes(weightingCheck.status))
+
+  const hasPendingReview =
+    sourceChecks.some((check) => check.status === 'pending_review') ||
+    weightingCheck?.status === 'pending_review'
+
+  if (!requiresImport) {
+    return {
+      ok: true,
+      outcome: hasPendingReview ? 'review_required' : 'no_change',
+      checkedAt,
+      sourceChecks,
+      weightingCheck,
+    }
+  }
+
+  const pipelineResult = await runPipeline({
+    triggerKind: 'scheduled',
+    persistence,
+    sources,
+    includeWeighting,
+    weightingSource,
+    downloadPdf: cachedDownload,
+    autoPublish: false,
+  })
+  const importAudit = sanitizeImportAudit(pipelineResult)
+
+  return {
+    ok: pipelineResult.status === 'succeeded',
+    outcome:
+      pipelineResult.status === 'succeeded'
+        ? 'review_required'
+        : pipelineResult.status === 'partial'
+          ? 'partial_failure'
+          : 'failed',
+    checkedAt,
+    sourceChecks,
+    weightingCheck,
+    importAudit,
+  }
+}
+
+export async function handleScheduledGradeThresholdRequest(
+  request: Request,
+  options: HandleScheduledImportRequestOptions,
+): Promise<Response> {
+  const authorization = verifyCronAuthorization(
+    request.headers.get('authorization'),
+    options.cronSecret,
+  )
+
+  if (authorization === 'misconfigured') {
+    return Response.json(
+      { ok: false, error: 'cron_not_configured' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } },
+    )
+  }
+
+  if (authorization === 'unauthorized') {
+    return Response.json(
+      { ok: false, error: 'unauthorized' },
+      { status: 401, headers: { 'Cache-Control': 'no-store' } },
+    )
+  }
+
+  try {
+    const report = await options.execute()
+    const status = report.outcome === 'review_required' ? 202 : report.ok ? 200 : 500
+    return Response.json(report, {
+      status,
+      headers: {
+        'Cache-Control': 'no-store',
+        'X-Robots-Tag': 'noindex, nofollow',
+      },
+    })
+  } catch {
+    return Response.json(
+      { ok: false, error: 'scheduled_import_failed' },
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store',
+          'X-Robots-Tag': 'noindex, nofollow',
+        },
+      },
+    )
+  }
+}
