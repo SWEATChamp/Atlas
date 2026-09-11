@@ -99,7 +99,14 @@ The v1.2.0 UI foundation has been merged to main, deployed to production, verifi
 
 ## Milestone 3 — Official Grade-Threshold Data Foundation
 
-**Status:** Planned
+**Status:** In progress
+
+> [!NOTE]
+> Implementation progress:
+> - Migration 027 and the reviewed June 2026 publications are present in Singapore.
+> - The protected scheduled-import endpoint is locally implemented.
+> - No production cron schedule is active.
+> - Automatic discovery of future Cambridge session URLs remains outstanding.
 
 **Objective:** Build a trustworthy, versioned source of Cambridge grade-threshold data for the five supported subjects.
 
@@ -145,11 +152,76 @@ The v1.2.0 UI foundation has been merged to main, deployed to production, verifi
 
 ---
 
-## Milestone 4 — Target-Grade Marks Planner
+### Milestone Sequencing & Dependencies
+
+The development sequencing across Milestones 3–5 reflects strict data and evidence dependencies:
+
+1. **Milestone 3** establishes the official grade-threshold catalogue, schema, and verified publications.
+2. **Milestone 4** establishes separate full-paper and question-practice evidence, readiness calculations, accuracy analytics, and prediction isolation.
+3. **Milestone 5** then uses the official thresholds from Milestone 3 and the cleaner full-paper-only performance baseline from Milestone 4 for personalised target marks, gaps, and paper allocations.
+
+---
+
+## Milestone 4 — Paper & Question-Practice Logging and Analytics
 
 **Status:** Planned
 
-**Objective:** When a student selects a target grade, show the marks required to reach that target using the latest applicable official threshold data.
+**Objective:** Allow individual and grouped question practice alongside full-paper attempts to strengthen readiness, chapter accuracy, and weak-topic analytics, while preserving strict paper identity and isolating question practice from future predicted-grade and official threshold comparisons.
+
+**Deliverables:**
+
+Preserve two explicit logging paths:
+
+- **Log full paper:** retain the existing requirement for subject, AS/A2 stage, paper, variant, examination series, year, attempt date, and total marks. These records establish the verified baseline for readiness, paper accuracy analytics, and future predicted grades and threshold comparisons.
+- **Log questions:** allow one question or a grouped practice session containing multiple past-year, topical, or mixed/custom questions. Require subject, AS/A2 stage, attempt date, marks obtained, and marks available; allow paper, variant, series, year, source label, question number, duration, notes, and chapter mappings to be recorded when known without requiring them for topical practice.
+- Store standalone question practice separately from `past_papers`; do not make the existing full-paper year, series, paper, or variant identity nullable to accommodate it.
+- Model grouped practice as a parent practice session (`practice_sessions`) with one or more scored question items (`practice_session_items`) and normalized question-to-chapter mappings (`practice_session_chapters`).
+- Write a practice session, its question items, and its chapter mappings atomically with ownership, active-enrollment, score-boundary, and AS/A2-stage validation.
+
+For paper performance and attempt analytics:
+
+- Student's latest raw mark and percentage.
+- Student's average raw mark and percentage across comparable attempts.
+- Performance trend across recent attempts.
+- Strongest and weakest paper components based on attempt history.
+
+For readiness and accuracy analytics:
+
+- Include both full-paper totals and standalone question-practice marks for the accessible AS/A2 stage.
+- Calculate combined assessment accuracy as `(full-paper marks obtained + standalone-question marks obtained) / (full-paper marks available + standalone-question marks available)` so a small question does not count as heavily as a complete paper.
+- Count a full paper's total exactly once. Its child question breakdown contributes to chapter analytics but must not be added again to the combined assessment-accuracy numerator or denominator.
+- Calculate each grouped question session's displayed accuracy from the sum of its question-item marks rather than averaging the item percentages.
+- Include standalone question practice in chapter accuracy and weak-topic evidence when its chapter mappings are present.
+- Extend the accuracy trend with **All practice**, **Full papers**, and **Question practice** views; distinguish full-paper and question-session points visually and display the mark-weighted average with its evidence volume.
+- Keep “Papers logged,” full-paper best score, and full-paper average distinct from question-session counts and question-practice accuracy.
+- Do not award paper-count, paper-grade, or best-paper achievements from standalone question practice.
+- Do not change XP or streak behaviour for question practice in the first release unless those effects are separately designed and approved.
+
+**Practice evidence and isolation rules:**
+
+- Never substitute standalone question-practice accuracy for an official full-paper result, even when the practice questions came from that paper.
+- Keep full-paper accuracy, question-practice accuracy, and combined readiness accuracy as separate explainable metrics.
+- Exclude standalone question practice from predicted grades, official threshold comparisons, paper counts, full-paper averages, best-paper scores, and paper-related achievements at the data-query boundary.
+
+**Verification checks:**
+
+- **Latest-attempt check:** The most recent valid full-paper attempt is selected by attempt date.
+- **Attempt-history check:** The paper performance calculation includes only compatible full-paper attempts and handles different maximum marks correctly.
+- **Accuracy check:** Hand-calculated fixtures match application output for all five subjects and study routes.
+- **Question-session check:** Individual and grouped question sessions reproduce hand-calculated mark totals and session accuracy.
+- **Optional-source check:** Topical practice can be recorded without invented year, series, paper, or variant data, while supplied past-year provenance is preserved.
+- **Readiness-inclusion check:** Standalone question marks contribute to the correct stage's readiness and chapter accuracy.
+- **No-double-count check:** Full-paper totals and their child question breakdown are never counted twice in combined accuracy.
+- **Atomicity and ownership check:** Partial question groups cannot persist, and users cannot read or mutate another user's practice sessions or items.
+- **Prediction-isolation check:** Adding, editing, or deleting standalone question practice cannot alter full-paper query baselines or future predicted-grade datasets.
+
+---
+
+## Milestone 5 — Target-Grade Marks Planner
+
+**Status:** Planned
+
+**Objective:** When a student selects a target grade, show the marks required to reach that target using the latest applicable official threshold data, comparing requirements against verified full-paper performance while isolating standalone question practice.
 
 **Deliverables:**
 
@@ -179,7 +251,22 @@ The v1.2.0 UI foundation has been merged to main, deployed to production, verifi
 - Keep raw marks, officially weighted marks, grades, percentages, and percentage uniform marks (PUMs) as distinct data types; a grade or PUM must never be subtracted as if it were a weighted raw mark.
 - Identify when the calculated remaining A2 requirement exceeds the available A2 maximum and explain that the selected target is mathematically unavailable for the supplied contribution and combination.
 
-**Calculation rules:**
+For every selected paper, show:
+
+- Required mark for the target grade.
+- Difference between the required mark and latest full-paper mark.
+- Difference between the required mark and average full-paper mark.
+- Latest attempt grade using the threshold belonging to that paper's own year, series, and variant.
+- Suggested safety-margin target.
+
+At subject level, show:
+
+- Current estimated combined mark using the selected route and official weightings.
+- Latest comparable grade.
+- Rolling predicted grade.
+- Marks still needed to reach the target.
+
+**Calculation and comparison rules:**
 
 - Cambridge's official A* value applies only to an eligible overall paper combination. Never present an individual-paper A* target or the staged halfway AS benchmark as an official Cambridge component threshold.
 - For a known variant, prefer its exact official component threshold. For an unknown variant, average only explicitly supported compatible variants of the same subject, paper, year, series, grade, and raw maximum, then round upward and disclose the included variants.
@@ -191,6 +278,11 @@ The v1.2.0 UI foundation has been merged to main, deployed to production, verifi
 - Preserve full precision through weighting and allocation, round only at the final display step, and recheck that rounded targets still meet the combined requirement.
 - If a student's exact variant is unknown, use the documented compatible variant average only where that grouping has been approved; never invent a route, option combination, weighting, or unsupported variant.
 - If the required source, route, combination, or maximum mark is missing or ambiguous, return “Threshold unavailable” rather than guessing. If only trustworthy component weighting is unavailable, the official overall benchmark may remain visible, but per-paper allocation must be unavailable.
+- Grade historical attempts using their own session's threshold.
+- Use the latest applicable threshold only for forward-looking target planning.
+- Generate predicted grades only from compatible full-paper attempts with the required paper, variant, series, year, and maximum-mark identity.
+- Keep “latest attempt,” “rolling average,” and “predicted result” as separate metrics.
+- Do not present a prediction when insufficient comparable data exists.
 
 **Verification checks:**
 
@@ -199,86 +291,15 @@ The v1.2.0 UI foundation has been merged to main, deployed to production, verifi
 - **Allocation check:** Generated paper targets add up to the required weighted total.
 - **Variant-average check:** Approved component variants are grouped correctly, averaged at the same grade and raw maximum, rounded upward, and disclosed as an Atlas estimate.
 - **Attempt-history check:** Every compatible full-paper attempt contributes with the documented recency weighting while incompatible papers and maxima are excluded or normalized safely.
-- **Evidence-isolation check:** Standalone question practice cannot enter a predicted grade or official threshold comparison.
+- **Evidence-isolation check:** Standalone question practice cannot enter a predicted grade or official threshold comparison; adding, editing, or deleting standalone question practice cannot change a predicted grade.
+- **Historical check:** Historical papers use historical thresholds rather than the latest threshold.
+- **Weighting check:** Subject-level predictions apply the correct paper weighting.
+- **Insufficient-data check:** Empty and low-sample states explain what the student must log next.
 - **Staged-route check:** The estimated halfway AS contribution, official weighted AS replacement, remaining A2 requirement, and impossible-target state match hand-calculated fixtures.
 - **Type-safety check:** Raw marks, weighted marks, grades, percentages, and PUMs cannot be substituted for one another.
 - **Boundary check:** Marks exactly below, at, and above a threshold produce the correct result.
 - **Disclosure check:** Official values and generated estimates are visually and semantically distinguishable.
 - **Unavailable-data check:** The planner refuses to calculate when required source data is missing.
-
----
-
-## Milestone 5 — Paper Performance & Question-Practice Analytics
-
-**Status:** Planned
-
-**Objective:** Compare target-grade requirements with the student's actual full-paper performance while allowing individual and grouped question practice to strengthen readiness and accuracy analytics without contaminating predicted grades.
-
-**Deliverables:**
-
-Preserve two explicit logging paths:
-
-- **Log full paper:** retain the existing requirement for subject, AS/A2 stage, paper, variant, examination series, year, attempt date, and total marks. These records remain eligible for predicted grades, official threshold comparisons, readiness, and accuracy analytics.
-- **Log questions:** allow one question or a grouped practice session containing multiple past-year, topical, or mixed/custom questions. Require subject, AS/A2 stage, attempt date, and marks obtained/available; allow paper, variant, series, year, source label, question number, time, notes, and chapter mappings to be recorded when known without requiring them for topical practice.
-- Store standalone question practice separately from `past_papers`; do not make the existing full-paper year, series, paper, or variant identity nullable to accommodate it.
-- Model grouped practice as a parent practice session with one or more scored question items and normalized question-to-chapter mappings.
-- Write a practice session, its question items, and its chapter mappings atomically with ownership, active-enrollment, score-boundary, and AS/A2-stage validation.
-
-For every selected paper, show:
-
-- Required mark for the target grade.
-- Student's latest raw mark and percentage.
-- Student's average raw mark and percentage across comparable attempts.
-- Difference between the required mark and latest mark.
-- Difference between the required mark and average mark.
-- Latest attempt grade using the threshold belonging to that paper's own year, series, and variant.
-- Performance trend across recent attempts.
-- Suggested safety-margin target.
-
-At subject level, show:
-
-- Current estimated combined mark using the selected route and official weightings.
-- Latest comparable grade.
-- Rolling predicted grade.
-- Marks still needed to reach the target.
-- Strongest and weakest paper components.
-
-For readiness and accuracy analytics:
-
-- Include both full-paper totals and standalone question-practice marks for the accessible AS/A2 stage.
-- Calculate combined assessment accuracy as `(full-paper marks obtained + standalone-question marks obtained) / (full-paper marks available + standalone-question marks available)` so a small question does not count as heavily as a complete paper.
-- Count a full paper's total exactly once. Its child question breakdown contributes to chapter analytics but must not be added again to the combined assessment-accuracy numerator or denominator.
-- Calculate each grouped question session's displayed accuracy from the sum of its question-item marks rather than averaging the item percentages.
-- Include standalone question practice in chapter accuracy and weak-topic evidence when its chapter mappings are present.
-- Extend the accuracy trend with **All practice**, **Full papers**, and **Question practice** views; distinguish full-paper and question-session points visually and display the mark-weighted average with its evidence volume.
-- Keep “Papers logged,” full-paper best score, and full-paper average distinct from question-session counts and question-practice accuracy.
-- Do not award paper-count, paper-grade, or best-paper achievements from standalone question practice.
-- Do not change XP or streak behaviour for question practice in the first release unless those effects are separately designed and approved.
-
-**Comparison rules:**
-
-- Grade historical attempts using their own session's threshold.
-- Use the latest applicable threshold only for forward-looking target planning.
-- Generate predicted grades only from compatible full-paper attempts with the required paper, variant, series, year, and maximum-mark identity.
-- Never substitute standalone question-practice accuracy for an official full-paper result, even when the practice questions came from that paper.
-- Keep “latest attempt,” “rolling average,” and “predicted result” as separate metrics.
-- Keep full-paper accuracy, question-practice accuracy, and combined readiness accuracy as separate explainable metrics.
-- Do not present a prediction when insufficient comparable data exists.
-
-**Verification checks:**
-
-- **Latest-attempt check:** The most recent valid attempt is selected by attempt date.
-- **Average check:** The grade-prediction calculation includes only compatible full-paper attempts and handles different maximum marks correctly.
-- **Historical check:** Historical papers use historical thresholds rather than the latest threshold.
-- **Weighting check:** Subject-level predictions apply the correct paper weighting.
-- **Insufficient-data check:** Empty and low-sample states explain what the student must log next.
-- **Accuracy check:** Hand-calculated fixtures match application output for all five subjects and study routes.
-- **Question-session check:** Individual and grouped question sessions reproduce hand-calculated mark totals and session accuracy.
-- **Optional-source check:** Topical practice can be recorded without invented year, series, paper, or variant data, while supplied past-year provenance is preserved.
-- **Readiness-inclusion check:** Standalone question marks contribute to the correct stage's readiness and chapter accuracy.
-- **No-double-count check:** Full-paper totals and their child question breakdown are never counted twice in combined accuracy.
-- **Prediction-isolation check:** Adding, editing, or deleting standalone question practice cannot change a predicted grade.
-- **Atomicity and ownership check:** Partial question groups cannot persist, and users cannot read or mutate another user's practice sessions or items.
 
 ---
 
