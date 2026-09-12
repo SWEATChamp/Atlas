@@ -24,6 +24,9 @@
 | Phase 2.12 / v1.1.0 Dashboard Mobile Compatibility & Update Notifications | Deployed and production-verified on 2026-08-28 (merge commit `7071fa0`); annotated tag `v1.1.0` published at `5a8d69e` |
 | v1.1.1 Operational Patch: Singapore Infrastructure Migration | Deployed and production-verified on 2026-09-01 (merge commit `7b2203f`, closeout `8448e18`); annotated tag `v1.1.1` published |
 | Phase 2.13 / v1.2.0 Accessible UI Foundation & Subject Controls Guide | Deployed and production-verified on 2026-09-02 (merge commit `abed20b`, closeout `a4ea179`); annotated tag `v1.2.0` and GitHub Release published |
+| Milestone 3: Official Grade-Threshold Foundation | In progress; Migration 027 and reviewed June 2026 publications present in Singapore, protected scheduled-import endpoint locally implemented, no production cron active, automatic URL discovery pending |
+| Milestone 4: Paper & Question-Practice Logging and Analytics | Planned; product rules documented, implementation not started |
+| Milestone 5: Target-Grade Marks Planner | Planned; product rules documented, depends on Milestone 3 official thresholds and Milestone 4 practice logging |
 | Release-candidate checks | 201 database tests and 134 unit tests pass; type check, lint, production build, and whitespace checks pass |
 | Google Docs integration | Not started |
 
@@ -157,9 +160,60 @@
 
 ## Phase 3: Past Papers & Analytics
 - Past paper logging UI
-- Granular question attempt tracking
+- Granular question breakdown within logged full papers
+- Standalone individual and grouped past-year/topical question-practice logging
 - Readiness Score implementation
 - Progress vs. Target data visualization
+
+### Milestone 3: Official Grade-Threshold Data Foundation (In progress)
+
+> **Implementation Status:**
+> - Migration 027 and the reviewed June 2026 publications are present in Singapore.
+> - The protected scheduled-import endpoint is locally implemented.
+> - No production cron schedule is active.
+> - Automatic discovery of future Cambridge session URLs remains outstanding.
+
+- [x] Create a persistent, versioned Supabase catalogue for official Cambridge component and combination thresholds.
+- [x] Import the June 2026 publications as the initial latest dataset for all five supported subjects.
+- [ ] Discover March, June, and November publications per subject on a controlled schedule independent of student requests, allowing a series—particularly March—to omit subjects without fabricating an expected publication.
+- [x] Treat an existing document checksum as a no-op and store a changed document as an append-only revision requiring validation.
+- [x] Retain exact variants, every valid official combination token, maxima, source-backed official weightings, source URLs, publication dates, checksums, parser versions, and review status, including official combinations not currently mapped to an Atlas route.
+- [x] Maintain separate, explicitly reviewed planner-eligibility mappings so only supported Atlas routes and paper combinations are exposed to students.
+- [x] Stage, validate, report, and atomically publish imports only after manual samples from every subject match the official documents.
+- [x] Return “Threshold unavailable” for missing, ambiguous, unsupported, or unverified data rather than guessing.
+- [x] Add database constraints, indexes, RLS, import-audit records, idempotency tests, and revision-history tests.
+
+### Milestone 4: Paper & Question-Practice Logging and Analytics (Planned)
+
+- [ ] Preserve the existing full-paper logger with required paper, variant, series, year, stage, date, and total marks.
+- [ ] Add a separate **Log questions** workflow for one question or grouped past-year, topical, or mixed/custom question practice.
+- [ ] Require subject, AS/A2 stage, date, marks obtained, and marks available for question practice while keeping paper, variant, series, year, source label, question number, duration, notes, and chapter mappings optional when genuinely unknown.
+- [ ] Implement a separate post-Migration-027 practice schema for sessions, scored question items, and normalized chapter mappings; do not weaken the identity requirements of `past_papers`.
+- [ ] Save each practice session and all of its items and chapter mappings through an ownership-checked, stage-aware atomic operation.
+- [ ] Include full papers and question practice in readiness using mark-weighted combined assessment accuracy, without double-counting full-paper question breakdowns.
+- [ ] Include mapped standalone questions in chapter accuracy and weak-topic evidence.
+- [ ] Extend accuracy trends with All practice, Full papers, and Question practice views, visually distinct points, mark-weighted averages, and evidence volume.
+- [ ] Keep paper counts, full-paper averages, best-paper scores, and paper-related achievements isolated from standalone question practice.
+- [ ] Leave question-practice XP and streak effects unchanged until separately designed and approved.
+- [ ] Add database, calculation, RLS, atomicity, optional-provenance, aggregation, no-double-count, and evidence-isolation tests.
+
+### Milestone 5: Target-Grade Marks Planner (Planned)
+
+- [ ] Select the latest applicable official threshold using subject, route, stage, paper combination, year, and March/June/November series mapping.
+- [ ] Use an exact official component threshold when the student's variant is known.
+- [ ] When a variant is unknown, calculate a clearly labelled Atlas paper estimate from the ceiling of the approved compatible variant average, such as Mathematics 9709 Paper 1 variants 11, 12, and 13.
+- [ ] Include every compatible full-paper attempt in each grade-prediction paper baseline, normalize safely against its recorded maximum where necessary, and apply gradual recency weighting while keeping lifetime average, weighted baseline, attempt count, variability, and trend distinct.
+- [ ] Exclude standalone question practice from predicted grades and official threshold comparisons at the data-query boundary.
+- [ ] Present A* only as an official combined threshold; individual-paper A* allocations remain explicitly labelled Atlas estimates.
+- [ ] Use the averaged component A benchmark as the starting point for an A* paper allocation, then distribute the additional marks required by the official combined A* threshold.
+- [ ] For staged A*, use `ceil(official combined target / 2)` as the estimated AS contribution until a compatible official weighted AS mark replaces it.
+- [ ] Calculate remaining A2 marks as `official combined target - official weighted AS contribution`, then detect targets exceeding the available A2 maximum.
+- [ ] Keep raw marks, weighted marks, grades, percentages, and PUMs distinct throughout storage, calculation, and presentation.
+- [ ] Retain and apply component weighting only where an official Cambridge source supports it; never infer a missing weighting.
+- [ ] Permit a validated official overall combination benchmark without component weighting, but make its per-paper allocation unavailable until trustworthy weighting exists.
+- [ ] When allocation is eligible, round only at final display and recheck the rounded allocation against the combined target.
+- [ ] Display required marks, student latest and average paper comparisons, safety-margin targets, subject-level predictions, source provenance, included variants, latest-publication fallback, and official-versus-estimated disclosures.
+- [ ] Add calculation, staged-route, variant-grouping, recency-weighting, threshold-boundary, prediction-isolation, and missing-data failure tests.
 
 ## Phase 4: Mission Engine & Dashboard
 - [x] Implement `generate_daily_missions` algorithm
