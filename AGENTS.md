@@ -26,7 +26,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 6. **Strict User Approval Boundaries**:
    - Do not commit, push, open pull requests, merge, deploy, or create Git tags unless the user has given explicit approval.
 
-7. **Follow-Up Prompt Continuity**:
-   - When the user shares a report or response from another agent (for example, Agent 6), review that result and include the complete, copy-paste-ready prompt for the next appropriate step in the same response unless the user explicitly asks not to proceed.
-   - When the current stage of work is complete, proactively include the complete prompt for the next safe follow-up step instead of waiting for the user to ask for it separately.
-   - Every follow-up prompt must preserve the current approval boundaries, exact branch and commit expectations, safety checks, prohibited actions, and stop condition. Never treat providing a prompt as authorization for a state-changing action the user has not explicitly approved; without that approval, make the prompt read-only or preparation-only.
+7. **Primary-Orchestrator Follow-Up Prompt Continuity**:
+   - This rule applies only to the primary Codex orchestrator handling the main user conversation. It does not apply to Agent 6, subagents, delegated agents, reviewers, or handoff agents unless the user explicitly asks that agent to provide a follow-up prompt.
+   - When the user shares a report or response from another agent, the primary orchestrator should review that result and include the complete, copy-paste-ready prompt for the next appropriate step unless the user explicitly asks not to proceed.
+   - When the primary orchestrator completes the current stage of work, it should proactively include the complete prompt for the next safe follow-up step instead of waiting for the user to ask for it separately.
+   - Every follow-up prompt must preserve the current approval boundaries, exact branch and commit expectations, safety checks, prohibited actions, and stop condition. Providing a prompt never authorizes a state-changing action the user has not explicitly approved; without that approval, the prompt must remain read-only or preparation-only.
