@@ -20,6 +20,25 @@ export {
   verifyCronAuthorization,
 } from './scheduled-import'
 
+export {
+  CambridgeFetchError,
+  DEFAULT_INDEX_FETCH_TIMEOUT_MS,
+  DEFAULT_MAX_INDEX_HTML_BYTES,
+  DEFAULT_MAX_REDIRECTS,
+  SUPPORTED_DISCOVERY_SUBJECTS,
+  buildSeriesIndexUrl,
+  compareSessions,
+  discoverCambridgePublications,
+  fetchCambridgeIndexHtml,
+  generateRollingDiscoverySessions,
+  getCurrentCalendarSession,
+  linkMatchesSubject,
+  nextSession,
+  parseCambridgeIndexLinks,
+  previousSession,
+  validateLinkSubjectIdentity,
+} from './publication-discovery'
+
 export type {
   CreateImportRunParams,
   DownloadCambridgePdfOptions,
@@ -50,3 +69,21 @@ export type {
   ScheduledSourceCheckStatus,
   ScheduledWeightingCheck,
 } from './scheduled-import'
+
+export type {
+  DiscoveredLink,
+  DiscoveredPublicationCandidate,
+  DiscoverPublicationsOptions,
+  DiscoveryIssueCode,
+  DiscoverySeries,
+  DiscoveryStatus,
+  ExamSession,
+  FetchIndexHtmlOptions,
+  LinkValidationResult,
+  ParsedIndexLink,
+  PublicationDiscoveryReport,
+  RollingDiscoveryOptions,
+  SessionDiscoveryItem,
+  SubjectDiscoveryResult,
+  SupportedDiscoverySubject,
+} from './publication-discovery'
