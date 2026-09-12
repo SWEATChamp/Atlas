@@ -16,6 +16,11 @@ import {
   CAMBRIDGE_WEIGHTING_SOURCE,
   type CambridgeWeightingSourceManifest,
 } from './weighting-source'
+import {
+  discoverCambridgePublications,
+  type DiscoverPublicationsOptions,
+  type PublicationDiscoveryReport,
+} from './publication-discovery'
 
 const MINIMUM_CRON_SECRET_LENGTH = 16
 
@@ -28,6 +33,10 @@ export type ScheduledSourceCheckStatus =
   | 'unchanged'
   | 'pending_review'
   | 'change_detected'
+  | 'manifest_required'
+  | 'unavailable'
+  | 'ambiguous'
+  | 'invalid_link'
   | 'check_failed'
   | 'unknown_subject'
 
@@ -41,7 +50,7 @@ export interface ScheduledSourceCheck {
 }
 
 export interface ScheduledWeightingCheck {
-  status: Exclude<ScheduledSourceCheckStatus, 'unknown_subject'>
+  status: Exclude<ScheduledSourceCheckStatus, 'unknown_subject' | 'manifest_required'>
   observedChecksumSha256?: string
   reviewedSubjects: number
   pendingSubjects: number
@@ -73,6 +82,7 @@ export interface ScheduledImportReport {
   checkedAt: string
   sourceChecks: ScheduledSourceCheck[]
   weightingCheck?: ScheduledWeightingCheck
+  discovery?: PublicationDiscoveryReport
   importAudit?: SanitizedImportAudit
 }
 
@@ -88,6 +98,11 @@ export interface RunScheduledImportOptions {
   runPipeline?: (
     options: RunImportPipelineOptions,
   ) => Promise<ImportPipelineResult>
+  discoverPublications?: (
+    options?: DiscoverPublicationsOptions,
+  ) => Promise<PublicationDiscoveryReport>
+  discoveryOptions?: DiscoverPublicationsOptions
+  enableDiscovery?: boolean
   now?: () => Date
 }
 
@@ -152,6 +167,15 @@ export function sanitizeImportAudit(
  * the mutating importer when a checksum is not already stored. Publications
  * are always staged for review; this boundary can never auto-publish them.
  */
+function normalizeCambridgeUrl(url: string): string {
+  try {
+    const u = new URL(url)
+    return `${u.protocol}//${u.host}${u.pathname.replace(/\/+$/, '')}`.toLowerCase()
+  } catch {
+    return url.trim().replace(/\/+$/, '').toLowerCase()
+  }
+}
+
 export async function runScheduledGradeThresholdImport(
   options: RunScheduledImportOptions,
 ): Promise<ScheduledImportReport> {
@@ -162,6 +186,29 @@ export async function runScheduledGradeThresholdImport(
   const download = options.downloadPdf ?? downloadCambridgePdf
   const runPipeline = options.runPipeline ?? runGradeThresholdImportPipeline
   const checkedAt = (options.now ?? (() => new Date()))().toISOString()
+
+  const shouldDiscover =
+    options.enableDiscovery ??
+    (options.discoverPublications !== undefined || options.sources === undefined)
+  const discover =
+    options.discoverPublications ?? discoverCambridgePublications
+
+  let discoveryReport: PublicationDiscoveryReport | undefined
+  if (shouldDiscover) {
+    try {
+      discoveryReport = await discover({
+        now: options.now,
+        ...options.discoveryOptions,
+      })
+    } catch {
+      discoveryReport = {
+        checkedAt,
+        sessionsChecked: [],
+        subjects: [],
+        hasDiscoveryFailure: true,
+      }
+    }
+  }
 
   const downloadCache = new Map<
     string,
@@ -235,16 +282,76 @@ export async function runScheduledGradeThresholdImport(
           observedChecksumSha256,
           storedPublicationId: stored?.id,
         }
-      } catch {
+      } catch (err) {
+        const isUnavailable =
+          err instanceof Error && err.message.includes('HTTP status 404')
         return {
           syllabusCode: source.syllabusCode,
           year: source.year,
           series: source.series,
-          status: 'check_failed',
+          status: isUnavailable ? 'unavailable' : 'check_failed',
         }
       }
     }),
   )
+
+  if (discoveryReport) {
+    for (const subject of discoveryReport.subjects) {
+      if (subject.latestPublication) {
+        const candidate = subject.latestPublication
+        const matchingSource = sources.find(
+          (s) =>
+            s.syllabusCode === candidate.syllabusCode &&
+            s.year === candidate.year &&
+            s.series === candidate.series &&
+            normalizeCambridgeUrl(s.pdfUrl) === normalizeCambridgeUrl(candidate.pdfUrl) &&
+            normalizeCambridgeUrl(s.indexUrl) === normalizeCambridgeUrl(candidate.indexUrl),
+        )
+        if (!matchingSource) {
+          sourceChecks.push({
+            syllabusCode: candidate.syllabusCode,
+            year: candidate.year,
+            series: candidate.series,
+            status: 'manifest_required',
+          })
+        }
+      }
+
+      for (const session of subject.checkedSessions) {
+        if (
+          session.status === 'ambiguous' ||
+          session.status === 'invalid_link' ||
+          session.status === 'check_failed'
+        ) {
+          const isManifestSource = sources.some(
+            (s) =>
+              s.syllabusCode === subject.syllabusCode &&
+              s.year === session.year &&
+              s.series === session.series,
+          )
+          // Never overwrite manifest source checks with discovery statuses
+          if (!isManifestSource) {
+            const existingCheck = sourceChecks.find(
+              (c) =>
+                c.syllabusCode === subject.syllabusCode &&
+                c.year === session.year &&
+                c.series === session.series,
+            )
+            if (existingCheck) {
+              existingCheck.status = session.status
+            } else {
+              sourceChecks.push({
+                syllabusCode: subject.syllabusCode,
+                year: session.year,
+                series: session.series,
+                status: session.status,
+              })
+            }
+          }
+        }
+      }
+    }
+  }
 
   let weightingCheck: ScheduledWeightingCheck | undefined
   if (includeWeighting) {
@@ -303,8 +410,38 @@ export async function runScheduledGradeThresholdImport(
     }
   }
 
-  const requiresImport =
-    sourceChecks.some((check) =>
+  const hasDiscoveryFailure = Boolean(
+    discoveryReport?.hasDiscoveryFailure ||
+    discoveryReport?.subjects.some(
+      (s) =>
+        s.status === 'check_failed' ||
+        s.checkedSessions.some((cs) => cs.status === 'check_failed'),
+    ),
+  )
+
+  if (hasDiscoveryFailure) {
+    return {
+      ok: false,
+      outcome: 'failed',
+      checkedAt,
+      sourceChecks,
+      weightingCheck,
+      discovery: discoveryReport,
+    }
+  }
+
+  const manifestSourceChecks = sourceChecks.filter((check) =>
+    check.status !== 'manifest_required' &&
+    sources.some(
+      (s) =>
+        s.syllabusCode === check.syllabusCode &&
+        s.year === check.year &&
+        s.series === check.series,
+    ),
+  )
+
+  const requiresManifestImport =
+    manifestSourceChecks.some((check) =>
       ['change_detected', 'check_failed', 'unknown_subject'].includes(
         check.status,
       ),
@@ -313,16 +450,26 @@ export async function runScheduledGradeThresholdImport(
       ['change_detected', 'check_failed'].includes(weightingCheck.status))
 
   const hasPendingReview =
-    sourceChecks.some((check) => check.status === 'pending_review') ||
-    weightingCheck?.status === 'pending_review'
+    sourceChecks.some((check) =>
+      ['pending_review', 'manifest_required', 'ambiguous', 'invalid_link'].includes(
+        check.status,
+      ),
+    ) ||
+    weightingCheck?.status === 'pending_review' ||
+    Boolean(
+      discoveryReport?.subjects.some((s) =>
+        ['ambiguous', 'invalid_link'].includes(s.status),
+      ),
+    )
 
-  if (!requiresImport) {
+  if (!requiresManifestImport) {
     return {
       ok: true,
       outcome: hasPendingReview ? 'review_required' : 'no_change',
       checkedAt,
       sourceChecks,
       weightingCheck,
+      discovery: discoveryReport,
     }
   }
 
@@ -348,6 +495,7 @@ export async function runScheduledGradeThresholdImport(
     checkedAt,
     sourceChecks,
     weightingCheck,
+    discovery: discoveryReport,
     importAudit,
   }
 }
