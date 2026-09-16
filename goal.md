@@ -104,9 +104,16 @@ The v1.2.0 UI foundation has been merged to main, deployed to production, verifi
 > [!NOTE]
 > Implementation progress:
 > - Migration 027 and the reviewed June 2026 publications are present in Singapore.
-> - The protected scheduled-import endpoint is locally implemented.
-> - No production cron schedule is active.
-> - Automatic discovery of future Cambridge session URLs remains outstanding.
+> - Automatic Cambridge publication discovery is implemented, merged (PR #16, merge commit `07120d189a4416604945ef76382a2cae3dd412da`), and deployed to production (Vercel deployment `dpl_GmxutRfLHEHPnqArivPBowNtJL4i`).
+> - The protected scheduled-import and discovery endpoint (`/api/cron/grade-thresholds`) is deployed but dormant.
+> - Operational audit findings:
+>   - No active schedule was found in the current Vercel configuration, and no invocation was observed in the available retained logs. This evidence does not prove the endpoint was never invoked historically.
+>   - `CRON_SECRET` is confirmed absent from Vercel project environment variables for both Production and Preview.
+>   - `SUPABASE_SERVICE_ROLE_KEY` is also confirmed absent; the currently deployed authorized route cannot execute successfully without an elevated Supabase server credential.
+>   - Introducing a database credential requires a separate reviewed decision between supporting a dedicated modern Supabase secret key for this backend component or temporarily retaining the legacy `SUPABASE_SERVICE_ROLE_KEY`.
+>   - Current runtime behavior: an authorized run of the deployed endpoint downloads all five manifest PDFs plus the weighting PDF before determining `no_change`. It is not an HTML-only or zero-PDF check; the 60-second function limit and runtime/bandwidth validation are strict activation gates.
+> - Architectural recommendation: A lightweight **discovery-only** scheduled path (validating Cambridge index pages and identifying candidate URLs; emitting structured runtime reports/logs without persisting candidates, downloading threshold PDFs, or requiring elevated database credentials) is recommended as the preferred least-privilege design over a full-import cron. The mutating importer should remain dormant until separately reviewed.
+> - Milestone 3 remains in progress: publication discovery code is production-deployed, while safe scheduling architecture, credentials, concurrency protection, and operational verification remain incomplete.
 
 **Objective:** Build a trustworthy, versioned source of Cambridge grade-threshold data for the five supported subjects.
 

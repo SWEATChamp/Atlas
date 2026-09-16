@@ -24,7 +24,7 @@
 | Phase 2.12 / v1.1.0 Dashboard Mobile Compatibility & Update Notifications | Deployed and production-verified on 2026-08-28 (merge commit `7071fa0`); annotated tag `v1.1.0` published at `5a8d69e` |
 | v1.1.1 Operational Patch: Singapore Infrastructure Migration | Deployed and production-verified on 2026-09-01 (merge commit `7b2203f`, closeout `8448e18`); annotated tag `v1.1.1` published |
 | Phase 2.13 / v1.2.0 Accessible UI Foundation & Subject Controls Guide | Deployed and production-verified on 2026-09-02 (merge commit `abed20b`, closeout `a4ea179`); annotated tag `v1.2.0` and GitHub Release published |
-| Milestone 3: Official Grade-Threshold Foundation | In progress; Migration 027 and reviewed June 2026 publications present in Singapore, protected scheduled-import endpoint locally implemented, no production cron active, automatic URL discovery pending |
+| Milestone 3: Official Grade-Threshold Foundation | In progress; Migration 027 and June 2026 publications present in Singapore; publication discovery merged (PR #16, `07120d1`) and deployed (`dpl_GmxutRfLHEHPnqArivPBowNtJL4i`); no active cron schedule found; CRON_SECRET and service credentials absent; no invocation observed in retained logs; discovery-only architecture and scheduling pending |
 | Milestone 4: Paper & Question-Practice Logging and Analytics | Planned; product rules documented, implementation not started |
 | Milestone 5: Target-Grade Marks Planner | Planned; product rules documented, depends on Milestone 3 official thresholds and Milestone 4 practice logging |
 | Release-candidate checks | 201 database tests and 134 unit tests pass; type check, lint, production build, and whitespace checks pass |
@@ -169,13 +169,21 @@
 
 > **Implementation Status:**
 > - Migration 027 and the reviewed June 2026 publications are present in Singapore.
-> - The protected scheduled-import endpoint is locally implemented.
-> - No production cron schedule is active.
-> - Automatic discovery of future Cambridge session URLs remains outstanding.
+> - Automatic Cambridge publication discovery is implemented, merged (PR #16, merge commit `07120d189a4416604945ef76382a2cae3dd412da`), and production-deployed (Vercel deployment `dpl_GmxutRfLHEHPnqArivPBowNtJL4i`).
+> - Operational audit findings:
+>   - No active schedule was found in the current Vercel configuration, and no invocation was observed in the available retained logs. This evidence does not prove the endpoint was never invoked historically.
+>   - `CRON_SECRET` and elevated Supabase credentials (`SUPABASE_SERVICE_ROLE_KEY`) are confirmed absent from Vercel environment variables; the authorized route cannot execute successfully without an elevated credential.
+>   - Decision pending: dedicated modern Supabase secret key vs. temporary retention of `SUPABASE_SERVICE_ROLE_KEY`.
+>   - Runtime reality: current deployed endpoint downloads all 5 manifest PDFs plus weighting PDF (not an HTML-only or zero-PDF check), making the 60s function limit and runtime/bandwidth validation strict activation gates.
+>   - Preferred architecture: a lightweight **discovery-only** scheduled job (checking Cambridge index pages; emitting structured reports/logs only without downloading PDFs, persisting candidates, or requiring database credentials) is recommended over a full-import cron; mutating importer remains dormant until separately reviewed.
+>   - Preview boundary: Preview cannot target Singapore production for mutations and must not receive elevated credentials; authorized behavior is verified via automated tests.
+> - Milestone 3 remains in progress: discovery code is production-deployed, while safe scheduling architecture, credentials, concurrency protection, and operational verification remain incomplete.
 
 - [x] Create a persistent, versioned Supabase catalogue for official Cambridge component and combination thresholds.
 - [x] Import the June 2026 publications as the initial latest dataset for all five supported subjects.
-- [ ] Discover March, June, and November publications per subject on a controlled schedule independent of student requests, allowing a series—particularly March—to omit subjects without fabricating an expected publication.
+- [x] Implement automatic discovery of March, June, and November publications per subject independent of student requests, allowing a series—particularly March—to omit subjects without fabricating an expected publication (merged in PR #16).
+- [ ] Establish discovery-only vs. full-import scheduling architecture, resolve database credential decision, and implement concurrency locking.
+- [ ] Activate and verify controlled production cron scheduling and operational monitoring.
 - [x] Treat an existing document checksum as a no-op and store a changed document as an append-only revision requiring validation.
 - [x] Retain exact variants, every valid official combination token, maxima, source-backed official weightings, source URLs, publication dates, checksums, parser versions, and review status, including official combinations not currently mapped to an Atlas route.
 - [x] Maintain separate, explicitly reviewed planner-eligibility mappings so only supported Atlas routes and paper combinations are exposed to students.

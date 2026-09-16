@@ -14,6 +14,7 @@ Atlas uses Vercel for the Next.js application and Supabase for authentication an
 - Phase 2.12 / v1.1.0 (Dashboard Mobile Compatibility & Update Notifications) was deployed to Vercel production at merge commit `7071fa0` and production-verified. Annotated tag `v1.1.0` was published at `5a8d69e`.
 - v1.1.1 (Singapore Infrastructure Migration) was deployed to Vercel production and verified on 2026-09-01 (merge commit `7b2203f`, closeout `8448e18`, annotated tag `v1.1.1`, and published GitHub Release).
 - Phase 2.13 / v1.2.0 (Accessible UI Foundation & Subject Controls Guide) was deployed to Vercel production and verified on 2026-09-02 at merge commit `abed20ba325e99113813a8860be7f4a22c1fc39c` (with release-closeout merge commit `a4ea17993e0f9250eb1c50a41d930a8c4f5a4d2c`, annotated tag object `1c4524fcd1f747a7e00674d7c0aa8551f2180d94`, and published [GitHub Release](https://github.com/SWEATChamp/Atlas/releases/tag/v1.2.0)). It establishes an accessible `Dialog` primitive, dark design tokens, two-step Subject controls guide, responsive layouts (320px–1280px), touch targets (≥44×44px through 768px), and returning-user v1.2.0 notifications.
+- Milestone 3 Publication Discovery was merged to `main` via PR #16 at merge commit `07120d189a4416604945ef76382a2cae3dd412da` and deployed to Vercel production (`dpl_GmxutRfLHEHPnqArivPBowNtJL4i`) on 2026-09-12. It establishes server-only rolling discovery for Cambridge grade-threshold publications with strict HTTPS, approved host, and canonical session route validation. Operational audit found no active cron schedule in the current Vercel configuration and no invocation in the available retained logs; this evidence does not prove historical non-invocation; `CRON_SECRET` and `SUPABASE_SERVICE_ROLE_KEY` are confirmed absent from Vercel; discovered publications remain behind the reviewed manifest admission boundary; and safe scheduling architecture remains pending review.
 - Do not rerun Migrations 024–026. Any further production correction must use a reviewed forward-only migration.
 
 ## Migration 024 Release Order
@@ -256,6 +257,79 @@ The performance and dashboard-polish release after Migration 026 does not change
 3. **Release Tagging & Publication (Completed)**:
    - Annotated release tag `v1.2.0` (tag object `1c4524fcd1f747a7e00674d7c0aa8551f2180d94`) was published pointing to release-closeout commit `a4ea17993e0f9250eb1c50a41d930a8c4f5a4d2c` with annotation `v1.2.0: Accessible UI Foundation & Subject Controls Guide`.
    - Stable GitHub Release published on 2026-09-02 at 14:30:09Z: [A-Level Atlas v1.2.0 — Accessible UI Foundation & Subject Controls Guide](https://github.com/SWEATChamp/Atlas/releases/tag/v1.2.0).
+
+## Milestone 3 Publication Discovery Deployment Record
+
+> **Deployment status (Publication discovery deployed; Milestone 3 still in progress):** Merged to `main` via PR [#16](https://github.com/SWEATChamp/Atlas/pull/16) at merge commit `07120d189a4416604945ef76382a2cae3dd412da` on 2026-09-12, and deployed to Vercel production (`dpl_GmxutRfLHEHPnqArivPBowNtJL4i`). Automatic Cambridge publication discovery is implemented, tested, and live in the production build. No production cron schedule is active.
+
+1. **Delivered scope:**
+   - Server-only rolling discovery (`lib/grade-thresholds/publication-discovery.ts`) for new Cambridge examination series and grade-threshold tables.
+   - Strict HTTPS and approved Cambridge host verification (`cambridgeinternational.org` and `www.cambridgeinternational.org`).
+   - Canonical examination session path enforcement (`/programmes-and-qualifications/.../grade-threshold-tables/${series}-${year}/`).
+   - Independent extraction and cross-validation of syllabus code, subject title, year, and series from both URL structure and anchor text.
+   - Robust distinction between Mathematics (9709) and Further Mathematics (9231).
+   - Three-tier link classification (`unrelated`, `valid_target`, `contradictory_target`) with fail-closed behavior on contradictory links, redirects, zero candidate links, or network anomalies.
+   - Unconditional scheduler fail-closed boundary in `runScheduledGradeThresholdImport()` preventing all downstream pipeline execution upon discovery failures.
+   - Mandatory manifest admission boundary: discovered URLs are logged in discovery reports but never imported without explicit reviewed entry in `source-manifest.ts`.
+   - Automatic publication disabled (`autoPublish: false`).
+   - Server-only export isolation (`lib/grade-thresholds/server.ts`) keeping discovery logic out of client bundles.
+   - `AGENTS.md` Rule 7 Follow-Up Prompt Continuity rule scoped to the primary orchestrator.
+
+2. **Verification record:**
+   - 52/52 publication-discovery unit tests passed (`tests/grade-threshold-discovery.test.ts`).
+   - Full repository test suite passed (238 passed, 6 skipped).
+   - TypeScript (`tsc --noEmit`), ESLint, Next.js Turbopack production build, and `git diff --check` passed cleanly.
+   - Zero changes under `supabase/` (Migration 027 remains current in Singapore).
+   - Zero repository PDF artifacts.
+   - Vercel Preview deployment `dpl_48JJjHpbxrh8mtyPt8pCTtHqGMDj` verified Ready on Singapore edge (`sin1`).
+   - Automatic Production deployment `dpl_GmxutRfLHEHPnqArivPBowNtJL4i` verified Ready on Singapore edge (`sin1`) with HTTP/2 307 on `/` and HTTP/2 200 on `/login`.
+
+3. **Operational Audit & Credential Status:**
+   - **Cron schedule**: Inactive. No `vercel.json` exists in the repository and no cron jobs are configured on Vercel (`vercel crons ls` reports 0 jobs).
+   - **Endpoint invocation**: No active schedule was found in the current Vercel configuration, and no invocation was observed in the available retained logs. This evidence does not prove the endpoint was never invoked historically. (Unauthenticated requests fail closed with 503 `cron_not_configured`).
+   - **Credential state**: `CRON_SECRET` is confirmed absent from Vercel project environment variables for both Production and Preview. `SUPABASE_SERVICE_ROLE_KEY` is also confirmed absent. The currently deployed authorized route cannot execute successfully without an elevated Supabase server credential (`SupabaseGradeThresholdPersistence` requires an elevated key to write to RLS-protected threshold tables).
+   - **Database credential decision**: Introducing a credential requires a separate reviewed decision between:
+     1. Adding support for a dedicated modern Supabase secret key for this backend component; or
+     2. Temporarily retaining the legacy `SUPABASE_SERVICE_ROLE_KEY`.
+     Under project safety boundaries, no key may be retrieved, revealed, added, rotated, or modified without explicit approval.
+   - **Current runtime behavior & PDF downloads**: An authorized execution of the deployed endpoint does not perform an HTML-only or zero-PDF check; it downloads all five manifest PDFs plus the weighting PDF before verifying checksum equality and returning `no_change`. Given the 60-second function limit (`maxDuration = 60`), runtime and bandwidth validation under real network conditions are mandatory activation gates.
+
+4. **Safe Architecture Recommendation & Operational Gates:**
+   - **Preferred Architecture (Discovery-Only)**:
+     - Recommend a lightweight **discovery-only** scheduled path as the least-privilege default:
+       - Fetches and validates Cambridge index pages.
+       - Discovers new candidate publication URLs.
+       - May emit structured runtime reports or execution logs for operational observability.
+       - Must not persist candidates to Supabase, download threshold PDFs, or invoke the import pipeline.
+       - Requires no elevated Supabase credentials.
+       - Leaves manifest admission, importing, approval, and publication as separately approved operations.
+     - The existing mutating importer should remain dormant until separately reviewed. A full-import cron is a higher-risk alternative, not the default.
+   - **Cadence & Cambridge Planning Anchors**:
+     - Cadence remains an unresolved decision:
+       - A daily cadence is acceptable only for a lightweight discovery-only job.
+       - A PDF-checking / import-capable job requires a less frequent or release-window schedule plus measured runtime and bandwidth evidence.
+     - Schedule timezone is strictly UTC (avoiding fixed UK local-time claims due to British Summer Time daylight-saving shifts).
+     - Cambridge states that current-series grade thresholds become available on the day results are issued:
+       - **March 2026 results**: 19 May 2026.
+       - **June 2026 Cambridge International AS & A Level results**: 11 August 2026.
+       - **November 2026 Cambridge International AS & A Level results**: 7 January 2027.
+     - These are 2026-series planning anchors, not permanent annual dates. Future schedules must verify Cambridge’s official dates for each examination series before activation.
+     - Official sources:
+       - [March results release schedule](https://www.cambridgeinternational.org/exam-administration/march-series/march-results)
+       - [June 2026 results release schedule](https://www.cambridgeinternational.org/programmes-and-qualifications/recognition-and-acceptance/guidance-for-universities/J26-exams-middle-east-for-universities-and-recognising-organisations/)
+       - [November 2026 results release schedule](https://help.cambridgeinternational.org/hc/en-gb/articles/29567611785234-When-will-November-2026-results-be-released)
+       - [School Support Hub past paper and threshold release policy](https://help.cambridgeinternational.org/hc/en-gb/articles/32168220870162-When-will-the-latest-question-papers-and-mark-schemes-be-available-on-the-School-Support-Hub)
+   - **Cron Reliability & Concurrency Gates**:
+     - Vercel cron delivery is best-effort and can trigger duplicate invocations or concurrent executions.
+     - Explicit gates required before cron activation: duplicate delivery handling, concurrent invocation prevention, and idempotency / locking mechanisms.
+     - Vercel does not retry failed invocations.
+     - Instant Rollback does not remove or update active cron jobs.
+     - Emergency rollback procedure: immediate disable via Vercel Dashboard (**Project Settings → Cron Jobs → Disable Cron Jobs**) and forward-fix removal of `vercel.json`.
+   - **Preview Environment Boundary**:
+     - Never add `SUPABASE_SERVICE_ROLE_KEY` or another elevated Supabase key to Preview environments.
+     - Never invoke the deployed mutating endpoint with a valid token from Preview against Production Singapore.
+     - Preview may test missing/invalid authorization only (verifying 401/503 responses without database credentials).
+     - Authorized import behavior must be verified via automated test suites until an isolated non-production Supabase environment exists.
 
 ## General Production Configuration
 
