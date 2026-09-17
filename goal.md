@@ -112,8 +112,10 @@ The v1.2.0 UI foundation has been merged to main, deployed to production, verifi
 >   - `SUPABASE_SERVICE_ROLE_KEY` is also confirmed absent; the currently deployed authorized route cannot execute successfully without an elevated Supabase server credential.
 >   - Introducing a database credential requires a separate reviewed decision between supporting a dedicated modern Supabase secret key for this backend component or temporarily retaining the legacy `SUPABASE_SERVICE_ROLE_KEY`.
 >   - Current runtime behavior: an authorized run of the deployed endpoint downloads all five manifest PDFs plus the weighting PDF before determining `no_change`. It is not an HTML-only or zero-PDF check; the 60-second function limit and runtime/bandwidth validation are strict activation gates.
-> - Architectural recommendation: A lightweight **discovery-only** scheduled path (validating Cambridge index pages and identifying candidate URLs; emitting structured runtime reports/logs without persisting candidates, downloading threshold PDFs, or requiring elevated database credentials) is recommended as the preferred least-privilege design over a full-import cron. The mutating importer should remain dormant until separately reviewed.
-> - Milestone 3 remains in progress: publication discovery code is production-deployed, while safe scheduling architecture, credentials, concurrency protection, and operational verification remain incomplete.
+> - Milestone 3 remains in progress:
+>   - The currently deployed combined endpoint (`/api/cron/grade-thresholds`) is deployed to production but dormant; on this branch, it is updated to require `GRADE_THRESHOLD_IMPORT_SECRET`.
+>   - On the feature branch, a dedicated read-only discovery route (`/api/cron/grade-threshold-discovery`) and runner are implemented with credential separation (`CRON_SECRET`) and transitive isolation.
+>   - This change does not provision either secret. Hosted environment-variable values were not inspected during this implementation task; no vercel.json exists; no schedule or production activation was performed; notification mechanism remains an activation blocker; import and publication remain separately gated.
 
 **Objective:** Build a trustworthy, versioned source of Cambridge grade-threshold data for the five supported subjects.
 

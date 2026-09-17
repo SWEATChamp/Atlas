@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { APPROVED_CAMBRIDGE_HOSTS } from './import-pipeline'
+import { APPROVED_CAMBRIDGE_HOSTS } from './cambridge-host-policy'
 import type { CambridgeSeries } from './types'
 
 export type DiscoverySeries = CambridgeSeries

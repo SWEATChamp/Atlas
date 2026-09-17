@@ -17,10 +17,8 @@ import {
   type ParsedWeightingPublication,
 } from './weighting-source'
 
-export const APPROVED_CAMBRIDGE_HOSTS = new Set([
-  'www.cambridgeinternational.org',
-  'cambridgeinternational.org',
-])
+import { APPROVED_CAMBRIDGE_HOSTS } from './cambridge-host-policy'
+export { APPROVED_CAMBRIDGE_HOSTS }
 
 export const DEFAULT_MAX_PDF_BYTES = 50 * 1024 * 1024 // 50 MB
 

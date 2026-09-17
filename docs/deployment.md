@@ -331,6 +331,17 @@ The performance and dashboard-polish release after Migration 026 does not change
      - Preview may test missing/invalid authorization only (verifying 401/503 responses without database credentials).
      - Authorized import behavior must be verified via automated test suites until an isolated non-production Supabase environment exists.
 
+5. **Stage 1 Discovery-Only Scheduler Implementation (Feature Branch Baseline; Not Activated):**
+   - **Currently Deployed Combined Endpoint**: `/api/cron/grade-thresholds` remains deployed to production but dormant; on this branch, it is updated to require `GRADE_THRESHOLD_IMPORT_SECRET` so elevated import permissions are strictly separated from discovery tokens.
+   - **Feature-Branch Discovery-Only Route**: A dedicated read-only discovery route (`/api/cron/grade-threshold-discovery`) is implemented on the feature branch alongside narrow leaf modules (`lib/grade-thresholds/cambridge-host-policy.ts` and `lib/grade-thresholds/cron-auth.ts`).
+   - **Transitive Isolation**: Verified via comprehensive structural tests (static imports, re-exports, dynamic imports, requires) that the discovery route and runner have zero transitive reach to `scheduled-import.ts`, `import-pipeline.ts`, `pdf-extraction.ts`, `supabase-persistence.ts`, `server.ts`, `pdfjs-dist`, `@supabase/supabase-js`, or `@supabase/ssr`.
+   - **Credential Separation**:
+     - `/api/cron/grade-threshold-discovery` expects `CRON_SECRET`.
+     - `/api/cron/grade-thresholds` expects `GRADE_THRESHOLD_IMPORT_SECRET`.
+     - This change does not provision either secret. Hosted environment-variable values were not inspected during this implementation task, and no schedule or production activation was performed.
+   - **Production Activation Not Performed**: No `vercel.json` exists in the repository, and no recurring cron schedule is active. Cron activation remains blocked until an approved durable notification mechanism or documented operator polling procedure is established.
+   - **Manual Gating**: Threshold manifest admission, PDF downloading, parsing, staging, review, approval, and publication remain manual and separately gated operations.
+
 ## General Production Configuration
 
 - Configure Supabase authentication providers, Site URL, and allowed redirect URLs for the production domain.
