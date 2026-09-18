@@ -153,6 +153,20 @@ describe('transitive dependency-boundary isolation', () => {
     expect(thirdPartyPackages).toEqual([])
   })
 
+  test('lib/grade-thresholds/discovery-logger.ts is an isolated leaf module', () => {
+    const { files, packages } = getTransitiveImports(
+      'lib/grade-thresholds/discovery-logger.ts',
+      rootDir,
+    )
+
+    const resolvedFileNames = Array.from(files).map((f) => path.basename(f))
+    expect(resolvedFileNames).toEqual(['discovery-logger.ts'])
+    const thirdPartyPackages = Array.from(packages).filter(
+      (p) => !p.startsWith('node:') && p !== 'server-only',
+    )
+    expect(thirdPartyPackages).toEqual([])
+  })
+
   test('lib/grade-thresholds/cambridge-host-policy.ts is an isolated dependency-free leaf module', () => {
     const { files, packages } = getTransitiveImports(
       'lib/grade-thresholds/cambridge-host-policy.ts',
