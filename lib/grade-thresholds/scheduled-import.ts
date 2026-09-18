@@ -1,6 +1,10 @@
 import 'server-only'
 
-import { createHash, timingSafeEqual } from 'node:crypto'
+import {
+  MINIMUM_CRON_SECRET_LENGTH,
+  verifyCronAuthorization,
+  type CronAuthorizationResult,
+} from './cron-auth'
 import {
   downloadCambridgePdf,
   runGradeThresholdImportPipeline,
@@ -22,12 +26,11 @@ import {
   type PublicationDiscoveryReport,
 } from './publication-discovery'
 
-const MINIMUM_CRON_SECRET_LENGTH = 16
-
-export type CronAuthorizationResult =
-  | 'authorized'
-  | 'unauthorized'
-  | 'misconfigured'
+export {
+  MINIMUM_CRON_SECRET_LENGTH,
+  verifyCronAuthorization,
+  type CronAuthorizationResult,
+}
 
 export type ScheduledSourceCheckStatus =
   | 'unchanged'
@@ -109,32 +112,6 @@ export interface RunScheduledImportOptions {
 export interface HandleScheduledImportRequestOptions {
   cronSecret: string | undefined
   execute: () => Promise<ScheduledImportReport>
-}
-
-function digest(value: string): Buffer {
-  return createHash('sha256').update(value, 'utf8').digest()
-}
-
-/**
- * Verifies the Vercel Cron bearer token without comparing secret-length strings.
- * A missing or too-short server secret is a configuration failure, not a valid
- * empty credential.
- */
-export function verifyCronAuthorization(
-  authorizationHeader: string | null,
-  cronSecret: string | undefined,
-): CronAuthorizationResult {
-  if (!cronSecret || cronSecret.length < MINIMUM_CRON_SECRET_LENGTH) {
-    return 'misconfigured'
-  }
-
-  if (!authorizationHeader) {
-    return 'unauthorized'
-  }
-
-  const supplied = digest(authorizationHeader)
-  const expected = digest(`Bearer ${cronSecret}`)
-  return timingSafeEqual(supplied, expected) ? 'authorized' : 'unauthorized'
 }
 
 export function sanitizeImportAudit(

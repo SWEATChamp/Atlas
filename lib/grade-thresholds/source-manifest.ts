@@ -137,6 +137,38 @@ export const CAMBRIDGE_JUNE_2026_SOURCES = [
   },
 ] as const satisfies readonly CambridgeThresholdSource[]
 
+const SERIES_CHRONOLOGY: Record<CambridgeThresholdSource['series'], number> = {
+  march: 1,
+  june: 2,
+  november: 3,
+}
+
+export function compareManifestSessions(
+  a: { year: number; series: CambridgeThresholdSource['series'] },
+  b: { year: number; series: CambridgeThresholdSource['series'] },
+): number {
+  if (a.year !== b.year) {
+    return a.year - b.year
+  }
+  return (SERIES_CHRONOLOGY[a.series] ?? 0) - (SERIES_CHRONOLOGY[b.series] ?? 0)
+}
+
+export const CAMBRIDGE_THRESHOLD_SOURCES: readonly CambridgeThresholdSource[] = [
+  ...CAMBRIDGE_JUNE_2026_SOURCES,
+]
+
+export function getNewestReviewedThresholdSource(
+  syllabusCode: string,
+  sources: readonly CambridgeThresholdSource[] = CAMBRIDGE_THRESHOLD_SOURCES,
+): CambridgeThresholdSource | undefined {
+  const matching = sources.filter((source) => source.syllabusCode === syllabusCode)
+  if (matching.length === 0) return undefined
+
+  return matching.reduce((newest, current) => {
+    return compareManifestSessions(current, newest) > 0 ? current : newest
+  })
+}
+
 export function getCambridgeThresholdSource(syllabusCode: string): CambridgeThresholdSource | undefined {
-  return CAMBRIDGE_JUNE_2026_SOURCES.find((source) => source.syllabusCode === syllabusCode)
+  return getNewestReviewedThresholdSource(syllabusCode)
 }

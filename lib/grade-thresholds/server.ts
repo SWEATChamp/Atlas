@@ -7,6 +7,10 @@ export {
 
 export {
   APPROVED_CAMBRIDGE_HOSTS,
+  isApprovedCambridgeHost,
+} from './cambridge-host-policy'
+
+export {
   DEFAULT_MAX_PDF_BYTES,
   downloadCambridgePdf,
   inspectConfiguredThresholdSources,
@@ -14,10 +18,15 @@ export {
 } from './import-pipeline'
 
 export {
+  MINIMUM_CRON_SECRET_LENGTH,
+  verifyCronAuthorization,
+  type CronAuthorizationResult,
+} from './cron-auth'
+
+export {
   handleScheduledGradeThresholdRequest,
   runScheduledGradeThresholdImport,
   sanitizeImportAudit,
-  verifyCronAuthorization,
 } from './scheduled-import'
 
 export {
@@ -60,7 +69,6 @@ export type {
 } from './import-pipeline'
 
 export type {
-  CronAuthorizationResult,
   HandleScheduledImportRequestOptions,
   RunScheduledImportOptions,
   SanitizedImportAudit,

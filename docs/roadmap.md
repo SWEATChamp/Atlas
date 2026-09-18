@@ -24,7 +24,7 @@
 | Phase 2.12 / v1.1.0 Dashboard Mobile Compatibility & Update Notifications | Deployed and production-verified on 2026-08-28 (merge commit `7071fa0`); annotated tag `v1.1.0` published at `5a8d69e` |
 | v1.1.1 Operational Patch: Singapore Infrastructure Migration | Deployed and production-verified on 2026-09-01 (merge commit `7b2203f`, closeout `8448e18`); annotated tag `v1.1.1` published |
 | Phase 2.13 / v1.2.0 Accessible UI Foundation & Subject Controls Guide | Deployed and production-verified on 2026-09-02 (merge commit `abed20b`, closeout `a4ea179`); annotated tag `v1.2.0` and GitHub Release published |
-| Milestone 3: Official Grade-Threshold Foundation | In progress; Migration 027 and June 2026 publications present in Singapore; publication discovery merged (PR #16, `07120d1`) and deployed (`dpl_GmxutRfLHEHPnqArivPBowNtJL4i`); no active cron schedule found; CRON_SECRET and service credentials absent; no invocation observed in retained logs; discovery-only architecture and scheduling pending |
+| Milestone 3: Official Grade-Threshold Foundation | In progress; Migration 027 and June 2026 publications present in Singapore; publication discovery merged (PR #16, `07120d1`) and deployed (`dpl_GmxutRfLHEHPnqArivPBowNtJL4i`); Stage 1 discovery route and credential split implemented on branch; this change does not provision either secret; hosted environment variables not inspected in this task; no active cron schedule configured; notification mechanism and production schedule activation pending |
 | Milestone 4: Paper & Question-Practice Logging and Analytics | Planned; product rules documented, implementation not started |
 | Milestone 5: Target-Grade Marks Planner | Planned; product rules documented, depends on Milestone 3 official thresholds and Milestone 4 practice logging |
 | Release-candidate checks | 201 database tests and 134 unit tests pass; type check, lint, production build, and whitespace checks pass |
@@ -177,12 +177,14 @@
 >   - Runtime reality: current deployed endpoint downloads all 5 manifest PDFs plus weighting PDF (not an HTML-only or zero-PDF check), making the 60s function limit and runtime/bandwidth validation strict activation gates.
 >   - Preferred architecture: a lightweight **discovery-only** scheduled job (checking Cambridge index pages; emitting structured reports/logs only without downloading PDFs, persisting candidates, or requiring database credentials) is recommended over a full-import cron; mutating importer remains dormant until separately reviewed.
 >   - Preview boundary: Preview cannot target Singapore production for mutations and must not receive elevated credentials; authorized behavior is verified via automated tests.
-> - Milestone 3 remains in progress: discovery code is production-deployed, while safe scheduling architecture, credentials, concurrency protection, and operational verification remain incomplete.
+> - Milestone 3 remains in progress: discovery code is production-deployed; Stage 1 discovery-only route and runner are locally implemented with credential separation and transitive isolation; this change does not provision either secret; hosted environment-variable values were not inspected during this implementation task; merge and production deployment are pending; no vercel.json exists; no schedule or production activation was performed; notification mechanism remains an activation blocker; import and publication remain separately gated.
 
 - [x] Create a persistent, versioned Supabase catalogue for official Cambridge component and combination thresholds.
 - [x] Import the June 2026 publications as the initial latest dataset for all five supported subjects.
 - [x] Implement automatic discovery of March, June, and November publications per subject independent of student requests, allowing a series—particularly March—to omit subjects without fabricating an expected publication (merged in PR #16).
-- [ ] Establish discovery-only vs. full-import scheduling architecture, resolve database credential decision, and implement concurrency locking.
+- [x] Implement Stage 1 discovery-only route and runner with credential separation and transitive isolation (locally implemented).
+- [ ] Merge and deploy Stage 1 discovery-only route to production.
+- [ ] Establish approved durable notification mechanism or documented operator polling procedure.
 - [ ] Activate and verify controlled production cron scheduling and operational monitoring.
 - [x] Treat an existing document checksum as a no-op and store a changed document as an append-only revision requiring validation.
 - [x] Retain exact variants, every valid official combination token, maxima, source-backed official weightings, source URLs, publication dates, checksums, parser versions, and review status, including official combinations not currently mapped to an Atlas route.
