@@ -113,9 +113,10 @@ The v1.2.0 UI foundation has been merged to main, deployed to production, verifi
 >   - Introducing a database credential requires a separate reviewed decision between supporting a dedicated modern Supabase secret key for this backend component or temporarily retaining the legacy `SUPABASE_SERVICE_ROLE_KEY`.
 >   - Current runtime behavior: an authorized run of the deployed endpoint downloads all five manifest PDFs plus the weighting PDF before determining `no_change`. It is not an HTML-only or zero-PDF check; the 60-second function limit and runtime/bandwidth validation are strict activation gates.
 > - Milestone 3 remains in progress:
->   - The currently deployed combined endpoint (`/api/cron/grade-thresholds`) is deployed to production but dormant; on this branch, it is updated to require `GRADE_THRESHOLD_IMPORT_SECRET`.
->   - On the feature branch, a dedicated read-only discovery route (`/api/cron/grade-threshold-discovery`) and runner are implemented with credential separation (`CRON_SECRET`) and transitive isolation.
->   - This change does not provision either secret. Hosted environment-variable values were not inspected during this implementation task; no vercel.json exists; no schedule or production activation was performed; notification mechanism remains an activation blocker; import and publication remain separately gated.
+>   - The discovery-only endpoint (`/api/cron/grade-threshold-discovery`) is merged (PR #18, merge commit `ce2eaec8de41371113aee090fcc84525f7bdaca2`) and deployed to Production (deployment `dpl_2t1Kbt6hJMMxiPgPz38cAWF459pz`), but dormant (`CRON_SECRET`).
+>   - The mutating import endpoint (`/api/cron/grade-thresholds`) remains deployed and dormant, requiring `GRADE_THRESHOLD_IMPORT_SECRET` to separate import privileges from discovery tokens.
+>   - Neither secret was provisioned or modified by this change; hosted values were not inspected.
+>   - `vercel.json` remains absent; no schedule or production cron activation was performed; notification mechanism remains an activation blocker; import and publication remain separately gated.
 
 **Objective:** Build a trustworthy, versioned source of Cambridge grade-threshold data for the five supported subjects.
 
