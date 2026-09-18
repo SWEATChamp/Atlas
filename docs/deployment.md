@@ -331,7 +331,7 @@ The performance and dashboard-polish release after Migration 026 does not change
      - Preview may test missing/invalid authorization only (verifying 401/503 responses without database credentials).
      - Authorized import behavior must be verified via automated test suites until an isolated non-production Supabase environment exists.
 
-5. **Stage 1 Discovery-Only Cron Route Production Deployment Record:**
+5. **Stage 1 Discovery-Only Cron Route Production Deployment & Observability Record:**
    - **Merge and Deployment**: Merged to `main` via PR [#18](https://github.com/SWEATChamp/Atlas/pull/18) at merge commit `ce2eaec8de41371113aee090fcc84525f7bdaca2` on 2026-09-18 at 04:30:21Z, and automatically deployed to Vercel production (`dpl_2t1Kbt6hJMMxiPgPz38cAWF459pz`).
    - **Production Verification**: Deployment status verified Ready on Singapore edge (`sin1`). Canonical domain `https://atlas-alpha-vert.vercel.app` and immutable deployment URL `https://atlas-9i7mm0ger-atlas-726e.vercel.app` verified with non-mutating HTTP checks:
      - Root redirect `/` returned HTTP/2 307 redirecting to `/dashboard`.
@@ -343,7 +343,30 @@ The performance and dashboard-polish release after Migration 026 does not change
      - PR #18 did not provision or modify hosted environment variables; hosted values were not inspected.
      - `vercel.json` remains absent from the repository; zero repository-defined Production cron schedules are active.
      - No hosted Supabase access, schema migration, or database mutation occurred.
-   - **Transitive Isolation**: Verified via comprehensive structural tests that `/api/cron/grade-threshold-discovery` and `lib/grade-thresholds/discovery-runner.ts` have zero transitive imports or dependencies on `scheduled-import.ts`, `import-pipeline.ts`, `pdf-extraction.ts`, `supabase-persistence.ts`, `server.ts`, `pdfjs-dist`, `@supabase/supabase-js`, or `@supabase/ssr`.
+   - **Structured Runtime Logging & Observability Baseline**:
+     - The discovery-only route emits exactly one sanitized, single-line structured JSON log per authorized execution (`lib/grade-thresholds/discovery-logger.ts`).
+     - Stable schema includes event name (`grade_threshold_discovery_executed`), schema version, `ok`, `outcome`, HTTP status, `durationMs`, session count, manifest-required count, subject status counts, affected syllabus codes, and sanitized issue codes.
+     - Informational logs (`console.info`) are emitted for healthy/informational outcomes (`no_change`, `unavailable`, `manifest_required`). Error-level logs (`console.error`) are emitted for failures (`check_failed`, `timeout`, or unexpected exceptions).
+     - Strict data hygiene: zero URLs (PDF, index, baseline, or candidate), zero secrets or authorization headers, zero stack traces, and zero raw exception messages are ever logged.
+   - **Proposed Operator-Polling Operating Model (Not Activated)**:
+     - **Recommended Schedule**: `0 7 * * *` (UTC).
+     - **Vercel Hobby Plan Execution Reality**: On Hobby, invocations occur at an arbitrary point within the scheduled hour (between 07:00 and 07:59 UTC). Cambridge’s published results anchors are 05:00 UTC for the March series and 06:00 UTC for the June and November series. The proposed 07:00 UTC schedule follows all three anchors.
+     - **Log-Retention Boundary**: Vercel Hobby retains runtime function logs for exactly one hour. Operator polling relies on the sanitized structured log emitted to runtime logs (the HTTP response body is not automatically surfaced in Vercel logs).
+     - **Off-Season Runbook**:
+       1. Choose one fixed weekly inspection day.
+       2. Check Vercel Function logs at approximately 07:30 UTC.
+       3. If that day’s run has not yet triggered due to Hobby hourly jitter, inspect again shortly after 08:00 UTC.
+       4. Review the structured outcome before the one-hour retention window expires.
+     - **Results-Window Runbook (May, August, January)**:
+       1. On official Cambridge results days and consecutive days until manifest admission, execute the two-stage check (07:30 UTC and post-08:00 UTC).
+       2. If `outcome === "manifest_required"`, identify affected syllabus codes and review candidate publications for manual admission to `source-manifest.ts`. Note that `manifest_required` remains repeatable on subsequent daily runs until the reviewed manifest is updated and deployed.
+     - **Outcome Classification**:
+       - *Healthy*: `no_change` (all checked subjects match baseline or are historical).
+       - *Informational*: `unavailable` (series not yet published on Cambridge tables).
+       - *Operator Action Required*: `manifest_required` (newer session or changed table link detected; prepare reviewed manifest update).
+       - *Failure Requiring Investigation*: `check_failed` (contradictory link, parse error, or network failure), `timeout` (upstream latency exceeded threshold), or `unexpected_error` (unhandled runner exception).
+     - **Dashboard Nuance**: Vercel does not provide a documented dashboard "manual run" button for cron jobs. First authorized production invocation, schedule activation, emergency disable (**Project Settings → Cron Jobs → Disable Cron Jobs**), and permanent schedule removal remain separately approved operational actions.
+   - **Transitive Isolation**: Verified via comprehensive structural tests that `/api/cron/grade-threshold-discovery`, `lib/grade-thresholds/discovery-runner.ts`, and `lib/grade-thresholds/discovery-logger.ts` have zero transitive imports or dependencies on `scheduled-import.ts`, `import-pipeline.ts`, `pdf-extraction.ts`, `supabase-persistence.ts`, `server.ts`, `pdfjs-dist`, `@supabase/supabase-js`, or `@supabase/ssr`.
    - **Pending Milestone 3 Gates**:
      - Cron activation remains blocked until an approved durable notification mechanism or documented operator polling procedure is established.
      - Controlled Production cron scheduling and operational monitoring remain pending.

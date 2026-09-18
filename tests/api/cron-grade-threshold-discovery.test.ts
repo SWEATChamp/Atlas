@@ -12,14 +12,21 @@ describe('grade-threshold discovery route and credential isolation', () => {
 
   const originalEnv = process.env
 
+  let consoleInfoSpy: ReturnType<typeof vi.spyOn> | undefined
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn> | undefined
+
   beforeEach(() => {
     process.env = { ...originalEnv }
     delete process.env.CRON_SECRET
     delete process.env.GRADE_THRESHOLD_IMPORT_SECRET
+    consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
   afterEach(() => {
     process.env = originalEnv
+    consoleInfoSpy?.mockRestore()
+    consoleErrorSpy?.mockRestore()
   })
 
   test('returns 503 cron_not_configured when CRON_SECRET is absent or too short', async () => {
@@ -307,5 +314,91 @@ describe('grade-threshold discovery route and credential isolation', () => {
     // Even if discovery has CRON_SECRET, providing GRADE_THRESHOLD_IMPORT_SECRET returns 401 unauthorized
     const discRes3 = await handleDiscoveryRequest(discReqWithImportSecret, { cronSecret: CRON_SECRET })
     expect(discRes3.status).toBe(401)
+  })
+
+  test('emits sanitized structured logs for authorized runs and suppresses logs for unauthorized runs', async () => {
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      // 1. Authorized success emits single-line JSON to console.info
+      const mockSuccessReport: DiscoveryRunnerReport = {
+        ok: true,
+        outcome: 'no_change',
+        checkedAt: '2026-06-15T12:00:00.000Z',
+        sessionsChecked: [{ year: 2026, series: 'june' }],
+        subjects: [{ syllabusCode: '9709', syllabusName: 'Maths', status: 'unchanged' }],
+        manifestRequiredCount: 0,
+        hasFailure: false,
+      }
+
+      const authReq = new Request('https://atlas.example/api/cron/grade-threshold-discovery', {
+        headers: { authorization: `Bearer ${CRON_SECRET}` },
+      })
+      const successRes = await handleDiscoveryRequest(authReq, {
+        cronSecret: CRON_SECRET,
+        runner: async () => mockSuccessReport,
+      })
+
+      expect(successRes.status).toBe(200)
+      expect(infoSpy).toHaveBeenCalledTimes(1)
+      expect(errorSpy).not.toHaveBeenCalled()
+
+      const successLog = JSON.parse(infoSpy.mock.calls[0][0])
+      expect(successLog.event).toBe('grade_threshold_discovery_executed')
+      expect(successLog.ok).toBe(true)
+      expect(successLog.outcome).toBe('no_change')
+      expect(successLog.status).toBe(200)
+      expect(typeof successLog.durationMs).toBe('number')
+
+      infoSpy.mockClear()
+      errorSpy.mockClear()
+
+      // 2. Failure or unexpected runner exception emits sanitized error log to console.error
+      const failingReq = new Request('https://atlas.example/api/cron/grade-threshold-discovery', {
+        headers: { authorization: `Bearer ${CRON_SECRET}` },
+      })
+      const errorRes = await handleDiscoveryRequest(failingReq, {
+        cronSecret: CRON_SECRET,
+        runner: async () => {
+          throw new Error('Sensitive stack trace and DB URL: postgresql://admin:secret@host/db')
+        },
+      })
+
+      expect(errorRes.status).toBe(502)
+      expect(infoSpy).not.toHaveBeenCalled()
+      expect(errorSpy).toHaveBeenCalledTimes(1)
+
+      const rawErrorLog = errorSpy.mock.calls[0][0]
+      const parsedErrorLog = JSON.parse(rawErrorLog)
+      expect(parsedErrorLog.event).toBe('grade_threshold_discovery_executed')
+      expect(parsedErrorLog.ok).toBe(false)
+      expect(parsedErrorLog.outcome).toBe('unexpected_error')
+      expect(parsedErrorLog.errorKind).toBe('unexpected_exception')
+
+      // Assert absence of raw exception message, stack, URL, or credentials
+      expect(rawErrorLog).not.toContain('Sensitive stack trace')
+      expect(rawErrorLog).not.toContain('postgresql://')
+      expect(rawErrorLog).not.toContain('secret@host')
+
+      infoSpy.mockClear()
+      errorSpy.mockClear()
+
+      // 3. Unauthorized request produces zero structured logs
+      const unauthReq = new Request('https://atlas.example/api/cron/grade-threshold-discovery', {
+        headers: { authorization: 'Bearer invalid-token' },
+      })
+      const unauthRes = await handleDiscoveryRequest(unauthReq, {
+        cronSecret: CRON_SECRET,
+        runner: async () => mockSuccessReport,
+      })
+
+      expect(unauthRes.status).toBe(401)
+      expect(infoSpy).not.toHaveBeenCalled()
+      expect(errorSpy).not.toHaveBeenCalled()
+    } finally {
+      infoSpy.mockRestore()
+      errorSpy.mockRestore()
+    }
   })
 })

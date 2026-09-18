@@ -1,5 +1,10 @@
 import { verifyCronAuthorization } from '@/lib/grade-thresholds/cron-auth'
 import {
+  buildDiscoveryErrorLog,
+  buildDiscoverySuccessLog,
+  emitDiscoveryStructuredLog,
+} from '@/lib/grade-thresholds/discovery-logger'
+import {
   runGradeThresholdDiscovery,
   type DiscoveryRunnerReport,
 } from '@/lib/grade-thresholds/discovery-runner'
@@ -40,9 +45,12 @@ export async function handleDiscoveryRequest(
     )
   }
 
+  const startTime = Date.now()
+
   try {
     const runner = options?.runner ?? runGradeThresholdDiscovery
     const report = await runner()
+    const durationMs = Date.now() - startTime
 
     let status = 200
     if (report.outcome === 'timeout') {
@@ -51,11 +59,18 @@ export async function handleDiscoveryRequest(
       status = 502
     }
 
+    emitDiscoveryStructuredLog(
+      buildDiscoverySuccessLog(report, status, durationMs),
+    )
+
     return Response.json(report, {
       status,
       headers: HEADERS,
     })
   } catch {
+    const durationMs = Date.now() - startTime
+    emitDiscoveryStructuredLog(buildDiscoveryErrorLog(durationMs))
+
     return Response.json(
       { ok: false, error: 'check_failed' },
       { status: 502, headers: HEADERS },
