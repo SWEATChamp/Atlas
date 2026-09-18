@@ -14,7 +14,7 @@ Atlas uses Vercel for the Next.js application and Supabase for authentication an
 - Phase 2.12 / v1.1.0 (Dashboard Mobile Compatibility & Update Notifications) was deployed to Vercel production at merge commit `7071fa0` and production-verified. Annotated tag `v1.1.0` was published at `5a8d69e`.
 - v1.1.1 (Singapore Infrastructure Migration) was deployed to Vercel production and verified on 2026-09-01 (merge commit `7b2203f`, closeout `8448e18`, annotated tag `v1.1.1`, and published GitHub Release).
 - Phase 2.13 / v1.2.0 (Accessible UI Foundation & Subject Controls Guide) was deployed to Vercel production and verified on 2026-09-02 at merge commit `abed20ba325e99113813a8860be7f4a22c1fc39c` (with release-closeout merge commit `a4ea17993e0f9250eb1c50a41d930a8c4f5a4d2c`, annotated tag object `1c4524fcd1f747a7e00674d7c0aa8551f2180d94`, and published [GitHub Release](https://github.com/SWEATChamp/Atlas/releases/tag/v1.2.0)). It establishes an accessible `Dialog` primitive, dark design tokens, two-step Subject controls guide, responsive layouts (320px–1280px), touch targets (≥44×44px through 768px), and returning-user v1.2.0 notifications.
-- Milestone 3 Publication Discovery was merged to `main` via PR #16 at merge commit `07120d189a4416604945ef76382a2cae3dd412da` and deployed to Vercel production (`dpl_GmxutRfLHEHPnqArivPBowNtJL4i`) on 2026-09-12. It establishes server-only rolling discovery for Cambridge grade-threshold publications with strict HTTPS, approved host, and canonical session route validation. Operational audit found no active cron schedule in the current Vercel configuration and no invocation in the available retained logs; this evidence does not prove historical non-invocation; `CRON_SECRET` and `SUPABASE_SERVICE_ROLE_KEY` are confirmed absent from Vercel; discovered publications remain behind the reviewed manifest admission boundary; and safe scheduling architecture remains pending review.
+- Milestone 3 Publication Discovery was merged to `main` via PR #16 at merge commit `07120d189a4416604945ef76382a2cae3dd412da` and deployed to Vercel production (`dpl_GmxutRfLHEHPnqArivPBowNtJL4i`) on 2026-09-12. Stage 1 Discovery-Only Cron Route and credential separation were merged via PR #18 at merge commit `ce2eaec8de41371113aee090fcc84525f7bdaca2` and deployed to Vercel production (`dpl_2t1Kbt6hJMMxiPgPz38cAWF459pz`) on 2026-09-18. Both `/api/cron/grade-threshold-discovery` (expects `CRON_SECRET`) and `/api/cron/grade-thresholds` (expects `GRADE_THRESHOLD_IMPORT_SECRET`) are deployed but dormant; neither was invoked during PR #18 deployment verification; `vercel.json` remains absent; zero repository-defined cron schedules exist; and notification mechanism / schedule activation remain pending.
 - Do not rerun Migrations 024–026. Any further production correction must use a reviewed forward-only migration.
 
 ## Migration 024 Release Order
@@ -331,16 +331,23 @@ The performance and dashboard-polish release after Migration 026 does not change
      - Preview may test missing/invalid authorization only (verifying 401/503 responses without database credentials).
      - Authorized import behavior must be verified via automated test suites until an isolated non-production Supabase environment exists.
 
-5. **Stage 1 Discovery-Only Scheduler Implementation (Feature Branch Baseline; Not Activated):**
-   - **Currently Deployed Combined Endpoint**: `/api/cron/grade-thresholds` remains deployed to production but dormant; on this branch, it is updated to require `GRADE_THRESHOLD_IMPORT_SECRET` so elevated import permissions are strictly separated from discovery tokens.
-   - **Feature-Branch Discovery-Only Route**: A dedicated read-only discovery route (`/api/cron/grade-threshold-discovery`) is implemented on the feature branch alongside narrow leaf modules (`lib/grade-thresholds/cambridge-host-policy.ts` and `lib/grade-thresholds/cron-auth.ts`).
-   - **Transitive Isolation**: Verified via comprehensive structural tests (static imports, re-exports, dynamic imports, requires) that the discovery route and runner have zero transitive reach to `scheduled-import.ts`, `import-pipeline.ts`, `pdf-extraction.ts`, `supabase-persistence.ts`, `server.ts`, `pdfjs-dist`, `@supabase/supabase-js`, or `@supabase/ssr`.
-   - **Credential Separation**:
-     - `/api/cron/grade-threshold-discovery` expects `CRON_SECRET`.
-     - `/api/cron/grade-thresholds` expects `GRADE_THRESHOLD_IMPORT_SECRET`.
-     - This change does not provision either secret. Hosted environment-variable values were not inspected during this implementation task, and no schedule or production activation was performed.
-   - **Production Activation Not Performed**: No `vercel.json` exists in the repository, and no recurring cron schedule is active. Cron activation remains blocked until an approved durable notification mechanism or documented operator polling procedure is established.
-   - **Manual Gating**: Threshold manifest admission, PDF downloading, parsing, staging, review, approval, and publication remain manual and separately gated operations.
+5. **Stage 1 Discovery-Only Cron Route Production Deployment Record:**
+   - **Merge and Deployment**: Merged to `main` via PR [#18](https://github.com/SWEATChamp/Atlas/pull/18) at merge commit `ce2eaec8de41371113aee090fcc84525f7bdaca2` on 2026-09-18 at 04:30:21Z, and automatically deployed to Vercel production (`dpl_2t1Kbt6hJMMxiPgPz38cAWF459pz`).
+   - **Production Verification**: Deployment status verified Ready on Singapore edge (`sin1`). Canonical domain `https://atlas-alpha-vert.vercel.app` and immutable deployment URL `https://atlas-9i7mm0ger-atlas-726e.vercel.app` verified with non-mutating HTTP checks:
+     - Root redirect `/` returned HTTP/2 307 redirecting to `/dashboard`.
+     - Sign-in page `/login` returned HTTP/2 200.
+   - **Operational Reality & Credential Separation**:
+     - Dedicated read-only discovery route `/api/cron/grade-threshold-discovery` is deployed to Production but dormant (expects `CRON_SECRET`).
+     - Legacy/mutating endpoint `/api/cron/grade-thresholds` remains deployed and dormant, now requiring `GRADE_THRESHOLD_IMPORT_SECRET` to ensure elevated import permissions are strictly separated from discovery tokens.
+     - Neither endpoint was invoked during deployment verification.
+     - PR #18 did not provision or modify hosted environment variables; hosted values were not inspected.
+     - `vercel.json` remains absent from the repository; zero repository-defined Production cron schedules are active.
+     - No hosted Supabase access, schema migration, or database mutation occurred.
+   - **Transitive Isolation**: Verified via comprehensive structural tests that `/api/cron/grade-threshold-discovery` and `lib/grade-thresholds/discovery-runner.ts` have zero transitive imports or dependencies on `scheduled-import.ts`, `import-pipeline.ts`, `pdf-extraction.ts`, `supabase-persistence.ts`, `server.ts`, `pdfjs-dist`, `@supabase/supabase-js`, or `@supabase/ssr`.
+   - **Pending Milestone 3 Gates**:
+     - Cron activation remains blocked until an approved durable notification mechanism or documented operator polling procedure is established.
+     - Controlled Production cron scheduling and operational monitoring remain pending.
+     - Threshold manifest admission, PDF downloading, parsing, staging, review, approval, and publication remain manual and separately gated operations.
 
 ## General Production Configuration
 
