@@ -366,9 +366,18 @@ The performance and dashboard-polish release after Migration 026 does not change
        - *Operator Action Required*: `manifest_required` (newer session or changed table link detected; prepare reviewed manifest update).
        - *Failure Requiring Investigation*: `check_failed` (contradictory link, parse error, or network failure), `timeout` (upstream latency exceeded threshold), or `unexpected_error` (unhandled runner exception).
      - **Dashboard Nuance**: Vercel does not provide a documented dashboard "manual run" button for cron jobs. First authorized production invocation, schedule activation, emergency disable (**Project Settings → Cron Jobs → Disable Cron Jobs**), and permanent schedule removal remain separately approved operational actions.
+   - **Discovery Observability Production Deployment**:
+     - Merged to `main` via PR [#20](https://github.com/SWEATChamp/Atlas/pull/20) at merge commit `531bfeeda7b369943e5564266479954096f4f0c4` on 2026-09-18 at 06:37:29Z, and automatically deployed to Vercel production (`dpl_HBAwskuwxGMgzWYP6oNkv1FPteAK`).
+     - Deployment status verified Ready on Singapore edge (`sin1`). Canonical domain `https://atlas-alpha-vert.vercel.app` verified with non-mutating HTTP checks:
+       - Root redirect `/` returned HTTP/2 307 redirecting to `/dashboard`.
+       - Sign-in page `/login` returned HTTP/2 200.
+     - Neither cron endpoint was invoked during deployment verification.
+     - No schedule was created or activated; `vercel.json` remains absent from the repository; zero repository-defined Production cron schedules are active.
+     - Hosted secrets and Supabase were not accessed, inspected, or modified.
+     - Controlled cron activation remains a separately approved operation.
    - **Transitive Isolation**: Verified via comprehensive structural tests that `/api/cron/grade-threshold-discovery`, `lib/grade-thresholds/discovery-runner.ts`, and `lib/grade-thresholds/discovery-logger.ts` have zero transitive imports or dependencies on `scheduled-import.ts`, `import-pipeline.ts`, `pdf-extraction.ts`, `supabase-persistence.ts`, `server.ts`, `pdfjs-dist`, `@supabase/supabase-js`, or `@supabase/ssr`.
    - **Pending Milestone 3 Gates**:
-     - Cron activation remains blocked until an approved durable notification mechanism or documented operator polling procedure is established.
+     - The operator-polling procedure is now documented and established as the operational monitoring mechanism.
      - Controlled Production cron scheduling and operational monitoring remain pending.
      - Threshold manifest admission, PDF downloading, parsing, staging, review, approval, and publication remain manual and separately gated operations.
 
