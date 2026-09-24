@@ -339,3 +339,28 @@ Authored in `supabase/migrations/20260827000026_subject_enrollment_management.sq
    - Existing unsupported enrollments remain removable but cannot be newly added while unavailable.
    - Archived subjects no longer grant chapter access or qualify for new paper logging.
    - Direct client INSERT/DELETE and `is_archived` updates are revoked; clients retain only the narrow exam-date, target-grade, and priority updates required by the application.
+
+---
+
+## Route Remapping Integrity & Stage Preservation (Migration 028) — Prepared Locally (Uncommitted)
+
+Authored in `supabase/migrations/20260923000028_route_remap_integrity_and_stage_preservation.sql`. Rollback-only tests are defined in `supabase/tests/database/route_remap_integrity_and_stage_preservation.test.sql` (23 tests). Status: **Prepared locally for review; uncommitted and not applied to hosted Supabase**.
+
+### Schema & Function Updates
+
+1. **`configure_subject_route(UUID, UUID, study_route_enum, JSONB DEFAULT '[]'::JSONB)`**:
+   - **Stage Preservation**: Preserves `current_stage = 'a2'`, `a2_unlocked_at`, and `a2_unlock_method` when an already-staged A2 student reconfigures papers or saves within the staged route.
+   - Clears A2 stage and unlock metadata only when transitioning route away from `staged` (e.g. to `as_only`).
+   - Atomic rollback and full validation of paper combinations against `subject_valid_routes`.
+
+2. **`transition_to_a2(UUID, UUID, a2_unlock_method_enum, result_type_enum DEFAULT NULL, SMALLINT DEFAULT NULL, SMALLINT DEFAULT NULL, paper_session_enum DEFAULT NULL, SMALLINT DEFAULT NULL, BOOLEAN DEFAULT FALSE, JSONB DEFAULT NULL)`**:
+   - Signature updated with 10th parameter: `p_paper_selections JSONB DEFAULT NULL`.
+   - **Route Capability from Catalogue**: Determining whether a subject supports canonical routes is evaluated strictly against `subject_valid_routes` (requiring `as_only` and `staged` entries), independent of `subjects.is_available`. Catalogued subjects marked unavailable still undergo canonical remapping/continuation.
+   - **Custom Subject Compatibility Fallback**: For subjects without canonical routes in `subject_valid_routes`:
+     - Omitted or empty transition selections preserve existing paper selections while advancing `study_route` from `as_only` to `staged` and unlocking A2.
+     - Non-empty replacement selections are rejected atomically (`P0003`) because no canonical route exists against which to validate them. Arbitrary paper rewrites via ownership checks alone are forbidden.
+   - Rejects non-empty `p_paper_selections` when current route is not `as_only` (`P0001: Cannot specify paper selections during A2 transition for route staged; use configure_subject_route instead`).
+   - **Continuation Preservation Rule**: When converting from `as_only` to `staged`, requires target staged combination's AS-stage paper multiset to exactly equal the enrollment's existing AS paper multiset (e.g., Mathematics `p1_m1` -> `mech_stats`, `p1_s1` -> `stats_mech` or `stats_double`; Further Mathematics `fp1_fm` -> `fm_fps`, `fp1_fps` -> `fps_fm`).
+   - **Mathematics `p1_p2` Exception**: Terminal Pure 2 cannot continue to A2. Automatic transition without selections is blocked (`P0003`); explicit selection of a valid staged route (`mech_stats`, `stats_mech`, or `stats_double`) succeeds as an exceptional replacement of Pure 2.
+   - Fixed-route subjects (9702, 9701, 9618) automatically convert to their canonical staged paper sets.
+   - Atomic transaction guarantees: constraint or validation failure leaves enrollment, route, stage, and paper selections untouched.

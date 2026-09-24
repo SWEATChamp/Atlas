@@ -4,13 +4,24 @@ import { useState, useTransition } from 'react'
 import { Unlock, AlertTriangle, ChevronRight } from 'lucide-react'
 import { Dialog } from '@/components/ui/dialog'
 import { transitionToA2 } from '@/lib/actions/route'
-import type { Subject, UserSubject, ResultType, PaperSession } from '@/types'
+import {
+  getFixedSubjectCombinations,
+  getCompatibleA2StagedCombinations,
+  isElectiveSubject,
+  matchSavedCombination,
+} from './paper-selection-panel'
+import type { Subject, UserSubject, ResultType, PaperSession, PaperSelectionInput } from '@/types'
 
 interface Props {
   isOpen: boolean
   onClose: () => void
   enrollment: UserSubject
   subject: Subject
+  paperSelections?: Array<{
+    component_name: string
+    paper_number?: number | null
+    stage: 'as' | 'a2'
+  }>
 }
 
 export default function A2TransitionModal({
@@ -18,6 +29,7 @@ export default function A2TransitionModal({
   onClose,
   enrollment,
   subject,
+  paperSelections = [],
 }: Props) {
   const [mode, setMode] = useState<'select' | 'normal' | 'manual'>('select')
   const resultType: ResultType = 'actual'
@@ -30,6 +42,41 @@ export default function A2TransitionModal({
   const [isPending, startTransition] = useTransition()
 
   const isAsOnly = enrollment.study_route === 'as_only'
+  const isElective = isElectiveSubject(subject.code)
+  const currentAsMatch = isElective
+    ? matchSavedCombination(subject.code, 'as_only', (paperSelections ?? []) as PaperSelectionInput[])
+    : null
+  const compatibleCombinations = isElective
+    ? getCompatibleA2StagedCombinations(subject.code, currentAsMatch?.id)
+    : []
+
+  const getInitialStagedComboId = (): string | null => {
+    if (!isElective) return 'standard'
+    if (subject.code === '9709') {
+      if (currentAsMatch?.id === 'p1_m1') return 'mech_stats'
+      if (currentAsMatch?.id === 'p1_s1') return 'stats_mech'
+      if (currentAsMatch?.id === 'p1_p2') return null // Must be explicitly selected by the user
+    }
+    if (subject.code === '9231') {
+      if (currentAsMatch?.id === 'fp1_fm') return 'fm_fps'
+      if (currentAsMatch?.id === 'fp1_fps') return 'fps_fm'
+    }
+    return null
+  }
+
+  const [selectedComboId, setSelectedComboId] = useState<string | null>(getInitialStagedComboId)
+
+  const resolveTargetPaperSelections = (): PaperSelectionInput[] | undefined => {
+    if (!isAsOnly) return undefined
+
+    if (!isElective) {
+      const fixedCombos = subject.code ? getFixedSubjectCombinations(subject.code, 'staged') : []
+      return fixedCombos[0]?.selections
+    }
+
+    const matchedCombo = compatibleCombinations.find((c) => c.id === selectedComboId)
+    return matchedCombo?.selections
+  }
 
   const handleNormalSubmit = () => {
     setError(null)
@@ -45,6 +92,21 @@ export default function A2TransitionModal({
       return
     }
 
+    if (isAsOnly && isElective && !selectedComboId) {
+      setError(
+        subject.code === '9709' && currentAsMatch?.id === 'p1_p2'
+          ? 'Mathematics p1_p2 must select a valid staged paper combination before transitioning to A2'
+          : 'Please select a valid staged paper combination'
+      )
+      return
+    }
+
+    const resolvedPapers = resolveTargetPaperSelections()
+    if (isAsOnly && (!resolvedPapers || resolvedPapers.length === 0)) {
+      setError('Failed to resolve valid staged paper combination')
+      return
+    }
+
     startTransition(async () => {
       const res = await transitionToA2({
         userSubjectId: enrollment.id,
@@ -55,6 +117,7 @@ export default function A2TransitionModal({
         examSeries,
         examYear,
         carryForward,
+        paperSelections: resolvedPapers,
       })
 
       if (res.error) {
@@ -83,6 +146,21 @@ export default function A2TransitionModal({
       }
     }
 
+    if (isAsOnly && isElective && !selectedComboId) {
+      setError(
+        subject.code === '9709' && currentAsMatch?.id === 'p1_p2'
+          ? 'Mathematics p1_p2 must select a valid staged paper combination before transitioning to A2'
+          : 'Please select a valid staged paper combination'
+      )
+      return
+    }
+
+    const resolvedPapers = resolveTargetPaperSelections()
+    if (isAsOnly && (!resolvedPapers || resolvedPapers.length === 0)) {
+      setError('Failed to resolve valid staged paper combination')
+      return
+    }
+
     startTransition(async () => {
       const res = await transitionToA2({
         userSubjectId: enrollment.id,
@@ -93,6 +171,7 @@ export default function A2TransitionModal({
         examSeries: withResult ? examSeries : undefined,
         examYear: withResult ? examYear : undefined,
         carryForward: withResult && resultType === 'actual' ? carryForward : false,
+        paperSelections: resolvedPapers,
       })
 
       if (res.error) {
@@ -185,6 +264,11 @@ export default function A2TransitionModal({
                   <AlertTriangle size={18} color="var(--warning)" style={{ flexShrink: 0, marginTop: 2 }} />
                   <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
                     Your current route is <strong>AS Level Only</strong>. Unlocking A2 content will convert your route to <strong>Staged A Level</strong>.
+                    {subject.code === '9709' && currentAsMatch?.id === 'p1_p2' && (
+                      <span style={{ display: 'block', marginTop: 4, color: 'var(--warning)' }}>
+                        Notice: Pure 2 is terminal at AS Level. Unlocking A2 requires an explicit replacement: your selected staged route will replace Pure 2 in your stored route.
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -357,7 +441,7 @@ export default function A2TransitionModal({
                   type="button"
                   className="btn btn-primary touch-target-btn"
                   onClick={handleNormalSubmit}
-                  disabled={isPending}
+                  disabled={isPending || (isAsOnly && isElective && !selectedComboId)}
                   style={{ background: subject.color_hex || 'var(--accent-primary)', minHeight: 44 }}
                 >
                   {isPending ? 'Unlocking...' : 'Unlock A2'}
@@ -379,8 +463,98 @@ export default function A2TransitionModal({
                   lineHeight: 1.4,
                 }}
               >
-                Manual unlock grants immediate access to all A2 chapters and past papers. You can enter an expected/forecast score now or skip this step.
+                Manual unlock grants immediate access to all A2 chapters and past papers.
               </div>
+
+              {isAsOnly && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {isElective ? (
+                    <div>
+                      <div id="staged-combo-label" style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>
+                        {subject.code === '9709' && currentAsMatch?.id === 'p1_p2'
+                          ? 'Pure 2 has no A2 continuation. Select your Staged A Level combination:'
+                          : 'Staged A Level Paper Combination:'}
+                      </div>
+
+                      {subject.code === '9709' && currentAsMatch?.id === 'p1_p2' && (
+                        <div
+                          style={{
+                            padding: '10px 12px',
+                            borderRadius: 'var(--radius-md)',
+                            background: 'rgba(196, 160, 93, 0.1)',
+                            border: '1px solid rgba(196, 160, 93, 0.3)',
+                            fontSize: '0.78rem',
+                            color: 'var(--warning)',
+                            marginBottom: 8,
+                          }}
+                        >
+                          Mathematics Pure 2 (Paper 2) is terminal at AS Level and cannot be continued into A2. Unlocking A2 requires an explicit replacement: your selected staged route will replace Pure 2 in your stored route.
+                        </div>
+                      )}
+
+                      <div role="radiogroup" aria-labelledby="staged-combo-label" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {compatibleCombinations.map((combo) => {
+                          const isSelected = selectedComboId === combo.id
+                          return (
+                            <label
+                              key={combo.id}
+                              className="touch-target-btn"
+                              style={{
+                                width: '100%',
+                                textAlign: 'left',
+                                padding: '12px 14px',
+                                borderRadius: 'var(--radius-md)',
+                                border: isSelected
+                                  ? `2px solid ${subject.color_hex}`
+                                  : '1.5px solid var(--border-subtle)',
+                                background: isSelected ? `${subject.color_hex}10` : 'var(--bg-elevated)',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: 12,
+                                minHeight: 44,
+                              }}
+                            >
+                              <input
+                                type="radio"
+                                name="staged-combination"
+                                value={combo.id}
+                                checked={isSelected}
+                                onChange={() => {
+                                  setSelectedComboId(combo.id)
+                                  setError(null)
+                                }}
+                                style={{ marginTop: 3 }}
+                              />
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                  {combo.label}
+                                </div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                  {combo.description}
+                                </div>
+                              </div>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: 'var(--radius-md)',
+                        background: 'var(--bg-elevated)',
+                        border: '1px solid var(--border-subtle)',
+                        fontSize: '0.8rem',
+                        color: 'var(--text-secondary)',
+                      }}
+                    >
+                      Your paper selections will automatically update to the canonical Staged A Level curriculum for {subject.name}.
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
                 <button
@@ -395,7 +569,7 @@ export default function A2TransitionModal({
                   type="button"
                   className="btn btn-primary touch-target-btn"
                   onClick={() => handleManualSubmit(false)}
-                  disabled={isPending}
+                  disabled={isPending || (isAsOnly && isElective && !selectedComboId)}
                   style={{ background: subject.color_hex || 'var(--accent-primary)', minHeight: 44 }}
                 >
                   {isPending ? 'Unlocking...' : 'Unlock Now'}
