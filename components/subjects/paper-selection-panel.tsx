@@ -388,28 +388,118 @@ export function remapSelectionsOnRouteChange(
 
   // Maths 9709
   if (subjectCode === '9709') {
-    if (fromRoute === 'full_level' && toRoute === 'staged') {
-      const fullMatch = matchSavedCombination('9709', 'full_level', currentSelections)
-      if (fullMatch?.id === 'full_mech_stats') return []
-      if (fullMatch?.id === 'full_stats_double') {
-        const stagedDouble = getMathsCombinations('staged').find((c) => c.id === 'stats_double')
-        return stagedDouble?.selections ?? []
+    // 1. from AS-only
+    if (fromRoute === 'as_only') {
+      const asMatch = matchSavedCombination('9709', 'as_only', currentSelections)
+      if (asMatch?.id === 'p1_m1') {
+        if (toRoute === 'staged') {
+          return getMathsCombinations('staged').find((c) => c.id === 'mech_stats')?.selections ?? []
+        }
+        if (toRoute === 'full_level') {
+          return getMathsCombinations('full_level').find((c) => c.id === 'full_mech_stats')?.selections ?? []
+        }
+      }
+      if (asMatch?.id === 'p1_s1') {
+        if (toRoute === 'staged') {
+          return getMathsCombinations('staged').find((c) => c.id === 'stats_mech')?.selections ?? []
+        }
+        if (toRoute === 'full_level') {
+          // Intentional clearing preserved: p1_s1 -> full
+          return []
+        }
+      }
+      // Intentional clearing preserved: p1_p2 -> staged/full
+      return []
+    }
+
+    // 2. from Staged
+    if (fromRoute === 'staged') {
+      const stagedMatch = matchSavedCombination('9709', 'staged', currentSelections)
+      if (toRoute === 'as_only') {
+        if (stagedMatch?.id === 'mech_stats') {
+          return getMathsCombinations('as_only').find((c) => c.id === 'p1_m1')?.selections ?? []
+        }
+        if (stagedMatch?.id === 'stats_mech' || stagedMatch?.id === 'stats_double') {
+          return getMathsCombinations('as_only').find((c) => c.id === 'p1_s1')?.selections ?? []
+        }
+        return []
+      }
+      if (toRoute === 'full_level') {
+        const fullMatch = matchSavedCombination('9709', 'full_level', currentSelections)
+        return fullMatch?.selections ?? []
       }
       return []
     }
-    if (fromRoute === 'staged' && toRoute === 'full_level') {
+
+    // 3. from Full Level
+    if (fromRoute === 'full_level') {
       const fullMatch = matchSavedCombination('9709', 'full_level', currentSelections)
-      return fullMatch?.selections ?? []
+      if (toRoute === 'as_only') {
+        if (fullMatch?.id === 'full_stats_double') {
+          return getMathsCombinations('as_only').find((c) => c.id === 'p1_s1')?.selections ?? []
+        }
+        // Intentional clearing preserved: full_mech_stats -> AS
+        return []
+      }
+      if (toRoute === 'staged') {
+        if (fullMatch?.id === 'full_stats_double') {
+          const stagedDouble = getMathsCombinations('staged').find((c) => c.id === 'stats_double')
+          return stagedDouble?.selections ?? []
+        }
+        // Intentional clearing preserved: full_mech_stats -> staged
+        return []
+      }
+      return []
     }
+
     return []
   }
 
   // Further Maths 9231
   if (subjectCode === '9231') {
-    if (toRoute === 'full_level') {
-      const fullCombo = getFurtherMathsCombinations('full_level')[0]
-      return fullCombo?.selections ?? []
+    // 1. from AS-only
+    if (fromRoute === 'as_only') {
+      const asMatch = matchSavedCombination('9231', 'as_only', currentSelections)
+      if (toRoute === 'staged') {
+        if (asMatch?.id === 'fp1_fm') {
+          return getFurtherMathsCombinations('staged').find((c) => c.id === 'fm_fps')?.selections ?? []
+        }
+        if (asMatch?.id === 'fp1_fps') {
+          return getFurtherMathsCombinations('staged').find((c) => c.id === 'fps_fm')?.selections ?? []
+        }
+      }
+      if (toRoute === 'full_level') {
+        const fullCombo = getFurtherMathsCombinations('full_level')[0]
+        return fullCombo?.selections ?? []
+      }
+      return []
     }
+
+    // 2. from Staged
+    if (fromRoute === 'staged') {
+      const stagedMatch = matchSavedCombination('9231', 'staged', currentSelections)
+      if (toRoute === 'as_only') {
+        if (stagedMatch?.id === 'fm_fps') {
+          return getFurtherMathsCombinations('as_only').find((c) => c.id === 'fp1_fm')?.selections ?? []
+        }
+        if (stagedMatch?.id === 'fps_fm') {
+          return getFurtherMathsCombinations('as_only').find((c) => c.id === 'fp1_fps')?.selections ?? []
+        }
+        return []
+      }
+      if (toRoute === 'full_level') {
+        const fullCombo = getFurtherMathsCombinations('full_level')[0]
+        return fullCombo?.selections ?? []
+      }
+      return []
+    }
+
+    // 3. from Full Level
+    if (fromRoute === 'full_level') {
+      // Intentional clearing preserved: Further Mathematics full_all -> staged/AS
+      return []
+    }
+
     return []
   }
 
@@ -422,6 +512,48 @@ export const matchSavedMathsCombination = (route: StudyRoute, selections: PaperS
 
 export const remapMathsSelectionsOnRouteChange = (from: StudyRoute, to: StudyRoute, sel: PaperSelectionInput[]) =>
   remapSelectionsOnRouteChange('9709', from, to, sel)
+
+/**
+ * Filter staged A2 combinations compatible with the student's recorded AS papers.
+ * - Mathematics p1_m1: allow only mech_stats.
+ * - Mathematics p1_s1: default to stats_mech; allow stats_double; never offer mech_stats.
+ * - Mathematics p1_p2: show all valid staged routes only as an explicit exceptional replacement.
+ * - Further Mathematics fp1_fm: allow only fm_fps.
+ * - Further Mathematics fp1_fps: allow only fps_fm.
+ */
+export function getCompatibleA2StagedCombinations(
+  subjectCode: string | null | undefined,
+  currentAsComboId: string | null | undefined
+): OptionCombination[] {
+  if (!subjectCode) return []
+
+  if (subjectCode === '9709') {
+    const stagedCombos = getMathsCombinations('staged')
+    if (currentAsComboId === 'p1_m1') {
+      return stagedCombos.filter((c) => c.id === 'mech_stats')
+    }
+    if (currentAsComboId === 'p1_s1') {
+      return stagedCombos.filter((c) => c.id === 'stats_mech' || c.id === 'stats_double')
+    }
+    if (currentAsComboId === 'p1_p2') {
+      return stagedCombos
+    }
+    return []
+  }
+
+  if (subjectCode === '9231') {
+    const stagedCombos = getFurtherMathsCombinations('staged')
+    if (currentAsComboId === 'fp1_fm') {
+      return stagedCombos.filter((c) => c.id === 'fm_fps')
+    }
+    if (currentAsComboId === 'fp1_fps') {
+      return stagedCombos.filter((c) => c.id === 'fps_fm')
+    }
+    return []
+  }
+
+  return []
+}
 
 export default function PaperSelectionPanel({
   subjectCode,

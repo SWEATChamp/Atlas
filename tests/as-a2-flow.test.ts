@@ -476,10 +476,11 @@ describe('PaperSelectionPanel & RouteStep State-Logic Flow (Loop Prevention & Ro
     expect(matchSavedMathsCombination('staged', paperSelections)?.id).toBe('stats_double')
     expect(isLaunchDisabled()).toBe(false)
 
-    // Step 8: User switches from staged to as_only (incompatible -> cleared)
+    // Step 8: User switches from staged (stats_double) to as_only (remaps to p1_s1)
     switchRoute('as_only')
-    expect(paperSelections).toEqual([])
-    expect(isLaunchDisabled()).toBe(true)
+    expect(paperSelections.length).toBe(2)
+    expect(matchSavedMathsCombination('as_only', paperSelections)?.id).toBe('p1_s1')
+    expect(isLaunchDisabled()).toBe(false)
   })
 })
 

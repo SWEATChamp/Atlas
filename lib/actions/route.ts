@@ -33,6 +33,7 @@ const TransitionA2Schema = z.object({
   examSeries: z.enum(['feb_mar', 'may_jun', 'oct_nov']).optional(),
   examYear: z.number().int().min(1990).max(2100).optional(),
   carryForward: z.boolean().optional().default(false),
+  paperSelections: z.array(PaperSelectionSchema).optional(),
 })
 
 /**
@@ -95,6 +96,7 @@ export async function transitionToA2(
     p_exam_series: parsed.data.examSeries ?? null,
     p_exam_year: parsed.data.examYear ?? null,
     p_carry_forward: parsed.data.carryForward ?? false,
+    p_paper_selections: parsed.data.paperSelections ?? null,
   })
 
   if (error) {

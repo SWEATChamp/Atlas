@@ -83,6 +83,7 @@ export interface A2TransitionInput {
   examSeries?: import('./database').PaperSession
   examYear?: number
   carryForward?: boolean
+  paperSelections?: PaperSelectionInput[]
 }
 
 export interface SubjectWithStageReadiness {

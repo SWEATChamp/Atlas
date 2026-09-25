@@ -273,6 +273,7 @@ export default function StageReadinessPanel({
           onClose={() => setShowA2Modal(false)}
           enrollment={enrollment}
           subject={subject}
+          paperSelections={paperSelections}
         />
       )}
 
