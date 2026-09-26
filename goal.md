@@ -62,7 +62,7 @@ The v1.2.0 UI foundation has been merged to main, deployed to production, verifi
 
 **Verification checks:**
 
-- **Migration check:** Hosted migration history matches repository migrations 000–026.
+- **Migration check:** Hosted migration history matches repository migrations 000–028.
 - **Catalogue check:** All five subjects expose the correct active chapters, papers, routes, and mappings.
 - **Route check:** AS/A2 content visibility matches every supported study route.
 - **Data-preservation check:** Removing and restoring a subject preserves historical progress, papers, missions, and XP.

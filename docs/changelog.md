@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- No unreleased changes.
+### Fixed
+- **Route Remapping Integrity & Stage Preservation (Migration 028, PR #22)**:
+  - Fixed `configure_subject_route` to preserve `current_stage = 'a2'` and A2 unlock metadata when an already-staged student re-saves or switches paper combinations within the staged route.
+  - Hardened `transition_to_a2` with canonical continuation mapping, explicit paper selection support (`p_paper_selections`), Continuation Preservation Rule enforcement, and atomic rollback on invalid route transitions.
+  - Added explicit handling for Mathematics Pure 2 (`p1_p2`), blocking automatic transition without valid staged paper selections and requiring explicit valid selection.
+  - Preserved existing paper selections for custom/unsupported subjects transitioning without replacement selections.
+  - Verified with 23/23 hosted pgTAP database tests and 78 client/server unit and integration tests.
 
 ---
 

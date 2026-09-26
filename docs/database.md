@@ -342,9 +342,9 @@ Authored in `supabase/migrations/20260827000026_subject_enrollment_management.sq
 
 ---
 
-## Route Remapping Integrity & Stage Preservation (Migration 028) — Prepared Locally (Uncommitted)
+## Route Remapping Integrity & Stage Preservation (Migration 028) — Applied and Verified
 
-Authored in `supabase/migrations/20260923000028_route_remap_integrity_and_stage_preservation.sql`. Rollback-only tests are defined in `supabase/tests/database/route_remap_integrity_and_stage_preservation.test.sql` (23 tests). Status: **Prepared locally for review; uncommitted and not applied to hosted Supabase**.
+Authored in `supabase/migrations/20260923000028_route_remap_integrity_and_stage_preservation.sql`. Rollback-only tests are defined in `supabase/tests/database/route_remap_integrity_and_stage_preservation.test.sql` (23 tests). Status: **Applied and verified on hosted Supabase (Singapore project `uvprmojmscndtwgkvjbi`) on 2026-09-25. Verified via 23/23 pgTAP assertions (`hosted_pgtap_028_result.log`), merged to `main` via PR #22 (commit `5d49dd3a3856b052c1fbd8919ba0048c27710034`), and deployed to Production. (Note: The operator-local preflight execution bundle `/tmp/atlas_preflight_028_20260925_065504Z` was verified during rollout; `/tmp` is non-durable local storage and the bundle is not a tracked repository artifact or permanent shared evidence location.)**
 
 ### Schema & Function Updates
 

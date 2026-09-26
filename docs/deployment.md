@@ -4,7 +4,7 @@ Atlas uses Vercel for the Next.js application and Supabase for authentication an
 
 ## Current Release Boundary
 
-- Migrations 000–026 are applied to hosted Supabase and recorded in remote migration history.
+- Migrations 000–028 are applied to hosted Singapore Supabase (`uvprmojmscndtwgkvjbi`) and recorded in remote migration history.
 - A pre-migration logical backup was completed before Migration 024, and all 18 hosted catalogue and data-preservation checks passed afterward.
 - The Migration 024 application changes were deployed to Vercel on 2026-08-27.
 - Initial production smoke checks passed for authentication retry, preserved enrolments, route-aware chapters, paper component filtering, and mission completion/undo XP accounting.
@@ -380,6 +380,20 @@ The performance and dashboard-polish release after Migration 026 does not change
      - The operator-polling procedure is now documented and established as the operational monitoring mechanism.
      - Controlled Production cron scheduling and operational monitoring remain pending.
      - Threshold manifest admission, PDF downloading, parsing, staging, review, approval, and publication remain manual and separately gated operations.
+
+## 6. Route Remapping Integrity Hotfix (Migration 028) Production Deployment & Verification Record
+
+- **Merge and Deployment**: Merged to `main` via PR [#22](https://github.com/SWEATChamp/Atlas/pull/22) at merge commit `5d49dd3a3856b052c1fbd8919ba0048c27710034` on 2026-09-26 at 02:31:13+08:00 (feature commit `263fbf6fe782bd2af9dd78c5a52eec24c5474c50`).
+- **Database Migration**:
+  - Migration file `supabase/migrations/20260923000028_route_remap_integrity_and_stage_preservation.sql` pushed to hosted Singapore Supabase (`uvprmojmscndtwgkvjbi`, `aws-0-ap-southeast-1.pooler.supabase.com`).
+  - Remote migration history recorded and verified (`post_apply_dry_run.txt`: remote database up to date).
+  - PostgREST schema cache reload executed at `2026-09-25T18:14:56Z`.
+- **Database Verification**:
+  - All 23/23 pgTAP assertions passed against hosted database (`supabase/tests/database/route_remap_integrity_and_stage_preservation.test.sql`).
+  - RPC function metadata and privilege matrix verified (`configure_subject_route` and `transition_to_a2` revoked from `anon`, granted to `authenticated` and `service_role`).
+  - Operator-local preflight evidence bundle verified during rollout at `/tmp/atlas_preflight_028_20260925_065504Z` (note: `/tmp` is non-durable local storage and is not a tracked repository artifact or permanent shared evidence location).
+- **Application Test Suite**:
+  - Full suite of 370 tests (364 passed, 6 skipped) passing cleanly.
 
 ## General Production Configuration
 
