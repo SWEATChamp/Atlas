@@ -3,6 +3,8 @@
 --
 -- Non-mutating, rollback-only audit of inherited table, view, and column grants
 -- in the public schema for client roles (anon, authenticated, PUBLIC) and service_role.
+-- Uses both effective privilege functions (has_table_privilege, has_column_privilege)
+-- and catalog/information-schema inspection where applicable.
 --
 -- Run via: pgTAP test harness (e.g. `supabase test db`)
 -- All operations are executed within a transaction and roll back.
@@ -11,7 +13,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(18);
+SELECT plan(19);
 
 -- 1. No TRUNCATE to anon across all public relations
 SELECT is_empty(
@@ -281,7 +283,7 @@ SELECT is_empty(
     'service_role retains effective SELECT, INSERT, UPDATE, DELETE on catalogue tables'
 );
 
--- 18. Default privileges test on newly created relation
+-- 18. Default privileges test on newly created transaction-scoped relation: client roles
 CREATE TABLE public.audit_test_future_table (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   val text
@@ -298,6 +300,17 @@ SELECT is_empty(
     )
     $$,
     'Newly created tables inherit zero TRUNCATE/TRIGGER/REFERENCES (all client roles) and zero write grants (anon/PUBLIC)'
+);
+
+-- 19. Default privileges test on newly created transaction-scoped relation: service_role full privileges
+SELECT set_eq(
+    $$
+    SELECT p.priv
+    FROM (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('TRIGGER'), ('REFERENCES')) AS p(priv)
+    WHERE has_table_privilege('service_role', 'public.audit_test_future_table', p.priv)
+    $$,
+    ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'TRIGGER', 'REFERENCES'],
+    'Newly created tables grant full privileges (SELECT, INSERT, UPDATE, DELETE, TRUNCATE, TRIGGER, REFERENCES) to service_role'
 );
 
 DROP TABLE public.audit_test_future_table;

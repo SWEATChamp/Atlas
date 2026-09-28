@@ -30,8 +30,10 @@ REVOKE TRUNCATE, TRIGGER, REFERENCES ON ALL TABLES IN SCHEMA public FROM PUBLIC,
 -- ------------------------------------------------------------
 -- 2. ENFORCE READ-ONLY BOUNDARY FOR ANONYMOUS & PUBLIC USERS
 -- ------------------------------------------------------------
--- The anon and PUBLIC roles represent unauthenticated visitors and must never
--- possess write privileges on any table in schema public.
+-- `anon` is the unauthenticated Supabase API role; `PUBLIC` is PostgreSQL's
+-- implicit grant target applying to every database role. Revoking privileges
+-- from `PUBLIC` prevents roles from inheriting those privileges implicitly,
+-- while explicit grants to `authenticated` and `service_role` remain separately controlled.
 REVOKE INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public FROM PUBLIC, anon;
 
 -- ------------------------------------------------------------
@@ -112,3 +114,14 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
   GRANT ALL ON TABLES
   TO service_role;
+
+-- ------------------------------------------------------------
+-- 7. NOTIFY POSTGREST SCHEMA CACHE RELOAD
+-- ------------------------------------------------------------
+-- In Supabase and PostgREST environments, table permission changes may not be
+-- reflected immediately if PostgREST serves requests from its schema cache.
+-- Executing `NOTIFY pgrst, 'reload schema';` instructs PostgREST to reload its
+-- cached schema definition and enforce updated privileges immediately without
+-- requiring a service restart.
+-- Authoritative source: PostgREST Schema Cache documentation & Supabase PostgREST guide.
+NOTIFY pgrst, 'reload schema';

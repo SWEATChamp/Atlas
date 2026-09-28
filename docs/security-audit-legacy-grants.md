@@ -22,7 +22,16 @@ This audit establishes:
 1. **The RLS Bypass Risk of `TRUNCATE`**: PostgreSQL explicitly excludes `TRUNCATE` from Row Level Security enforcement. Any role possessing `TRUNCATE` table privileges can wipe entire tables regardless of restrictive row-level ownership policies (`auth.uid() = user_id`).
 2. **Defensive Boundaries**: PostgREST (the HTTP API engine powering Supabase client SDKs) does not expose an HTTP verb mapping to the SQL `TRUNCATE` statement. Therefore, external HTTP REST clients cannot trigger table truncation through standard endpoints. However, in multi-tenant or defense-in-depth architectures, leaving `TRUNCATE` granted to untrusted roles presents critical operational and structural risk if direct connection poolers (port 5432/6543) or dynamic SQL RPCs are introduced.
 3. **Internal Data Exposure**: The internal table `google_docs_tokens` stores encrypted OAuth2 tokens. Previously, its protection relied on `ALTER TABLE ... ENABLE ROW LEVEL SECURITY;` with zero policies defined. While this blocks client `SELECT`, `INSERT`, `UPDATE`, and `DELETE`, it did not block `TRUNCATE` or `REFERENCES`.
-4. **Authoritative Remediation**: A dedicated, non-destructive migration (`supabase/migrations/20260926000029_least_privilege_grant_remediation.sql`) revokes all excessive privileges, locks down sensitive internal and ledger relations, preserves necessary client read paths and column-level update grants, and establishes secure default privileges for all future relations via `ALTER DEFAULT PRIVILEGES ... ON TABLES`. Migration 028 assets remain completely unmodified.
+4. **Authoritative Remediation**: A dedicated, non-destructive migration (`supabase/migrations/20260926000029_least_privilege_grant_remediation.sql`) revokes all excessive privileges, locks down sensitive internal and ledger relations, preserves necessary client read paths and column-level update grants, establishes secure default privileges for all future relations via `ALTER DEFAULT PRIVILEGES ... ON TABLES`, and instructs PostgREST to reload its schema cache via `NOTIFY pgrst, 'reload schema';`. Migration 028 assets remain completely unmodified.
+5. **Role Semantics (`anon` vs `PUBLIC`)**:
+   - `anon` is the unauthenticated Supabase API role assigned to unauthenticated API requests.
+   - `PUBLIC` is PostgreSQL's implicit grant target applying automatically to every database role (including `anon`, `authenticated`, `postgres`, and `service_role`).
+   - Revoking privileges from `PUBLIC` prevents roles from inheriting those privileges implicitly through PostgreSQL's default permission inheritance mechanisms.
+   - Explicit grants to `authenticated` and `service_role` remain separately and intentionally controlled.
+6. **Preservation of Existing Application Permissions**:
+   - Lines 78–90 of Migration 029 specifically concern master catalogue tables (`subjects`, `chapters`, `achievement_definitions`, `shop_items`), revoking writes and ensuring `SELECT` is granted to `authenticated`.
+   - Client writes on `subject_stage_results` and scoped column-level updates on `user_subjects` (`exam_date`, `target_grade`, `priority`) are preserved because Migration 029 does not revoke those existing grants.
+   - Automated tests explicitly verify the continuous functionality of these preserved pathways.
 
 ---
 
@@ -174,9 +183,9 @@ Key Invariants Enforced:
 
 ---
 
-## 6. Automated pgTAP Audit Test Suite (18 Assertions)
+## 6. Automated pgTAP Audit Test Suite (19 Assertions)
 
-The test suite at `supabase/tests/database/legacy_grants_security_audit.test.sql` evaluates 18 comprehensive security assertions within a rollback-safe transaction:
+The test suite at `supabase/tests/database/legacy_grants_security_audit.test.sql` evaluates 19 comprehensive security assertions within a rollback-safe transaction. The tests employ both PostgreSQL effective privilege functions (`has_table_privilege()`, `has_column_privilege()`) across role contexts and catalog / `information_schema` inspection where applicable to verify real runtime authorization boundaries:
 
 1. **Assertion 1**: No relation in `public` schema has `TRUNCATE` granted to `anon`.
 2. **Assertion 2**: No relation in `public` schema has `TRUNCATE` granted to `authenticated`.
@@ -187,17 +196,32 @@ The test suite at `supabase/tests/database/legacy_grants_security_audit.test.sql
 7. **Assertion 7**: Sensitive OAuth table `google_docs_tokens` has zero client grants (`anon`, `authenticated`, `PUBLIC`).
 8. **Assertion 8**: Internal import tables (`grade_threshold_import_runs`, `grade_threshold_import_issues`) have zero client grants.
 9. **Assertion 9**: Ledger and RPC-managed tables (`xp_events`, `streaks`, `daily_missions`, `subject_paper_selections`) have zero write grants to `authenticated` or `PUBLIC`.
-10. **Assertion 10**: Catalogue tables (`subjects`, `chapters`, `achievement_definitions`, `shop_items`) have zero write grants to `authenticated` or `PUBLIC`.
+10. **Assertion 10**: Catalogue tables (`subjects`, `chapters`, `achievement_definitions`, `shop_items`) have zero write grants to `authenticated` or `PUBLIC` (specifically covering master catalogue tables; does not cover unrelated tables).
 11. **Assertion 11**: `authenticated` retains `SELECT` on all 8 catalogue and ledger tables.
-12. **Assertion 12**: `authenticated` retains `SELECT, INSERT, UPDATE, DELETE` on `subject_stage_results`.
-13. **Assertion 13**: `user_subjects` retains column `UPDATE` privileges on `exam_date`, `target_grade`, `priority`.
+12. **Assertion 12**: `authenticated` retains `SELECT, INSERT, UPDATE, DELETE` on `subject_stage_results` (preserved because Migration 029 does not revoke existing grants).
+13. **Assertion 13**: `user_subjects` retains column `UPDATE` privileges on `exam_date`, `target_grade`, `priority` (preserved because Migration 029 does not revoke existing grants).
 14. **Assertion 14**: `user_subjects` has zero `UPDATE` privileges on any non-target columns.
 15. **Assertion 15**: `service_role` retains effective `SELECT, INSERT, UPDATE, DELETE` on sensitive internal tables.
 16. **Assertion 16**: `service_role` retains effective `SELECT, INSERT, UPDATE, DELETE` on ledger and RPC tables.
 17. **Assertion 17**: `service_role` retains effective `SELECT, INSERT, UPDATE, DELETE` on catalogue tables.
-18. **Assertion 18**: Newly created tables inherit zero `TRUNCATE`/`TRIGGER`/`REFERENCES` grants, zero `anon`/`PUBLIC` write grants, and preserve full access for `service_role`.
+18. **Assertion 18**: Newly created tables inherit zero `TRUNCATE`/`TRIGGER`/`REFERENCES` grants (all client roles) and zero write grants (`anon`/`PUBLIC`), verified against a transaction-scoped test relation (`public.audit_test_future_table`).
+19. **Assertion 19**: Newly created tables grant full table privileges (`SELECT`, `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`, `TRIGGER`, `REFERENCES`) to `service_role`, verified on the transaction-scoped test relation before it is dropped prior to transaction rollback.
 
-All 18 assertions pass cleanly (`18/18 ok`).
+All 19 assertions pass cleanly (`19/19 ok`).
+
+### 6.1 PostgREST Schema-Cache Reload (`NOTIFY pgrst, 'reload schema';`)
+
+In Supabase PostgreSQL environments, PostgREST caches relation metadata, foreign keys, and role permissions upon startup to optimize query compilation performance. When database permissions are modified via DCL/DDL migrations, PostgREST may continue serving API requests based on its cached permission map until a reload is signaled.
+
+Migration 029 includes:
+```sql
+NOTIFY pgrst, 'reload schema';
+```
+This notification instructs PostgREST to reload its schema cache immediately upon migration completion, ensuring all revoked permissions and default privilege changes take effect across HTTP API clients without requiring a container restart.
+
+*Authoritative references:*
+- [PostgREST Documentation: Schema Cache Reload](https://postgrest.org/en/stable/references/schema_cache.html)
+- [Supabase Documentation: PostgREST Configuration and Schema Cache](https://supabase.com/docs/guides/api)
 
 ---
 
