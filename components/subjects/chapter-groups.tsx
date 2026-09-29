@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ChapterRow from './chapter-row'
 import SubjectGuideLauncher from './subject-guide-launcher'
-import type { ComponentGroup } from '@/lib/actions/subjects'
+import type { ComponentGroup } from '@/lib/subject-chapters'
 import type { SubjectPaperSelection } from '@/types'
 
 interface Props {
@@ -16,14 +16,45 @@ interface Props {
 
 export function filterComponentGroups(
   groups: ComponentGroup[],
-  selectedComponentNames: string[] | null,
+  selectedItems: (SubjectPaperSelection | string)[] | null,
   hasElectiveComponents: boolean,
   filterMode: 'selected' | 'all'
 ): ComponentGroup[] {
-  if (!hasElectiveComponents || filterMode === 'all' || !selectedComponentNames?.length) {
+  if (!hasElectiveComponents || filterMode === 'all' || !selectedItems?.length) {
     return groups
   }
-  return groups.filter((group) => selectedComponentNames.includes(group.name))
+
+  // 1. Collect normalized paper IDs and fallback component names from selections.
+  // Rule: Never put names from ID-bearing selections into the fallback set.
+  // Only selections whose subject_paper_id is null/absent may participate in name fallback.
+  const selectedPaperIds = new Set<string>()
+  const fallbackNames = new Set<string>()
+
+  for (const item of selectedItems) {
+    if (typeof item === 'string') {
+      fallbackNames.add(item)
+    } else if (item && typeof item === 'object') {
+      if (item.subject_paper_id) {
+        selectedPaperIds.add(item.subject_paper_id)
+      } else if (item.component_name) {
+        fallbackNames.add(item.component_name)
+      }
+    }
+  }
+
+  return groups.filter((group) => {
+    // 1. Return true when the group IDs overlap normalized selected IDs
+    if (group.subjectPaperIds && group.subjectPaperIds.some((id) => selectedPaperIds.has(id))) {
+      return true
+    }
+
+    // 2. Otherwise permit an exact group-name fallback from selections whose subject_paper_id is null
+    if (fallbackNames.has(group.name)) {
+      return true
+    }
+
+    return false
+  })
 }
 
 export default function ChapterGroups({
@@ -36,14 +67,9 @@ export default function ChapterGroups({
   // we default to showing their selected components, with a toggle to view all.
   const [filterMode, setFilterMode] = useState<'selected' | 'all'>('selected')
 
-  const selectedComponentNames = useMemo(() => {
-    if (!paperSelections.length) return null
-    return paperSelections.map((s) => s.component_name)
-  }, [paperSelections])
-
   const filteredGroups = useMemo(() => {
-    return filterComponentGroups(groups, selectedComponentNames, hasElectiveComponents, filterMode)
-  }, [groups, hasElectiveComponents, filterMode, selectedComponentNames])
+    return filterComponentGroups(groups, paperSelections, hasElectiveComponents, filterMode)
+  }, [groups, hasElectiveComponents, filterMode, paperSelections])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -77,7 +103,7 @@ export default function ChapterGroups({
       </div>
 
       {/* View filter toggle for subjects with elective paper components. */}
-      {hasElectiveComponents && selectedComponentNames && selectedComponentNames.length > 0 && (
+      {hasElectiveComponents && paperSelections && paperSelections.length > 0 && (
         <div
           style={{
             display: 'flex',

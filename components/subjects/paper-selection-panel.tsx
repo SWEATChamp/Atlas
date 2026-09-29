@@ -331,6 +331,35 @@ export function getSubjectCombinations(subjectCode: string | null | undefined, r
   return []
 }
 
+function normalizeComponentName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/probability\s*&?\s*/gi, '')
+    .replace(/mathematics|maths/gi, '')
+    .replace(/statistics|stats/gi, 'stats')
+    .replace(/mechanics|mech/gi, 'mech')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function isCompatibleComponentName(actual: string, expected: string): boolean {
+  if (actual === expected) return true
+  const normActual = normalizeComponentName(actual)
+  const normExpected = normalizeComponentName(expected)
+  if (normActual === normExpected) return true
+  if (normActual.includes(normExpected) || normExpected.includes(normActual)) {
+    // Avoid cross-matching Mechanics and Statistics
+    if (
+      (normActual.includes('mech') && normExpected.includes('stats')) ||
+      (normActual.includes('stats') && normExpected.includes('mech'))
+    ) {
+      return false
+    }
+    return true
+  }
+  return false
+}
+
 export function matchSavedCombination(
   subjectCode: string | null | undefined,
   route: StudyRoute,
@@ -339,35 +368,41 @@ export function matchSavedCombination(
   if (!selections || selections.length === 0) return null
   const combinations = getSubjectCombinations(subjectCode, route)
 
-  if (route === 'full_level') {
-    for (const combo of combinations) {
-      if (combo.selections.length === selections.length) {
-        const allMatch = combo.selections.every((sel) =>
-          selections.some(
-            (init) =>
-              init.component_name === sel.component_name &&
-              init.paper_number === sel.paper_number
+  for (const combo of combinations) {
+    if (combo.selections.length !== selections.length) continue
+
+    const allMatch = combo.selections.every((sel) => {
+      return selections.some((init) => {
+        // Authoritative: if subject_paper_id is present on both, compare directly
+        if (init.subject_paper_id && sel.subject_paper_id) {
+          return init.subject_paper_id === sel.subject_paper_id
+        }
+
+        // Canonical comparison by paper_number and stage
+        const paperNumberMatches =
+          typeof init.paper_number === 'number' &&
+          typeof sel.paper_number === 'number' &&
+          init.paper_number === sel.paper_number
+
+        if (route === 'full_level') {
+          return (
+            paperNumberMatches &&
+            isCompatibleComponentName(init.component_name, sel.component_name)
           )
+        }
+
+        const stageMatches = init.stage === sel.stage
+        return (
+          paperNumberMatches &&
+          stageMatches &&
+          isCompatibleComponentName(init.component_name, sel.component_name)
         )
-        if (allMatch) return combo
-      }
-    }
-    return null
+      })
+    })
+
+    if (allMatch) return combo
   }
 
-  for (const combo of combinations) {
-    if (combo.selections.length === selections.length) {
-      const allMatch = combo.selections.every((sel) =>
-        selections.some(
-          (init) =>
-            init.component_name === sel.component_name &&
-            init.stage === sel.stage &&
-            init.paper_number === sel.paper_number
-        )
-      )
-      if (allMatch) return combo
-    }
-  }
   return null
 }
 
