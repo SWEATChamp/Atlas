@@ -68,8 +68,12 @@ export default function RouteSetupSheet({
     ? []
     : subjectCombinations[0]?.selections ?? []
 
+  const matched = initialPaperSelections.length > 0
+    ? matchSavedCombination(subject.code, selectedRoute, initialPaperSelections)
+    : null
+
   const [paperSelections, setPaperSelections] = useState<PaperSelectionInput[]>(
-    initialPaperSelections.length > 0 ? initialPaperSelections : defaultSelections
+    matched ? matched.selections : (initialPaperSelections.length > 0 ? initialPaperSelections : defaultSelections)
   )
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()

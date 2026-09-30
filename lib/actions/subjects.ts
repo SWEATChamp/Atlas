@@ -14,6 +14,13 @@ import type {
   SubjectPaperSelection,
   SubjectStageResult,
 } from '@/types'
+import {
+  buildChapterPaperMap,
+  assembleComponentGroups,
+  type ComponentGroup,
+} from '@/lib/subject-chapters'
+
+export type { ChapterWithStatus, ComponentGroup } from '@/lib/subject-chapters'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,18 +36,6 @@ export interface SubjectWithProgress {
   a2_readiness: number | null
   readiness: number | null
   daysUntilExam: number | null
-}
-
-export interface ChapterWithStatus {
-  chapter: Chapter
-  userChapter: UserChapter | null
-  avgScore: number | null   // from paper_question_attempts, null = no data
-  isAccessible?: boolean
-}
-
-export interface ComponentGroup {
-  name: string
-  chapters: ChapterWithStatus[]
 }
 
 export interface SubjectDetailData {
@@ -300,8 +295,8 @@ export const getSubjectDetail = cache(async (
 
   const chapterIds = chapters.map((c) => c.id)
 
-  // Fetch user chapters + paper accuracy in parallel
-  const [userChaptersResult, paperIdsResult] = await Promise.all([
+  // Fetch user chapters + paper accuracy + chapter_papers in parallel
+  const [userChaptersResult, paperIdsResult, chapterPapersResult] = await Promise.all([
     supabase
       .from('user_chapters')
       .select('*')
@@ -312,10 +307,17 @@ export const getSubjectDetail = cache(async (
       .select('id, accuracy_pct')
       .eq('user_id', user.id)
       .eq('subject_id', subjectId),
+    supabase
+      .from('chapter_papers')
+      .select('chapter_id, subject_paper_id')
+      .in('chapter_id', chapterIds),
   ])
 
   const userChapters = userChaptersResult.data ?? []
   const paperRows = paperIdsResult.data ?? []
+
+  // Index chapter_papers by chapter_id using pure helper
+  const chapterPaperMap = buildChapterPaperMap(chapterPapersResult?.data, chapters as Chapter[])
 
   // Fetch question attempts for chapter accuracy
   const chapterAccuracyMap = new Map<string, { obtained: number; available: number }>()
@@ -334,48 +336,15 @@ export const getSubjectDetail = cache(async (
     }
   }
 
-  const ucMap = new Map(userChapters.map((uc) => [uc.chapter_id, uc]))
-
-  // Group chapters by component
-  const groupMap = new Map<string, ChapterWithStatus[]>()
-  chapters.forEach((chapter) => {
-    const key = chapter.component ?? 'General'
-    const arr = groupMap.get(key) ?? []
-    const stats = chapterAccuracyMap.get(chapter.id)
-    const avgScore = stats && stats.available > 0
-      ? (stats.obtained / stats.available) * 100
-      : null
-
-    // Determine accessibility
-    const studyRoute = enrollment.study_route
-    const currentStage = enrollment.current_stage
-    let isAccessible = false
-    if (studyRoute !== 'unconfirmed' && chapter.stage) {
-      if (chapter.stage === 'as' || chapter.stage === 'shared') {
-        isAccessible = true
-      } else if (chapter.stage === 'a2') {
-        isAccessible = currentStage === 'a2' || currentStage === 'full'
-      } else if (chapter.stage === 'route_dependent') {
-        const sel = paperSelections.find((s) => s.component_name === chapter.component)
-        if (sel) {
-          if (sel.stage === 'as') isAccessible = true
-          else if (sel.stage === 'a2') isAccessible = currentStage === 'a2' || currentStage === 'full'
-        }
-      }
-    }
-
-    arr.push({
-      chapter: chapter as Chapter,
-      userChapter: (ucMap.get(chapter.id) as UserChapter) ?? null,
-      avgScore,
-      isAccessible,
-    })
-    groupMap.set(key, arr)
+  // Assemble component groups using pure helper
+  const groups: ComponentGroup[] = assembleComponentGroups({
+    chapters: chapters as Chapter[],
+    userChapters: userChapters as UserChapter[],
+    chapterPaperMap,
+    chapterAccuracyMap,
+    enrollment,
+    paperSelections,
   })
-
-  const groups: ComponentGroup[] = Array.from(groupMap.entries()).map(
-    ([name, chs]) => ({ name, chapters: chs })
-  )
 
   const allUcs = userChapters as UserChapter[]
   const completedChapters = allUcs.filter((uc) => uc.notes_status === 'complete').length
