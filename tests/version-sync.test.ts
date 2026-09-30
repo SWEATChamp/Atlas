@@ -5,14 +5,16 @@ import packageJson from '../package.json'
 describe('Semantic Version Synchronization', () => {
   it('synchronizes package.json version with CURRENT_RELEASE metadata', () => {
     expect(packageJson.version).toBe(CURRENT_RELEASE.version)
-    expect(CURRENT_RELEASE.version).toBe('1.2.0')
-    expect(CURRENT_RELEASE.releaseDate).toBe('2026-09-02')
+    expect(CURRENT_RELEASE.version).toBe('1.2.1')
+    expect(CURRENT_RELEASE.releaseDate).toBe('2026-09-30')
   })
 
   it('contains complete release metadata structure', () => {
-    expect(CURRENT_RELEASE.title).toBeTruthy()
-    expect(CURRENT_RELEASE.releaseDate).toBeTruthy()
-    expect(Array.isArray(CURRENT_RELEASE.changes)).toBe(true)
-    expect(CURRENT_RELEASE.changes.length).toBeGreaterThan(0)
+    expect(CURRENT_RELEASE.title).toBe('Bug Fix: Subject Route Display')
+    expect(CURRENT_RELEASE.changes).toEqual([
+      'Selected Mathematics papers now map to the correct Subject Route chapter groups.',
+      'Statistics 1 remains available during staged AS study, while Pure 3 and Mechanics stay locked until A2.',
+      'Selected papers now appear before unselected components, with AS papers listed ahead of A2 papers.',
+    ])
   })
 })

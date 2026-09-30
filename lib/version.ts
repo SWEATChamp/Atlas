@@ -10,13 +10,12 @@ export interface ReleaseInfo {
  * releaseDate is finalized only after the release passes production smoke testing.
  */
 export const CURRENT_RELEASE: ReleaseInfo = {
-  version: '1.2.0',
-  title: 'Accessible UI Foundation & Subject Controls Guide',
-  releaseDate: '2026-09-02',
+  version: '1.2.1',
+  title: 'Bug Fix: Subject Route Display',
+  releaseDate: '2026-09-30',
   changes: [
-    'A calmer, more consistent interface now spans Dashboard, Subjects, Past Papers, onboarding, and sign-in.',
-    'A new Subject Guide explains confidence stars and notes-status controls and can be reopened beside Chapters.',
-    'Keyboard navigation, focus handling, screen-reader semantics, and reduced-motion support have been improved.',
-    'Mobile and tablet layouts now remain readable with larger touch targets and no horizontal overflow.',
+    'Selected Mathematics papers now map to the correct Subject Route chapter groups.',
+    'Statistics 1 remains available during staged AS study, while Pure 3 and Mechanics stay locked until A2.',
+    'Selected papers now appear before unselected components, with AS papers listed ahead of A2 papers.',
   ],
 }

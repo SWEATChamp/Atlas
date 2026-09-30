@@ -10,27 +10,29 @@ import {
 describe('Release Notification State', () => {
   beforeEach(() => {
     resetInMemoryReleaseState()
+    window.localStorage.clear()
   })
 
   it('shows notification when user has never dismissed any release (first visit)', () => {
-    expect(shouldShowReleaseNotification('1.2.0', null)).toBe(true)
-    expect(shouldShowReleaseNotification('1.2.0', '')).toBe(true)
+    expect(shouldShowReleaseNotification('1.2.1', null)).toBe(true)
+    expect(shouldShowReleaseNotification('1.2.1', '')).toBe(true)
   })
 
   it('hides notification when current version matches dismissed version', () => {
-    expect(shouldShowReleaseNotification('1.2.0', '1.2.0')).toBe(false)
+    expect(shouldShowReleaseNotification('1.2.1', '1.2.1')).toBe(false)
   })
 
   it('shows notification when current version is newer than dismissed version', () => {
-    expect(shouldShowReleaseNotification('1.2.0', '1.0.0')).toBe(true)
-    expect(shouldShowReleaseNotification('1.2.0', '1.1.0')).toBe(true)
-    expect(shouldShowReleaseNotification('1.2.0', '1.1.1')).toBe(true)
-    expect(shouldShowReleaseNotification('2.0.0', '1.2.0')).toBe(true)
+    expect(shouldShowReleaseNotification('1.2.1', '1.0.0')).toBe(true)
+    expect(shouldShowReleaseNotification('1.2.1', '1.1.0')).toBe(true)
+    expect(shouldShowReleaseNotification('1.2.1', '1.1.1')).toBe(true)
+    expect(shouldShowReleaseNotification('1.2.1', '1.2.0')).toBe(true)
+    expect(shouldShowReleaseNotification('2.0.0', '1.2.1')).toBe(true)
   })
 
-  it('evaluates release-state lifecycle for users upgrading from 1.1.1 to 1.2.0, returning true initially and false after recording dismissal', () => {
+  it('evaluates release-state lifecycle for users upgrading from 1.2.0 to 1.2.1, returning true initially and false after recording dismissal', () => {
     const mockStorageData: Record<string, string> = {
-      [STORAGE_KEY_LAST_SEEN_RELEASE]: '1.1.1',
+      [STORAGE_KEY_LAST_SEEN_RELEASE]: '1.2.0',
     }
     const mockStorage = {
       getItem: (key: string) => mockStorageData[key] ?? null,
@@ -39,19 +41,19 @@ describe('Release Notification State', () => {
       },
     } as Storage
 
-    // Initial check: returning user with 1.1.1 stored
+    // Initial check: returning user with 1.2.0 stored
     const priorVersion = getDismissedReleaseVersion(mockStorage)
-    expect(priorVersion).toBe('1.1.1')
-    expect(shouldShowReleaseNotification('1.2.0', priorVersion)).toBe(true)
+    expect(priorVersion).toBe('1.2.0')
+    expect(shouldShowReleaseNotification('1.2.1', priorVersion)).toBe(true)
 
     // User dismisses modal
-    setDismissedReleaseVersion('1.2.0', mockStorage)
-    expect(mockStorageData[STORAGE_KEY_LAST_SEEN_RELEASE]).toBe('1.2.0')
+    setDismissedReleaseVersion('1.2.1', mockStorage)
+    expect(mockStorageData[STORAGE_KEY_LAST_SEEN_RELEASE]).toBe('1.2.1')
 
-    // Subsequent check: user now has 1.2.0 stored
+    // Subsequent check: user now has 1.2.1 stored
     const updatedVersion = getDismissedReleaseVersion(mockStorage)
-    expect(updatedVersion).toBe('1.2.0')
-    expect(shouldShowReleaseNotification('1.2.0', updatedVersion)).toBe(false)
+    expect(updatedVersion).toBe('1.2.1')
+    expect(shouldShowReleaseNotification('1.2.1', updatedVersion)).toBe(false)
   })
 
   it('handles empty or missing current version gracefully', () => {
@@ -70,18 +72,19 @@ describe('Release Notification State', () => {
 
       expect(getDismissedReleaseVersion(mockStorage)).toBeNull()
 
-      const saveSuccess = setDismissedReleaseVersion('1.2.0', mockStorage)
+      const saveSuccess = setDismissedReleaseVersion('1.2.1', mockStorage)
       expect(saveSuccess).toBe(true)
-      expect(mockStorageData[STORAGE_KEY_LAST_SEEN_RELEASE]).toBe('1.2.0')
+      expect(mockStorageData[STORAGE_KEY_LAST_SEEN_RELEASE]).toBe('1.2.1')
 
-      expect(getDismissedReleaseVersion(mockStorage)).toBe('1.2.0')
+      expect(getDismissedReleaseVersion(mockStorage)).toBe('1.2.1')
     })
 
-    it('handles null or undefined storage safely without throwing', () => {
+    it('handles unavailable storage safely and defaults omitted storage to browser localStorage', () => {
       expect(getDismissedReleaseVersion(null)).toBeNull()
       expect(getDismissedReleaseVersion(undefined)).toBeNull()
-      expect(setDismissedReleaseVersion('1.2.0', null)).toBe(false)
-      expect(setDismissedReleaseVersion('1.2.0', undefined)).toBe(false)
+      expect(setDismissedReleaseVersion('1.2.1', null)).toBe(false)
+      expect(setDismissedReleaseVersion('1.2.1', undefined)).toBe(true)
+      expect(window.localStorage.getItem(STORAGE_KEY_LAST_SEEN_RELEASE)).toBe('1.2.1')
     })
 
     it('catches and recovers from storage exceptions (e.g. quota exceeded / Safari private mode)', () => {
@@ -95,7 +98,7 @@ describe('Release Notification State', () => {
       } as unknown as Storage
 
       expect(getDismissedReleaseVersion(throwingStorage)).toBeNull()
-      expect(setDismissedReleaseVersion('1.2.0', throwingStorage)).toBe(false)
+      expect(setDismissedReleaseVersion('1.2.1', throwingStorage)).toBe(false)
     })
   })
 })
