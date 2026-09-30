@@ -14,6 +14,67 @@ interface Props {
   paperSelections?: SubjectPaperSelection[]
 }
 
+interface GroupSelectionMatch {
+  paperNumber: number | null
+  selectionIndex: number
+  stage: SubjectPaperSelection['stage'] | null
+}
+
+function findGroupSelection(
+  group: ComponentGroup,
+  selectedItems: (SubjectPaperSelection | string)[]
+): GroupSelectionMatch | null {
+  const selectedPaperIds = new Set(group.subjectPaperIds ?? [])
+
+  // Normalized paper identity is authoritative whenever it is available.
+  const normalizedIndex = selectedItems.findIndex(
+    (item) =>
+      typeof item !== 'string' &&
+      Boolean(item.subject_paper_id) &&
+      selectedPaperIds.has(item.subject_paper_id!)
+  )
+  if (normalizedIndex >= 0) {
+    const selection = selectedItems[normalizedIndex] as SubjectPaperSelection
+    return {
+      paperNumber: selection.paper_number,
+      selectionIndex: normalizedIndex,
+      stage: selection.stage,
+    }
+  }
+
+  // Legacy strings and rows without normalized IDs retain exact-name fallback.
+  const fallbackIndex = selectedItems.findIndex((item) =>
+    typeof item === 'string'
+      ? item === group.name
+      : !item.subject_paper_id && item.component_name === group.name
+  )
+  if (fallbackIndex < 0) return null
+
+  const fallbackSelection = selectedItems[fallbackIndex]
+  return typeof fallbackSelection === 'string'
+    ? { paperNumber: null, selectionIndex: fallbackIndex, stage: null }
+    : {
+        paperNumber: fallbackSelection.paper_number,
+        selectionIndex: fallbackIndex,
+        stage: fallbackSelection.stage,
+      }
+}
+
+function inferGroupStage(group: ComponentGroup): SubjectPaperSelection['stage'] {
+  const chapterStages = group.chapters.map(({ chapter }) => chapter.stage)
+
+  if (chapterStages.some((stage) => stage === 'as' || stage === 'shared')) {
+    return 'as'
+  }
+  if (chapterStages.some((stage) => stage === 'a2')) {
+    return 'a2'
+  }
+
+  // Current route-dependent catalogues default to AS. A selected route-dependent
+  // paper is overridden by its persisted selection stage in findGroupSelection.
+  return 'as'
+}
+
 export function filterComponentGroups(
   groups: ComponentGroup[],
   selectedItems: (SubjectPaperSelection | string)[] | null,
@@ -24,37 +85,58 @@ export function filterComponentGroups(
     return groups
   }
 
-  // 1. Collect normalized paper IDs and fallback component names from selections.
-  // Rule: Never put names from ID-bearing selections into the fallback set.
-  // Only selections whose subject_paper_id is null/absent may participate in name fallback.
-  const selectedPaperIds = new Set<string>()
-  const fallbackNames = new Set<string>()
+  return groups.filter((group) => findGroupSelection(group, selectedItems) !== null)
+}
 
-  for (const item of selectedItems) {
-    if (typeof item === 'string') {
-      fallbackNames.add(item)
-    } else if (item && typeof item === 'object') {
-      if (item.subject_paper_id) {
-        selectedPaperIds.add(item.subject_paper_id)
-      } else if (item.component_name) {
-        fallbackNames.add(item.component_name)
-      }
-    }
+export function orderComponentGroups(
+  groups: ComponentGroup[],
+  selectedItems: (SubjectPaperSelection | string)[] | null,
+  hasElectiveComponents: boolean,
+  filterMode: 'selected' | 'all'
+): ComponentGroup[] {
+  const visibleGroups = filterComponentGroups(
+    groups,
+    selectedItems,
+    hasElectiveComponents,
+    filterMode
+  )
+
+  if (!hasElectiveComponents || !selectedItems?.length) {
+    return visibleGroups
   }
 
-  return groups.filter((group) => {
-    // 1. Return true when the group IDs overlap normalized selected IDs
-    if (group.subjectPaperIds && group.subjectPaperIds.some((id) => selectedPaperIds.has(id))) {
-      return true
-    }
+  return visibleGroups
+    .map((group, originalIndex) => {
+      const selection = findGroupSelection(group, selectedItems)
+      const stage = selection?.stage ?? inferGroupStage(group)
+      const selectedOffset = selection ? 0 : 2
+      const stageOffset = stage === 'as' ? 0 : 1
 
-    // 2. Otherwise permit an exact group-name fallback from selections whose subject_paper_id is null
-    if (fallbackNames.has(group.name)) {
-      return true
-    }
+      return {
+        bucket: selectedOffset + stageOffset,
+        group,
+        originalIndex,
+        paperNumber: selection?.paperNumber,
+        selectionIndex: selection?.selectionIndex,
+      }
+    })
+    .sort((a, b) => {
+      if (a.bucket !== b.bucket) return a.bucket - b.bucket
 
-    return false
-  })
+      // Within selected AS/A2 buckets, use paper number for deterministic route order.
+      if (a.bucket < 2 && b.bucket < 2) {
+        const aPaperNumber = a.paperNumber ?? Number.POSITIVE_INFINITY
+        const bPaperNumber = b.paperNumber ?? Number.POSITIVE_INFINITY
+        if (aPaperNumber !== bPaperNumber) return aPaperNumber - bPaperNumber
+
+        const aSelectionIndex = a.selectionIndex ?? Number.POSITIVE_INFINITY
+        const bSelectionIndex = b.selectionIndex ?? Number.POSITIVE_INFINITY
+        if (aSelectionIndex !== bSelectionIndex) return aSelectionIndex - bSelectionIndex
+      }
+
+      return a.originalIndex - b.originalIndex
+    })
+    .map(({ group }) => group)
 }
 
 export default function ChapterGroups({
@@ -68,7 +150,7 @@ export default function ChapterGroups({
   const [filterMode, setFilterMode] = useState<'selected' | 'all'>('selected')
 
   const filteredGroups = useMemo(() => {
-    return filterComponentGroups(groups, paperSelections, hasElectiveComponents, filterMode)
+    return orderComponentGroups(groups, paperSelections, hasElectiveComponents, filterMode)
   }, [groups, hasElectiveComponents, filterMode, paperSelections])
 
   return (

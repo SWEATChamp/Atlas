@@ -5,7 +5,10 @@ import {
   matchSavedCombination,
   getMathsCombinations,
 } from '@/components/subjects/paper-selection-panel'
-import ChapterGroups, { filterComponentGroups } from '@/components/subjects/chapter-groups'
+import ChapterGroups, {
+  filterComponentGroups,
+  orderComponentGroups,
+} from '@/components/subjects/chapter-groups'
 import RouteSetupSheet from '@/components/subjects/route-setup-sheet'
 import {
   resolveChapterAccessibility,
@@ -294,6 +297,36 @@ describe('Subject Paper Identity & Chapter Accessibility Regressions', () => {
       expect(filtered).toHaveLength(6)
     })
 
+    it('orders selected AS, selected A2, unselected AS, then unselected A2 groups', () => {
+      const groups = createMathsGroups('as')
+      const scrambledGroups = [groups[5], groups[1], groups[3], groups[0], groups[4], groups[2]]
+
+      expect(
+        orderComponentGroups(
+          scrambledGroups,
+          persistedStatsMechSelections,
+          true,
+          'selected'
+        ).map((group) => group.name)
+      ).toEqual(['Pure 1', 'Statistics 1', 'Pure 3', 'Mechanics'])
+
+      expect(
+        orderComponentGroups(
+          scrambledGroups,
+          persistedStatsMechSelections,
+          true,
+          'all'
+        ).map((group) => group.name)
+      ).toEqual([
+        'Pure 1',
+        'Statistics 1',
+        'Pure 3',
+        'Mechanics',
+        'Pure 2',
+        'Statistics 2',
+      ])
+    })
+
     it('filters Further Mathematics groups by normalized paper identity and excludes non-selected papers', () => {
       const furtherMathsGroups: ComponentGroup[] = [
         { name: 'Further Pure 1', subjectPaperIds: [SP_9231_P1], chapters: [] },
@@ -556,6 +589,9 @@ describe('Subject Paper Identity & Chapter Accessibility Regressions', () => {
       expect(screen.getByText('Pure 3')).toBeDefined()
       expect(screen.getByText('Mechanics')).toBeDefined()
       expect(screen.getByText('Statistics 1')).toBeDefined()
+      expect(
+        screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)
+      ).toEqual(['Pure 1', 'Statistics 1', 'Pure 3', 'Mechanics'])
 
       // Non-selected groups must NOT be present
       expect(screen.queryByText('Pure 2')).toBeNull()
@@ -584,6 +620,16 @@ describe('Subject Paper Identity & Chapter Accessibility Regressions', () => {
         expect(screen.getByText('All Components')).toBeDefined()
         expect(screen.getByText('Pure 2')).toBeDefined()
         expect(screen.getByText('Statistics 2')).toBeDefined()
+        expect(
+          screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)
+        ).toEqual([
+          'Pure 1',
+          'Statistics 1',
+          'Pure 3',
+          'Mechanics',
+          'Pure 2',
+          'Statistics 2',
+        ])
       })
 
       // Toggle back to "View Selected Only"
@@ -594,6 +640,9 @@ describe('Subject Paper Identity & Chapter Accessibility Regressions', () => {
         expect(screen.getByText('My Selected Papers')).toBeDefined()
         expect(screen.queryByText('Pure 2')).toBeNull()
         expect(screen.queryByText('Statistics 2')).toBeNull()
+        expect(
+          screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)
+        ).toEqual(['Pure 1', 'Statistics 1', 'Pure 3', 'Mechanics'])
       })
     })
   })
