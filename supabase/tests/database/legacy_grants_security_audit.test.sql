@@ -13,7 +13,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(19);
+SELECT plan(23);
 
 -- 1. No TRUNCATE to anon across all public relations
 SELECT is_empty(
@@ -196,15 +196,15 @@ SELECT set_eq(
     'authenticated retains SELECT on all 8 catalogue and ledger tables'
 );
 
--- 12. Positive preservation: authenticated retains full operations on subject_stage_results
+-- 12. Positive preservation: authenticated retains SELECT only on subject_stage_results
 SELECT set_eq(
     $$
     SELECT p.priv
     FROM (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE')) AS p(priv)
     WHERE has_table_privilege('authenticated', 'public.subject_stage_results', p.priv)
     $$,
-    ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE'],
-    'authenticated retains SELECT, INSERT, UPDATE, DELETE on subject_stage_results'
+    ARRAY['SELECT'],
+    'authenticated retains SELECT only on subject_stage_results'
 );
 
 -- 13. Positive preservation: user_subjects retains column UPDATE on exactly (exam_date, target_grade, priority)
@@ -292,25 +292,82 @@ CREATE TABLE public.audit_test_future_table (
 SELECT is_empty(
     $$
     SELECT p.priv, role_name
-    FROM (VALUES ('TRUNCATE'), ('TRIGGER'), ('REFERENCES'), ('INSERT'), ('UPDATE'), ('DELETE')) AS p(priv)
+    FROM (VALUES ('TRUNCATE'), ('TRIGGER'), ('REFERENCES'), ('MAINTAIN'), ('INSERT'), ('UPDATE'), ('DELETE')) AS p(priv)
     CROSS JOIN (VALUES ('anon'), ('authenticated'), ('public')) AS r(role_name)
     WHERE (
-      (p.priv IN ('TRUNCATE', 'TRIGGER', 'REFERENCES') AND has_table_privilege(role_name, 'public.audit_test_future_table', p.priv))
+      (p.priv IN ('TRUNCATE', 'TRIGGER', 'REFERENCES', 'MAINTAIN') AND has_table_privilege(role_name, 'public.audit_test_future_table', p.priv))
       OR (p.priv IN ('INSERT', 'UPDATE', 'DELETE') AND role_name IN ('anon', 'public') AND has_table_privilege(role_name, 'public.audit_test_future_table', p.priv))
     )
     $$,
-    'Newly created tables inherit zero TRUNCATE/TRIGGER/REFERENCES (all client roles) and zero write grants (anon/PUBLIC)'
+    'Newly created tables inherit zero TRUNCATE/TRIGGER/REFERENCES/MAINTAIN (all client roles) and zero write grants (anon/PUBLIC)'
 );
 
 -- 19. Default privileges test on newly created transaction-scoped relation: service_role full privileges
 SELECT set_eq(
     $$
     SELECT p.priv
-    FROM (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('TRIGGER'), ('REFERENCES')) AS p(priv)
+    FROM (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('TRIGGER'), ('REFERENCES'), ('MAINTAIN')) AS p(priv)
     WHERE has_table_privilege('service_role', 'public.audit_test_future_table', p.priv)
     $$,
-    ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'TRIGGER', 'REFERENCES'],
-    'Newly created tables grant full privileges (SELECT, INSERT, UPDATE, DELETE, TRUNCATE, TRIGGER, REFERENCES) to service_role'
+    ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'TRIGGER', 'REFERENCES', 'MAINTAIN'],
+    'Newly created tables grant full privileges (including MAINTAIN) to service_role'
+);
+
+-- 20. profiles_public is readable by authenticated but not anon
+SELECT set_eq(
+    $$
+    SELECT role_name
+    FROM (VALUES ('anon'), ('authenticated')) AS r(role_name)
+    WHERE has_table_privilege(role_name, 'public.profiles_public', 'SELECT')
+    $$,
+    ARRAY['authenticated'],
+    'profiles_public grants SELECT to authenticated and not anon'
+);
+
+-- 21. authenticated has exactly the six approved table-level write pairs
+SELECT set_eq(
+    $$
+    SELECT c.relname || '.' || p.priv
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    CROSS JOIN (VALUES ('INSERT'), ('UPDATE'), ('DELETE')) AS p(priv)
+    WHERE n.nspname = 'public'
+      AND c.relkind IN ('r', 'v', 'm', 'p')
+      AND has_table_privilege('authenticated', c.oid, p.priv)
+    $$,
+    ARRAY[
+      'past_papers.DELETE',
+      'past_papers.UPDATE',
+      'profiles.UPDATE',
+      'user_chapters.INSERT',
+      'user_chapters.UPDATE',
+      'user_settings.INSERT'
+    ],
+    'authenticated has exactly the six approved table-level write pairs'
+);
+
+-- 22. postgres-created future tables grant authenticated zero table-level writes
+SELECT is_empty(
+    $$
+    SELECT p.priv
+    FROM (VALUES ('INSERT'), ('UPDATE'), ('DELETE')) AS p(priv)
+    WHERE has_table_privilege('authenticated', 'public.audit_test_future_table', p.priv)
+    $$,
+    'Newly created postgres-owned tables grant authenticated zero table-level writes'
+);
+
+-- 23. No PostgreSQL 17+ MAINTAIN to anon, authenticated, or PUBLIC
+SELECT is_empty(
+    $$
+    SELECT c.relname, role_name
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    CROSS JOIN (VALUES ('anon'), ('authenticated'), ('public')) AS r(role_name)
+    WHERE n.nspname = 'public'
+      AND c.relkind IN ('r', 'v', 'm', 'p')
+      AND has_table_privilege(role_name, c.oid, 'MAINTAIN')
+    $$,
+    'No relation in public schema grants effective MAINTAIN to anon, authenticated, or PUBLIC'
 );
 
 DROP TABLE public.audit_test_future_table;
