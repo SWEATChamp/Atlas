@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Least-Privilege Database Grants (Migration 029, PR #25)**:
+  - Removed effective `TRUNCATE`, `TRIGGER`, `REFERENCES`, and PostgreSQL 17+ `MAINTAIN` privileges from `PUBLIC`, `anon`, and `authenticated` across public relations.
+  - Removed all anonymous and `PUBLIC` writes, reduced authenticated table-level writes to the six approved operation pairs, and retained only the approved `user_subjects` column updates.
+  - Locked sensitive internal, import-audit, ledger, RPC-managed, and catalogue relations to their reviewed client boundaries while preserving required `service_role` administration.
+  - Hardened default privileges for future `postgres`-owned public relations and reloaded the PostgREST schema cache after the hosted migration.
+  - Verified the hosted Singapore rollout with 23/23 rollback-only pgTAP assertions, unchanged critical row counts, synchronized migration history through 029, and a successful Production deployment from merge commit `d89e9a2441d5792959d8f786701ff46788da5a6e`.
 - **Route Remapping Integrity & Stage Preservation (Migration 028, PR #22)**:
   - Fixed `configure_subject_route` to preserve `current_stage = 'a2'` and A2 unlock metadata when an already-staged student re-saves or switches paper combinations within the staged route.
   - Hardened `transition_to_a2` with canonical continuation mapping, explicit paper selection support (`p_paper_selections`), Continuation Preservation Rule enforcement, and atomic rollback on invalid route transitions.

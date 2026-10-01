@@ -364,3 +364,26 @@ Authored in `supabase/migrations/20260923000028_route_remap_integrity_and_stage_
    - **Mathematics `p1_p2` Exception**: Terminal Pure 2 cannot continue to A2. Automatic transition without selections is blocked (`P0003`); explicit selection of a valid staged route (`mech_stats`, `stats_mech`, or `stats_double`) succeeds as an exceptional replacement of Pure 2.
    - Fixed-route subjects (9702, 9701, 9618) automatically convert to their canonical staged paper sets.
    - Atomic transaction guarantees: constraint or validation failure leaves enrollment, route, stage, and paper selections untouched.
+
+---
+
+## Least-Privilege Role Grant Remediation (Migration 029) — Applied and Verified
+
+Authored in `supabase/migrations/20260926000029_least_privilege_grant_remediation.sql`. Rollback-only tests are defined in `supabase/tests/database/legacy_grants_security_audit.test.sql` (23 assertions). Status: **Applied and verified on hosted Supabase (Singapore project `uvprmojmscndtwgkvjbi`) on 2026-09-30, merged through PR #25 at `d89e9a2441d5792959d8f786701ff46788da5a6e`, and deployed to Production as `dpl_6sSfNEtgKQyfVpPGaShxk2YXWMen`.**
+
+### Effective Client-Role Contract
+
+- `PUBLIC` and `anon` have zero table-level `INSERT`, `UPDATE`, or `DELETE` grants.
+- `PUBLIC`, `anon`, and `authenticated` have zero effective `TRUNCATE`, `TRIGGER`, `REFERENCES`, or PostgreSQL 17+ `MAINTAIN` privileges on public relations.
+- `authenticated` retains exactly six approved table-level write pairs: `past_papers.UPDATE`, `past_papers.DELETE`, `profiles.UPDATE`, `user_chapters.INSERT`, `user_chapters.UPDATE`, and `user_settings.INSERT`.
+- `user_subjects` retains column-level `UPDATE` only for `exam_date`, `target_grade`, and `priority`; it has no table-level write grant.
+- Sensitive internal, import-audit, ledger, RPC-managed, and catalogue relations retain their reviewed client boundaries, while `service_role` keeps required administrative access.
+- Default privileges for future `postgres`-owned public relations apply the same least-privilege baseline. Supabase-managed `supabase_admin` defaults remain platform-owned and outside the application migration's scope.
+
+### Hosted Verification
+
+- Migration 029 is recorded exactly once and the post-apply linked dry run reports the remote database is up to date.
+- All 23/23 hosted pgTAP assertions passed inside a transaction that ended with `ROLLBACK`; zero test artifacts persisted.
+- Critical row counts were unchanged, and migration-history, relation-security, function-security, and row-count comparison files were empty.
+- PostgREST schema cache reload completed successfully after the grant changes.
+- Detailed threat model, grant matrices, deferred anonymous-read scope, and assertion inventory are maintained in `docs/security-audit-legacy-grants.md`.
