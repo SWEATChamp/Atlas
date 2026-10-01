@@ -1,9 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach, vi } from 'vitest'
-import { handleDiscoveryRequest } from '../../app/api/cron/grade-threshold-discovery/route'
-import {
-  GET as mutatingRouteGet,
-  handleMutatingImportRequest,
-} from '../../app/api/cron/grade-thresholds/route'
+import { GET as mutatingRouteGet } from '../../app/api/cron/grade-thresholds/route'
+import { handleDiscoveryRequest } from '../../lib/grade-thresholds/discovery-route-handler'
+import { handleMutatingImportRequest } from '../../lib/grade-thresholds/mutating-route-handler'
 import type { DiscoveryRunnerReport } from '../../lib/grade-thresholds/discovery-runner'
 
 describe('grade-threshold discovery route and credential isolation', () => {
