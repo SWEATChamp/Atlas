@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/grade-threshold-discovery",
+      "schedule": "0 7 * * *"
+    }
+  ]
+}
