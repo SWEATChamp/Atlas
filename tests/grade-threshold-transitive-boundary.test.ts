@@ -76,6 +76,67 @@ function getTransitiveImports(entryFile: string, rootDir: string): { files: Set<
   return { files: visitedFiles, packages: importedPackages }
 }
 
+function getNamedExports(entryFile: string, rootDir: string): string[] {
+  const filePath = path.resolve(rootDir, entryFile)
+  const sourceFile = ts.createSourceFile(
+    filePath,
+    fs.readFileSync(filePath, 'utf-8'),
+    ts.ScriptTarget.Latest,
+    true,
+  )
+  const exports: string[] = []
+
+  for (const statement of sourceFile.statements) {
+    if (ts.isExportAssignment(statement)) {
+      exports.push('default')
+      continue
+    }
+
+    if (ts.isExportDeclaration(statement)) {
+      const clause = statement.exportClause
+      if (clause && ts.isNamedExports(clause)) {
+        exports.push(...clause.elements.map((element) => element.name.text))
+      } else if (!clause) {
+        exports.push('*')
+      }
+      continue
+    }
+
+    const modifiers = ts.canHaveModifiers(statement)
+      ? ts.getModifiers(statement)
+      : undefined
+    const isExported = modifiers?.some(
+      (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
+    )
+    if (!isExported) continue
+
+    if (
+      modifiers?.some(
+        (modifier) => modifier.kind === ts.SyntaxKind.DefaultKeyword,
+      )
+    ) {
+      exports.push('default')
+    }
+
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        if (ts.isIdentifier(declaration.name)) exports.push(declaration.name.text)
+      }
+    } else if (
+      (ts.isFunctionDeclaration(statement) ||
+        ts.isClassDeclaration(statement) ||
+        ts.isInterfaceDeclaration(statement) ||
+        ts.isTypeAliasDeclaration(statement) ||
+        ts.isEnumDeclaration(statement)) &&
+      statement.name
+    ) {
+      exports.push(statement.name.text)
+    }
+  }
+
+  return exports.sort()
+}
+
 describe('transitive dependency-boundary isolation', () => {
   const rootDir = path.resolve(__dirname, '..')
 
@@ -92,6 +153,20 @@ describe('transitive dependency-boundary isolation', () => {
     '@supabase/ssr',
     'pdfjs-dist',
   ]
+
+  test('cron route files expose only supported HTTP and route-config exports', () => {
+    const expectedExports = ['GET', 'dynamic', 'maxDuration', 'runtime']
+
+    expect(
+      getNamedExports(
+        'app/api/cron/grade-threshold-discovery/route.ts',
+        rootDir,
+      ),
+    ).toEqual(expectedExports)
+    expect(
+      getNamedExports('app/api/cron/grade-thresholds/route.ts', rootDir),
+    ).toEqual(expectedExports)
+  })
 
   test('app/api/cron/grade-threshold-discovery/route.ts has zero transitive dependency on mutating modules', () => {
     const { files, packages } = getTransitiveImports(
