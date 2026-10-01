@@ -43,6 +43,8 @@ Implemented foundations include authentication, onboarding, subject routes, chap
 
 The v1.2.0 UI foundation has been merged to main, deployed to production, verified through authenticated production smoke testing, tagged with annotated tag `v1.2.0`, and published as a stable GitHub Release.
 
+The hosted Singapore database is synchronized through Migration 029. The least-privilege grant remediation was applied and verified with 23/23 rollback-only hosted pgTAP assertions, merged through PR #25 at `d89e9a2441d5792959d8f786701ff46788da5a6e`, and deployed to Production as `dpl_6sSfNEtgKQyfVpPGaShxk2YXWMen`.
+
 ---
 
 ## Milestone 1 — Stable Five-Subject Study Foundation
@@ -62,7 +64,7 @@ The v1.2.0 UI foundation has been merged to main, deployed to production, verifi
 
 **Verification checks:**
 
-- **Migration check:** Hosted migration history matches repository migrations 000–028.
+- **Migration check:** Hosted migration history matches repository migrations 000–029.
 - **Catalogue check:** All five subjects expose the correct active chapters, papers, routes, and mappings.
 - **Route check:** AS/A2 content visibility matches every supported study route.
 - **Data-preservation check:** Removing and restoring a subject preserves historical progress, papers, missions, and XP.

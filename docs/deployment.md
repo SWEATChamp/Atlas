@@ -4,7 +4,7 @@ Atlas uses Vercel for the Next.js application and Supabase for authentication an
 
 ## Current Release Boundary
 
-- Migrations 000–028 are applied to hosted Singapore Supabase (`uvprmojmscndtwgkvjbi`) and recorded in remote migration history.
+- Migrations 000–029 are applied to hosted Singapore Supabase (`uvprmojmscndtwgkvjbi`) and recorded in remote migration history.
 - A pre-migration logical backup was completed before Migration 024, and all 18 hosted catalogue and data-preservation checks passed afterward.
 - The Migration 024 application changes were deployed to Vercel on 2026-08-27.
 - Initial production smoke checks passed for authentication retry, preserved enrolments, route-aware chapters, paper component filtering, and mission completion/undo XP accounting.
@@ -15,6 +15,7 @@ Atlas uses Vercel for the Next.js application and Supabase for authentication an
 - v1.1.1 (Singapore Infrastructure Migration) was deployed to Vercel production and verified on 2026-09-01 (merge commit `7b2203f`, closeout `8448e18`, annotated tag `v1.1.1`, and published GitHub Release).
 - Phase 2.13 / v1.2.0 (Accessible UI Foundation & Subject Controls Guide) was deployed to Vercel production and verified on 2026-09-02 at merge commit `abed20ba325e99113813a8860be7f4a22c1fc39c` (with release-closeout merge commit `a4ea17993e0f9250eb1c50a41d930a8c4f5a4d2c`, annotated tag object `1c4524fcd1f747a7e00674d7c0aa8551f2180d94`, and published [GitHub Release](https://github.com/SWEATChamp/Atlas/releases/tag/v1.2.0)). It establishes an accessible `Dialog` primitive, dark design tokens, two-step Subject controls guide, responsive layouts (320px–1280px), touch targets (≥44×44px through 768px), and returning-user v1.2.0 notifications.
 - Milestone 3 Publication Discovery was merged to `main` via PR #16 at merge commit `07120d189a4416604945ef76382a2cae3dd412da` and deployed to Vercel production (`dpl_GmxutRfLHEHPnqArivPBowNtJL4i`) on 2026-09-12. Stage 1 Discovery-Only Cron Route and credential separation were merged via PR #18 at merge commit `ce2eaec8de41371113aee090fcc84525f7bdaca2` and deployed to Vercel production (`dpl_2t1Kbt6hJMMxiPgPz38cAWF459pz`) on 2026-09-18. Both `/api/cron/grade-threshold-discovery` (expects `CRON_SECRET`) and `/api/cron/grade-thresholds` (expects `GRADE_THRESHOLD_IMPORT_SECRET`) are deployed but dormant; neither was invoked during PR #18 deployment verification; `vercel.json` remains absent; zero repository-defined cron schedules exist; and notification mechanism / schedule activation remain pending.
+- Migration 029 least-privilege grant remediation was applied and hosted-verified on 2026-09-30, merged through PR #25 at `d89e9a2441d5792959d8f786701ff46788da5a6e`, and deployed to Vercel Production as `dpl_6sSfNEtgKQyfVpPGaShxk2YXWMen` (Ready in `sin1`).
 - Do not rerun Migrations 024–026. Any further production correction must use a reviewed forward-only migration.
 
 ## Migration 024 Release Order
@@ -394,6 +395,23 @@ The performance and dashboard-polish release after Migration 026 does not change
   - Operator-local preflight evidence bundle verified during rollout at `/tmp/atlas_preflight_028_20260925_065504Z` (note: `/tmp` is non-durable local storage and is not a tracked repository artifact or permanent shared evidence location).
 - **Application Test Suite**:
   - Full suite of 370 tests (364 passed, 6 skipped) passing cleanly.
+
+## 7. Least-Privilege Grant Remediation (Migration 029) Production Deployment & Verification Record
+
+- **Database Migration**:
+  - Applied exactly `20260926000029_least_privilege_grant_remediation.sql` to hosted Singapore Supabase (`uvprmojmscndtwgkvjbi`) on 2026-09-30.
+  - Remote migration history records Migration 029 exactly once, and the post-apply linked dry run reports that the remote database is up to date.
+  - PostgREST schema cache reload completed successfully.
+- **Hosted Verification**:
+  - All 23/23 rollback-only pgTAP assertions passed with zero failures and an explicit `ROLLBACK`.
+  - Critical row counts were byte-identical before and after the migration.
+  - Migration-history, relation-security, function-security, and row-count diffs were empty.
+  - `PUBLIC`, `anon`, and `authenticated` retain none of the forbidden `TRUNCATE`, `TRIGGER`, `REFERENCES`, or `MAINTAIN` privileges; anonymous and `PUBLIC` write grants are zero; authenticated table-level writes are limited to the six approved operation pairs; and `user_subjects` column updates are limited to `exam_date`, `target_grade`, and `priority`.
+  - The operator-local postflight bundle `/private/tmp/atlas_postflight_029_20260930_163106Z` passed all recorded checksums during rollout. `/private/tmp` is non-durable local storage and the bundle is not a tracked repository artifact or permanent shared evidence location.
+- **Merge and Production Deployment**:
+  - PR [#25](https://github.com/SWEATChamp/Atlas/pull/25) merged to `main` at `d89e9a2441d5792959d8f786701ff46788da5a6e` on 2026-09-30T16:44:53Z.
+  - Automatic Vercel Production deployment `dpl_6sSfNEtgKQyfVpPGaShxk2YXWMen` was verified `READY` from that exact merge commit in Singapore (`sin1`).
+  - Non-mutating HTTP `HEAD` checks performed immediately after deployment returned HTTP 307 from `/` to `/dashboard` and HTTP 200 from `/login`. This deployment verification did not exercise authenticated application behaviour.
 
 ## General Production Configuration
 

@@ -1,6 +1,6 @@
-# Security Audit: Legacy Database Grants & Least-Privilege Remediation Plan
+# Security Audit: Legacy Database Grants & Least-Privilege Remediation Record
 
-**Document Version:** 1.3.0
+**Document Version:** 1.4.0
 **Audit Date:** 2026-09-26 / 2026-09-30
 **Scope:** PostgreSQL `public` schema (43 base tables, 3 views; 46 relations total) on Supabase infrastructure
 **Audit Posture:** Strict catalog inspection and empirical local verification
@@ -250,8 +250,12 @@ This notification instructs PostgREST to reload its schema cache immediately upo
 
 ---
 
-## 7. Operational Rollout Readiness
+## 7. Hosted Rollout & Production Verification
 
-- **Isolation**: Verified in dedicated worktree `/private/tmp/atlas-security-least-privilege-grants` on branch `codex/security-least-privilege-grants`.
-- **Database Assets**: Migration 028 remains completely untouched. Migration 029 applies cleanly on top of 000–028.
-- **Rollout Gate**: Awaiting explicit user approval before staging commits, running remote preflight, applying to Singapore (`uvprmojmscndtwgkvjbi`), or promoting.
+- **Hosted Application**: Migration 029 was applied exactly once to Singapore project `uvprmojmscndtwgkvjbi` on 2026-09-30 after a recoverable checkpoint, immutable-input verification, a linked dry run showing exactly Migration 029 pending, explicit operator confirmation, and PostgreSQL 17 capability checks.
+- **Post-Apply Database State**: Remote migration history records `20260926000029` exactly once. The post-apply linked dry run reports the remote database is up to date, and the PostgREST schema cache reload completed successfully.
+- **Security Contract**: Hosted assertions confirmed the expected 41 anonymous and 43 authenticated readable relations, exactly six authenticated table-level write pairs, exactly three approved `user_subjects` update columns, zero forbidden client grants, complete required `service_role` access, secure future `postgres` defaults, and zero ownership, RLS, or `SECURITY DEFINER` search-path anomalies.
+- **Rollback-Only Regression**: All 23/23 hosted pgTAP assertions passed with zero failures and an explicit `ROLLBACK`; critical row counts were unchanged and zero `audit_test_%` relations persisted.
+- **Evidence Boundary**: The operator-local postflight bundle `/private/tmp/atlas_postflight_029_20260930_163106Z` passed all recorded checksums during rollout. `/private/tmp` is non-durable local storage and is not a tracked repository artifact or permanent shared evidence location.
+- **Merge and Deployment**: PR [#25](https://github.com/SWEATChamp/Atlas/pull/25) merged to `main` at `d89e9a2441d5792959d8f786701ff46788da5a6e` on 2026-09-30T16:44:53Z. Automatic Vercel Production deployment `dpl_6sSfNEtgKQyfVpPGaShxk2YXWMen` was verified `READY` from that exact commit in Singapore (`sin1`). Non-mutating HTTP `HEAD` checks performed immediately after deployment observed HTTP 307 from `/` to `/dashboard` and HTTP 200 from `/login`; authenticated application behaviour was not exercised.
+- **Deferred Scope**: Broader anonymous read tightening remains deliberately deferred to a separate reviewed migration.
