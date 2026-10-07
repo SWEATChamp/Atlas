@@ -101,25 +101,20 @@ The hosted Singapore database is synchronized through Migration 029. The least-p
 
 ## Milestone 3 — Official Grade-Threshold Data Foundation
 
-**Status:** In progress
+**Status:** Complete baseline (production schedule activated and verified)
 
 > [!NOTE]
 > Implementation progress:
 > - Migration 027 and the reviewed June 2026 publications are present in Singapore.
 > - Automatic Cambridge publication discovery is implemented, merged (PR #16, merge commit `07120d189a4416604945ef76382a2cae3dd412da`), and deployed to production (Vercel deployment `dpl_GmxutRfLHEHPnqArivPBowNtJL4i`).
-> - The protected scheduled-import and discovery endpoint (`/api/cron/grade-thresholds`) is deployed but dormant.
-> - Operational audit findings:
->   - No active schedule was found in the current Vercel configuration, and no invocation was observed in the available retained logs. This evidence does not prove the endpoint was never invoked historically.
->   - `CRON_SECRET` is confirmed absent from Vercel project environment variables for both Production and Preview.
->   - `SUPABASE_SERVICE_ROLE_KEY` is also confirmed absent; the currently deployed authorized route cannot execute successfully without an elevated Supabase server credential.
->   - Introducing a database credential requires a separate reviewed decision between supporting a dedicated modern Supabase secret key for this backend component or temporarily retaining the legacy `SUPABASE_SERVICE_ROLE_KEY`.
->   - Current runtime behavior: an authorized run of the deployed endpoint downloads all five manifest PDFs plus the weighting PDF before determining `no_change`. It is not an HTML-only or zero-PDF check; the 60-second function limit and runtime/bandwidth validation are strict activation gates.
-> - Milestone 3 remains in progress:
->   - The discovery-only endpoint (`/api/cron/grade-threshold-discovery`) is merged (PR #18, merge commit `ce2eaec8de41371113aee090fcc84525f7bdaca2`) and deployed to Production (deployment `dpl_2t1Kbt6hJMMxiPgPz38cAWF459pz`), but dormant (`CRON_SECRET`). Discovery observability with sanitized structured runtime logging is merged (PR #20, merge commit `531bfeeda7b369943e5564266479954096f4f0c4`) and deployed to Production (deployment `dpl_HBAwskuwxGMgzWYP6oNkv1FPteAK`), verified Ready/Success on the Singapore edge (`sin1`).
->   - The documented operator-polling procedure is now established: proposed (not activated) operating model recommends Production schedule `0 7 * * *` (UTC). On the Hobby plan, invocation may occur at any point from 07:00 through 07:59 UTC, following published Cambridge results anchors (05:00 UTC for March; 06:00 UTC for June and November). Operator polling relies on the sanitized structured log during the one-hour Hobby retention window (weekly off-season inspection around 07:30 UTC, with a follow-up after 08:00 UTC if delayed; two-stage check on official results days and subsequent days until manifest admission).
->   - Outcomes: healthy (`no_change`), informational (`unavailable`), operator action (`manifest_required` - repeatable across daily runs until manifest admission), failure requiring investigation (`check_failed`, `timeout`, or unexpected exception).
->   - The discovery-only workflow requires no database credential. The dormant mutating import endpoint would still require a separately reviewed elevated Supabase server credential before any activation.
->   - `vercel.json` remains absent; `CRON_SECRET` remains unprovisioned; controlled Production cron scheduling and operational monitoring remain pending; first authorized Production invocation, immediate disabling, and schedule removal remain separately approved operational actions; import and publication remain separately gated.
+> - Stage 1 discovery-only endpoint (`/api/cron/grade-threshold-discovery`) and runner with credential separation are merged (PR #18, merge commit `ce2eaec8de41371113aee090fcc84525f7bdaca2`) and deployed to Production (`dpl_2t1Kbt6hJMMxiPgPz38cAWF459pz`).
+> - Discovery observability with sanitized structured runtime logging is merged (PR #20, merge commit `531bfeeda7b369943e5564266479954096f4f0c4`) and deployed to Production (`dpl_HBAwskuwxGMgzWYP6oNkv1FPteAK`), verified Ready/Success on the Singapore edge (`sin1`).
+> - `CRON_SECRET` is provisioned as a Sensitive, Production-only secret in Vercel; it is confirmed absent from Preview and Development.
+> - The daily discovery cron schedule (`0 7 * * *` UTC) was merged via PR #30 at merge commit `043213064f12f218934426f087c7041154b164e9`, deployed to Vercel production (`dpl_5x3V5hGMkf8vbRwYgtyMjqsiVhg4`), verified Ready on Singapore edge (`sin1`), and confirmed active as the sole configured cron (`vercel crons ls`).
+> - First authorized production invocation was executed via Vercel native cron Run control on 2026-10-01 (CLI trigger initiated at 06:23:19.351Z; serverless runtime log event recorded at 06:23:19.625Z UTC / `1790835799625`). In this recorded manual run, the invocation authenticated successfully, returned HTTP 200, executed in 4612ms, and emitted exactly one sanitized `grade_threshold_discovery_executed` structured log with healthy outcome `no_change` across all 5 MVP subjects with zero runtime errors (subsequent automated scheduled runs operate under the active schedule and are subject to ongoing operator polling, not historical inspection here).
+> - The discovery route is designed and structurally tested (`tests/grade-threshold-transitive-boundary.test.ts`) to avoid Supabase and mutating modules, and no elevated Supabase server credential is configured for the discovery job. The serverless function log recorded execution health and summary counts, but was not a database audit.
+> - The mutating import endpoint (`/api/cron/grade-thresholds`) remains unscheduled, dormant, and separately gated.
+> - Operational monitoring remains an ongoing duty following the documented operator-polling procedure during the one-hour Hobby retention window. Emergency disable procedure: Vercel Dashboard (**Project Settings → Cron Jobs → Disable Cron Jobs**) or forward-fix removal of `vercel.json`.
 
 **Objective:** Build a trustworthy, versioned source of Cambridge grade-threshold data for the five supported subjects.
 

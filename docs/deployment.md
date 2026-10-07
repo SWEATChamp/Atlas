@@ -14,7 +14,7 @@ Atlas uses Vercel for the Next.js application and Supabase for authentication an
 - Phase 2.12 / v1.1.0 (Dashboard Mobile Compatibility & Update Notifications) was deployed to Vercel production at merge commit `7071fa0` and production-verified. Annotated tag `v1.1.0` was published at `5a8d69e`.
 - v1.1.1 (Singapore Infrastructure Migration) was deployed to Vercel production and verified on 2026-09-01 (merge commit `7b2203f`, closeout `8448e18`, annotated tag `v1.1.1`, and published GitHub Release).
 - Phase 2.13 / v1.2.0 (Accessible UI Foundation & Subject Controls Guide) was deployed to Vercel production and verified on 2026-09-02 at merge commit `abed20ba325e99113813a8860be7f4a22c1fc39c` (with release-closeout merge commit `a4ea17993e0f9250eb1c50a41d930a8c4f5a4d2c`, annotated tag object `1c4524fcd1f747a7e00674d7c0aa8551f2180d94`, and published [GitHub Release](https://github.com/SWEATChamp/Atlas/releases/tag/v1.2.0)). It establishes an accessible `Dialog` primitive, dark design tokens, two-step Subject controls guide, responsive layouts (320px–1280px), touch targets (≥44×44px through 768px), and returning-user v1.2.0 notifications.
-- Milestone 3 Publication Discovery was merged to `main` via PR #16 at merge commit `07120d189a4416604945ef76382a2cae3dd412da` and deployed to Vercel production (`dpl_GmxutRfLHEHPnqArivPBowNtJL4i`) on 2026-09-12. Stage 1 Discovery-Only Cron Route and credential separation were merged via PR #18 at merge commit `ce2eaec8de41371113aee090fcc84525f7bdaca2` and deployed to Vercel production (`dpl_2t1Kbt6hJMMxiPgPz38cAWF459pz`) on 2026-09-18. Both `/api/cron/grade-threshold-discovery` (expects `CRON_SECRET`) and `/api/cron/grade-thresholds` (expects `GRADE_THRESHOLD_IMPORT_SECRET`) are deployed but dormant; neither was invoked during PR #18 deployment verification; `vercel.json` remains absent; zero repository-defined cron schedules exist; and notification mechanism / schedule activation remain pending.
+- Milestone 3 Publication Discovery was merged to `main` via PR #16 at merge commit `07120d189a4416604945ef76382a2cae3dd412da` and deployed to Vercel production (`dpl_GmxutRfLHEHPnqArivPBowNtJL4i`) on 2026-09-12. Stage 1 Discovery-Only Cron Route was merged via PR #18 at merge commit `ce2eaec8de41371113aee090fcc84525f7bdaca2` and deployed to production (`dpl_2t1Kbt6hJMMxiPgPz38cAWF459pz`) on 2026-09-18. Discovery observability was merged via PR #20 (`531bfeeda7b369943e5564266479954096f4f0c4`, `dpl_HBAwskuwxGMgzWYP6oNkv1FPteAK`). Milestone 3 Production cron activation was merged via PR #30 at merge commit `043213064f12f218934426f087c7041154b164e9` and deployed to Vercel production (`dpl_5x3V5hGMkf8vbRwYgtyMjqsiVhg4`) on 2026-10-01; `vercel.json` schedules `/api/cron/grade-threshold-discovery` at `0 7 * * *` (UTC); first authorized production manual run on 2026-10-01 returned HTTP 200 with outcome `no_change` across five unchanged subjects; the discovery route is designed and structurally tested to avoid Supabase and mutating modules with no elevated Supabase server credential configured; and `/api/cron/grade-thresholds` remains unscheduled and dormant.
 - Migration 029 least-privilege grant remediation was applied and hosted-verified on 2026-09-30, merged through PR #25 at `d89e9a2441d5792959d8f786701ff46788da5a6e`, and deployed to Vercel Production as `dpl_6sSfNEtgKQyfVpPGaShxk2YXWMen` (Ready in `sin1`).
 - Do not rerun Migrations 024–026. Any further production correction must use a reviewed forward-only migration.
 
@@ -366,7 +366,7 @@ The performance and dashboard-polish release after Migration 026 does not change
        - *Informational*: `unavailable` (series not yet published on Cambridge tables).
        - *Operator Action Required*: `manifest_required` (newer session or changed table link detected; prepare reviewed manifest update).
        - *Failure Requiring Investigation*: `check_failed` (contradictory link, parse error, or network failure), `timeout` (upstream latency exceeded threshold), or `unexpected_error` (unhandled runner exception).
-     - **Dashboard Nuance**: Vercel does not provide a documented dashboard "manual run" button for cron jobs. First authorized production invocation, schedule activation, emergency disable (**Project Settings → Cron Jobs → Disable Cron Jobs**), and permanent schedule removal remain separately approved operational actions.
+     - **Dashboard & CLI Run Control**: Vercel provides native cron run controls via both the dashboard Run control and the CLI (`vercel crons run [path]`). First authorized production invocation was executed via `vercel crons run /api/cron/grade-threshold-discovery` on 2026-10-01. Emergency disable is available via Vercel Dashboard (**Project Settings → Cron Jobs → Disable Cron Jobs**) or forward-fix removal of `vercel.json`.
    - **Discovery Observability Production Deployment**:
      - Merged to `main` via PR [#20](https://github.com/SWEATChamp/Atlas/pull/20) at merge commit `531bfeeda7b369943e5564266479954096f4f0c4` on 2026-09-18 at 06:37:29Z, and automatically deployed to Vercel production (`dpl_HBAwskuwxGMgzWYP6oNkv1FPteAK`).
      - Deployment status verified Ready on Singapore edge (`sin1`). Canonical domain `https://atlas-alpha-vert.vercel.app` verified with non-mutating HTTP checks:
@@ -377,9 +377,12 @@ The performance and dashboard-polish release after Migration 026 does not change
      - Hosted secrets and Supabase were not accessed, inspected, or modified.
      - Controlled cron activation remains a separately approved operation.
    - **Transitive Isolation**: Verified via comprehensive structural tests that `/api/cron/grade-threshold-discovery`, `lib/grade-thresholds/discovery-runner.ts`, and `lib/grade-thresholds/discovery-logger.ts` have zero transitive imports or dependencies on `scheduled-import.ts`, `import-pipeline.ts`, `pdf-extraction.ts`, `supabase-persistence.ts`, `server.ts`, `pdfjs-dist`, `@supabase/supabase-js`, or `@supabase/ssr`.
-   - **Pending Milestone 3 Gates**:
-     - The operator-polling procedure is now documented and established as the operational monitoring mechanism.
-     - Controlled Production cron scheduling and operational monitoring remain pending.
+   - **Milestone 3 Production Cron Activation (PR #30)**:
+     - Controlled Production cron scheduling is activated and verified: PR #30 merged at `043213064f12f218934426f087c7041154b164e9`, deployed as `dpl_5x3V5hGMkf8vbRwYgtyMjqsiVhg4`, with schedule `0 7 * * *` UTC confirmed active.
+     - First authorized production invocation was executed via Vercel native cron Run control on 2026-10-01 (CLI trigger initiated at 06:23:19.351Z; runtime log event recorded at 06:23:19.625Z UTC / `1790835799625`). In this recorded manual run, it authenticated successfully, returned HTTP 200, executed in 4612ms, and emitted sanitized outcome `no_change` across five unchanged subjects with zero runtime errors (subsequent automated scheduled runs operate under the active schedule and are subject to ongoing operator polling, not historical inspection here).
+     - Database safety is grounded in the discovery route's design and verified structural isolation tests (`tests/grade-threshold-transitive-boundary.test.ts`), which enforce zero imports of Supabase and mutating modules, and the fact that no elevated Supabase server credential is configured for the discovery job. The serverless function log was not a database audit.
+     - The mutating route `/api/cron/grade-thresholds` remains unscheduled, dormant, and separately gated.
+     - The operator-polling procedure is established as the ongoing operational monitoring mechanism.
      - Threshold manifest admission, PDF downloading, parsing, staging, review, approval, and publication remain manual and separately gated operations.
 
 ## 6. Route Remapping Integrity Hotfix (Migration 028) Production Deployment & Verification Record
@@ -412,6 +415,35 @@ The performance and dashboard-polish release after Migration 026 does not change
   - PR [#25](https://github.com/SWEATChamp/Atlas/pull/25) merged to `main` at `d89e9a2441d5792959d8f786701ff46788da5a6e` on 2026-09-30T16:44:53Z.
   - Automatic Vercel Production deployment `dpl_6sSfNEtgKQyfVpPGaShxk2YXWMen` was verified `READY` from that exact merge commit in Singapore (`sin1`).
   - Non-mutating HTTP `HEAD` checks performed immediately after deployment returned HTTP 307 from `/` to `/dashboard` and HTTP 200 from `/login`. This deployment verification did not exercise authenticated application behaviour.
+
+## 8. Milestone 3 Production Cron Activation & Operational Verification Record
+
+- **Merge and Deployment**:
+  - PR [#30](https://github.com/SWEATChamp/Atlas/pull/30) merged to `main` at `043213064f12f218934426f087c7041154b164e9` on 2026-10-01 at 05:28:37Z.
+  - Automatic Vercel Production deployment `dpl_5x3V5hGMkf8vbRwYgtyMjqsiVhg4` was verified `READY` from that exact merge commit on the Singapore edge (`sin1`).
+  - Canonical domain `https://atlas-alpha-vert.vercel.app` and immutable deployment URL `https://atlas-2xmnwhs8i-atlas-726e.vercel.app` verified with non-mutating HTTP checks:
+    - Root redirect `/` returned HTTP/2 307 redirecting to `/dashboard`.
+    - Sign-in page `/login` returned HTTP/2 200.
+- **Active Cron Schedule**:
+  - `vercel.json` deploys exactly one cron job: `/api/cron/grade-threshold-discovery` scheduled at `0 7 * * *` (UTC).
+  - Deployed schedule verified via Vercel CLI (`vercel crons ls --project atlas` reports exactly 1 active schedule).
+  - Mutating endpoint `/api/cron/grade-thresholds` remains unscheduled and uninvoked.
+- **Secret Scope**:
+  - `CRON_SECRET` is provisioned as a Sensitive, Production-only secret in Vercel.
+  - Confirmed absent from Preview and Development environments; `VERCEL_CRON_SECRET` and `GRADE_THRESHOLD_IMPORT_SECRET` remain absent.
+- **First Authorized Production Invocation**:
+  - Executed via Vercel native cron Run control (`vercel crons run /api/cron/grade-threshold-discovery --project atlas`) on 2026-10-01.
+  - Timestamps: CLI invocation trigger initiated at 06:23:19.351Z; serverless function runtime log event recorded at 06:23:19.625Z UTC (timestamp `1790835799625`).
+  - Serverless function log ID: `wjkl7-1790835799625-119276a9f7eb`.
+  - HTTP Status: 200 (authenticated via Vercel infrastructure).
+  - Execution duration: 4612ms.
+  - Emitted structured log payload:
+    `{"event":"grade_threshold_discovery_executed","schemaVersion":1,"ok":true,"outcome":"no_change","status":200,"durationMs":4612,"sessionsCheckedCount":5,"manifestRequiredCount":0,"hasFailure":false,"subjectStatusCounts":{"unchanged":5,"manifest_required":0,"unavailable":0,"check_failed":0},"affectedSyllabusCodes":[],"issueCodes":[]}`
+  - Attribution: This single recorded October 1 manual run verified successful authentication, execution in 4612ms, 5 checked subjects with 0 manifest changes (healthy outcome `no_change`), and 0 runtime errors. It does not reflect or imply inspection of subsequent automated scheduled runs.
+  - Database safety: The discovery route is designed and structurally tested (`tests/grade-threshold-transitive-boundary.test.ts`) to avoid Supabase and mutating modules, and no elevated Supabase server credential is configured for the discovery job. The serverless function log recorded execution health and summary counts, but was not a database audit.
+- **Monitoring & Emergency Disable Procedure**:
+  - Operational monitoring remains an ongoing operational duty following weekly operator polling during the one-hour Hobby retention window (~07:30 UTC), with two-stage checks on official Cambridge results days.
+  - Emergency disable: Vercel Dashboard (**Project Settings → Cron Jobs → Disable Cron Jobs**) or forward-fix removal of `vercel.json`.
 
 ## General Production Configuration
 
