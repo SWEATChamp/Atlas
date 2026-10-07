@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Milestone 3 Production Cron Activation (PR #30)**:
+  - Activated daily Cambridge grade-threshold discovery schedule on Vercel (`0 7 * * *` UTC) targeting `/api/cron/grade-threshold-discovery`.
+  - Added `tests/vercel-cron-config.test.ts` to enforce the single discovery cron configuration and assert that mutating route `/api/cron/grade-thresholds` remains unscheduled and dormant.
+  - Executed and verified first authorized Production invocation via Vercel native cron Run control (`dpl_5x3V5hGMkf8vbRwYgtyMjqsiVhg4` on `sin1`, CLI trigger initiated at 06:23:19.351Z, serverless runtime log event recorded at 06:23:19.625Z UTC / `1790835799625`), emitting exactly one sanitized `grade_threshold_discovery_executed` structured runtime log with healthy outcome `no_change` across all 5 MVP subjects (HTTP 200, 4612ms). The discovery route is designed and structurally tested to avoid Supabase and mutating modules, and no elevated Supabase server credential is configured for the discovery job (the function log was not a database audit).
+
 ### Fixed
 - **Least-Privilege Database Grants (Migration 029, PR #25)**:
   - Removed effective `TRUNCATE`, `TRIGGER`, `REFERENCES`, and PostgreSQL 17+ `MAINTAIN` privileges from `PUBLIC`, `anon`, and `authenticated` across public relations.
