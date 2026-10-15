@@ -195,6 +195,55 @@ export interface PaperQuestionAttempt {
   created_at: string
 }
 
+// ─── Practice sessions (Migration 031) ──────────────────────────────────────
+
+export type PracticeProvenanceMode = 'inherit' | 'override' | 'none'
+
+export interface PracticeSession {
+  id: string
+  user_id: string
+  subject_id: string
+  stage: PaperStage
+  session_date: string
+  title: string | null
+  duration_mins: number | null
+  notes: string | null
+  total_score_raw: number
+  total_score_max: number
+  accuracy_pct: number
+  subject_paper_id: string | null
+  paper_number: number | null
+  exam_year: number | null
+  exam_series: PaperSession | null
+  exam_variant: number | null
+  source_label: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PracticeSessionItem {
+  id: string
+  session_id: string
+  item_order: number
+  question_label: string | null
+  marks_obtained: number
+  marks_available: number
+  provenance_mode: PracticeProvenanceMode
+  subject_paper_id: string | null
+  paper_number: number | null
+  exam_year: number | null
+  exam_series: PaperSession | null
+  exam_variant: number | null
+  source_label: string | null
+  notes: string | null
+  created_at: string
+}
+
+export interface PracticeSessionChapter {
+  item_id: string
+  chapter_id: string
+}
+
 // ─── Gamification Tables ──────────────────────────────────────────────────────
 
 export interface AchievementDefinition {
