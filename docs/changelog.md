@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Milestone 4 local preparation (not deployed)**: Added Migration 031's separate atomic question-practice schema and owner-scoped application APIs; an accessible Log Questions workflow for individual or grouped topical, past-year, and mixed items; explicit per-item provenance, edit/delete confirmation, separate history, and a three-mode attempt trend with mark-weighted lifetime/current-route evidence. Full-paper counts, averages, best/latest/component analytics, prediction inputs, threshold inputs, and achievements remain practice-independent. Local migration/pgTAP and application checks passed; hosted migration and authenticated deployment verification remain pending.
 - **Milestone 3 Production Cron Activation (PR #30)**:
   - Activated daily Cambridge grade-threshold discovery schedule on Vercel (`0 7 * * *` UTC) targeting `/api/cron/grade-threshold-discovery`.
   - Added `tests/vercel-cron-config.test.ts` to enforce the single discovery cron configuration and assert that mutating route `/api/cron/grade-thresholds` remains unscheduled and dormant.

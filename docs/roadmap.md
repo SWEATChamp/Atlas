@@ -26,7 +26,7 @@
 | Phase 2.13 / v1.2.0 Accessible UI Foundation & Subject Controls Guide | Deployed and production-verified on 2026-09-02 (merge commit `abed20b`, closeout `a4ea179`); annotated tag `v1.2.0` and GitHub Release published |
 | Security Hardening / Migration 029 Least-Privilege Grants | Applied and hosted-verified on 2026-09-30; 23/23 rollback-only pgTAP assertions passed; PR #25 merged at `d89e9a2`; Production deployment `dpl_6sSfNEtgKQyfVpPGaShxk2YXWMen` verified Ready in `sin1` |
 | Milestone 3: Official Grade-Threshold Foundation | Complete baseline; Migration 027 and June 2026 publications present in Singapore; publication discovery merged (PR #16, PR #18, PR #20); PR #30 activated daily discovery schedule (`0 7 * * *` UTC) on Vercel deployment `dpl_5x3V5hGMkf8vbRwYgtyMjqsiVhg4`; first authorized production run verified with sanitized structured log and outcome `no_change`; mutating endpoint remains dormant |
-| Milestone 4: Paper & Question-Practice Logging and Analytics | Planned; product rules documented, implementation not started |
+| Milestone 4: Paper & Question-Practice Logging and Analytics | Locally prepared and test-verified in an isolated worktree; Migration 031 and application/UI are not hosted, merged, or deployed |
 | Milestone 5: Target-Grade Marks Planner | Planned; product rules documented, depends on Milestone 3 official thresholds and Milestone 4 practice logging |
 | Release-candidate checks | 201 database tests and 134 unit tests pass; type check, lint, production build, and whitespace checks pass |
 | Google Docs integration | Not started |
@@ -194,19 +194,21 @@
 - [x] Return “Threshold unavailable” for missing, ambiguous, unsupported, or unverified data rather than guessing.
 - [x] Add database constraints, indexes, RLS, import-audit records, idempotency tests, and revision-history tests.
 
-### Milestone 4: Paper & Question-Practice Logging and Analytics (Planned)
+### Milestone 4: Paper & Question-Practice Logging and Analytics (Locally prepared; release gates pending)
 
-- [ ] Preserve the existing full-paper logger with required paper, variant, series, year, stage, date, and total marks.
-- [ ] Add a separate **Log questions** workflow for one question or grouped past-year, topical, or mixed/custom question practice.
-- [ ] Require subject, AS/A2 stage, date, marks obtained, and marks available for question practice while keeping paper, variant, series, year, source label, question number, duration, notes, and chapter mappings optional when genuinely unknown.
-- [ ] Implement a separate post-Migration-027 practice schema for sessions, scored question items, and normalized chapter mappings; do not weaken the identity requirements of `past_papers`.
-- [ ] Save each practice session and all of its items and chapter mappings through an ownership-checked, stage-aware atomic operation.
-- [ ] Include full papers and question practice in readiness using mark-weighted combined assessment accuracy, without double-counting full-paper question breakdowns.
-- [ ] Include mapped standalone questions in chapter accuracy and weak-topic evidence.
-- [ ] Extend accuracy trends with All practice, Full papers, and Question practice views, visually distinct points, mark-weighted averages, and evidence volume.
-- [ ] Keep paper counts, full-paper averages, best-paper scores, and paper-related achievements isolated from standalone question practice.
-- [ ] Leave question-practice XP and streak effects unchanged until separately designed and approved.
-- [ ] Add database, calculation, RLS, atomicity, optional-provenance, aggregation, no-double-count, and evidence-isolation tests.
+The database, application-data, and UI/documentation slices are prepared locally. Disposable PostgreSQL verified 31 migrations and 201/201 pgTAP assertions; focused and full application checks are recorded in the implementation handoff. The hosted migration preflight, deployment, authenticated browser checks, and release approval are not complete.
+
+- [x] Locally preserve the existing full-paper logger with required paper, variant, series, year, stage, date, and total marks.
+- [x] Locally add a separate **Log questions** workflow for one question or grouped past-year, topical, or mixed/custom question practice.
+- [x] Locally require subject, AS/A2 stage, date, marks obtained, and marks available for question practice while keeping paper, variant, series, year, source label, question number, duration, notes, and chapter mappings optional when genuinely unknown.
+- [x] Locally implement Migration 031's separate practice sessions, scored items, and normalized chapter mappings without weakening `past_papers` identity.
+- [x] Locally save each practice session and all of its items and chapter mappings through an ownership-checked, stage-aware atomic operation.
+- [x] Locally include full papers and eligible question items in readiness using mark-weighted combined assessment accuracy, without double-counting full-paper question breakdowns.
+- [x] Locally include eligible mapped standalone questions in chapter accuracy and weak-topic evidence.
+- [x] Locally extend accuracy trends with All practice, Full papers, and Question practice views, visually distinct points, mark-weighted averages, and evidence volume.
+- [x] Locally keep paper counts, full-paper averages, best-paper scores, and paper-related achievements isolated from standalone question practice.
+- [x] Leave question-practice XP and streak effects unchanged until separately designed and approved.
+- [x] Add local database, calculation, RLS, atomicity, optional-provenance, aggregation, no-double-count, and evidence-isolation tests.
 
 ### Milestone 5: Target-Grade Marks Planner (Planned)
 

@@ -172,7 +172,7 @@ The development sequencing across Milestones 3–5 reflects strict data and evid
 
 ## Milestone 4 — Paper & Question-Practice Logging and Analytics
 
-**Status:** Planned
+**Status:** Locally prepared and test-verified; not hosted, merged, or deployed. Hosted migration preflight and authenticated release verification remain pending.
 
 **Objective:** Allow individual and grouped question practice alongside full-paper attempts to strengthen readiness, chapter accuracy, and weak-topic analytics, while preserving strict paper identity and isolating question practice from future predicted-grade and official threshold comparisons.
 

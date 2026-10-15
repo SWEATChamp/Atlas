@@ -2,7 +2,7 @@
 
 ## Supabase RPC (Remote Procedure Calls)
 Atlas leverages PostgreSQL functions via Supabase RPC to securely handle complex operations without bloated client-side code.
-> **Status**: Migrations 024–028 and their matching application changes are active in production. Hosted migration history in Singapore (`uvprmojmscndtwgkvjbi`) is synchronized through Migration 028 (merged via PR #22, commit `5d49dd3a3856b052c1fbd8919ba0048c27710034`).
+> **Status**: The existing production baseline includes Migration 029. Milestone 4 Migration 031 and the practice UI/API below are locally prepared and verified only; they have not been applied or deployed to hosted services.
 
 - `set_onboarding_subjects(p_user_id UUID, p_subject_ids UUID[])`: Atomically enrolls 1–5 available MVP subjects for onboarding users (`onboarding_completed = FALSE`).
 - `configure_subject_route(p_user_id UUID, p_user_subject_id UUID, p_route study_route_enum, p_paper_selections JSONB DEFAULT '[]'::JSONB)`: Configures a subject's study route, validates and persists paper components with `subject_paper_id`, preserves `current_stage = 'a2'` and unlock metadata for already-staged A2 students, and synchronizes accessible `user_chapters`.
@@ -20,6 +20,14 @@ Atlas leverages PostgreSQL functions via Supabase RPC to securely handle complex
 - `get_user_local_date(user_id)`: Internal helper used by database functions to apply the user's saved timezone.
 
 Daily RPCs use `profiles.timezone`; invalid or missing values fall back to UTC.
+
+### Locally prepared Milestone 4 practice API (not deployed)
+
+- `log_practice_session_atomic(p_user_id UUID, p_subject_id UUID, p_stage TEXT, p_title TEXT, p_session_date DATE, p_duration_mins SMALLINT, p_session_provenance JSONB DEFAULT '{}', p_items JSONB DEFAULT '[]', p_notes TEXT DEFAULT NULL)` returns the new session. Its full parent/item/chapter write is atomic.
+- `update_practice_session_atomic(p_user_id UUID, p_session_id UUID, p_title TEXT, p_session_date DATE, p_duration_mins SMALLINT, p_session_provenance JSONB DEFAULT '{}', p_items JSONB DEFAULT '[]', p_notes TEXT DEFAULT NULL)` returns the updated session after full item replacement. Subject and actual stage are immutable.
+- `delete_practice_session(p_user_id UUID, p_session_id UUID)` returns whether an owned session was deleted.
+- The server-only `lib/actions/practice-sessions.ts` authenticates and validates create/update/delete, owner-scopes reads, exposes subject/all history, detail, form catalogue, trends, and combined chapter evidence, and revalidates dashboard, past-papers, and affected subject paths after successful mutations. Client UI does not write practice tables directly.
+- Paper history/counts, mark-weighted full-paper average, best/latest, comparable component analytics, prediction inputs, and official-threshold comparison inputs use only `past_papers`. Question practice remains a separate input to readiness, chapter analytics, and the explicitly combined trend.
 
 ## Next.js Route Handlers
 Custom endpoints for authentication and integrations:

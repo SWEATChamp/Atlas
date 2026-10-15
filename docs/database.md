@@ -387,3 +387,14 @@ Authored in `supabase/migrations/20260926000029_least_privilege_grant_remediatio
 - Critical row counts were unchanged, and migration-history, relation-security, function-security, and row-count comparison files were empty.
 - PostgREST schema cache reload completed successfully after the grant changes.
 - Detailed threat model, grant matrices, deferred anonymous-read scope, and assertion inventory are maintained in `docs/security-audit-legacy-grants.md`.
+
+---
+
+## Milestone 4 Practice Foundation (Migration 031) — Locally Prepared, Not Hosted
+
+`supabase/migrations/20261014000031_practice_sessions_foundation.sql` is a new forward migration after the approved 000–029 baseline. It has **not** been applied to hosted Supabase. In an isolated disposable local PostgreSQL environment, all 31 migrations compiled and `supabase/tests/database/practice_sessions.test.sql` passed 201/201 pgTAP assertions. Hosted backup, migration-history inspection, dry run, approval, and deployment remain separate future gates.
+
+- `practice_sessions` stores one dated AS/A2 subject session with generated mark-weighted accuracy and optional provenance; `practice_session_items` stores 1–200 ordered scored questions; `practice_session_chapters` maps each item to distinct chapters. Full-paper identity and rows in `past_papers` are unchanged.
+- `log_practice_session_atomic` validates and writes the parent, every item, and chapter mappings in one transaction. `update_practice_session_atomic` validates before replacing the whole item set. `delete_practice_session` deletes only an owned session. Authenticated clients have owner-scoped SELECT, but no direct practice-table writes.
+- Provenance is explicit per item: `inherit` uses a nonempty session bundle, `override` uses its own nonempty complete bundle, and `none` permits only a source label. Missing paper/year/series/variant/question numbers are not inferred. Stage, paper identity, chapter access, score bounds, and the user's local date are checked in the database.
+- Readiness adds eligible question-item marks to full-paper parent totals once each, using actual recorded stage and the student's **current** route. Off-route or inaccessible items remain in lifetime history but do not contribute current-route marks. Full-paper child questions contribute only to chapter analytics, not readiness totals.
