@@ -1,4 +1,5 @@
 export * from './database'
+export * from './practice-sessions'
 // Re-export PastPaper under an alias so interfaces below can extend it.
 // (import() expressions are not valid in extends clauses.)
 import type { PastPaper as _PastPaper } from './database'

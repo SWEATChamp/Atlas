@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { getAuthenticatedContext, getCurrentProfile } from '@/lib/supabase/authenticated'
 import { daysUntilDate } from '@/lib/date'
+import { markWeightedScores } from '@/lib/practice-analytics'
 import type {
   Subject,
   UserSubject,
@@ -99,7 +100,7 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
       .eq('is_active', true),
     supabase
       .from('past_papers')
-      .select('subject_id, accuracy_pct')
+      .select('subject_id, score_raw, score_max')
       .eq('user_id', user.id)
       .in('subject_id', subjectIds),
     dashboardPromise,
@@ -141,10 +142,10 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
     arr.push(c.id)
     chaptersBySubject.set(c.subject_id, arr)
   })
-  const papersBySubject = new Map<string, number[]>()
+  const papersBySubject = new Map<string, { score_raw: number; score_max: number }[]>()
   ;(papers ?? []).forEach((p) => {
     const arr = papersBySubject.get(p.subject_id) ?? []
-    arr.push(p.accuracy_pct)
+    arr.push({ score_raw: p.score_raw, score_max: p.score_max })
     papersBySubject.set(p.subject_id, arr)
   })
 
@@ -159,11 +160,7 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
     const completedChapters = ucs.filter((uc) => uc.notes_status === 'complete').length
     const inProgressChapters = ucs.filter((uc) => uc.notes_status === 'in_progress').length
 
-    const paperAccuracyArr = papersBySubject.get(enrollment.subject_id) ?? []
-    const paperAccuracy =
-      paperAccuracyArr.length > 0
-        ? paperAccuracyArr.reduce((a, b) => a + b, 0) / paperAccuracyArr.length
-        : null
+    const paperAccuracy = markWeightedScores(papersBySubject.get(enrollment.subject_id) ?? [])
 
     const withConfidence = ucs.filter((uc) => uc.confidence_level !== null)
     const avgConfidence =
