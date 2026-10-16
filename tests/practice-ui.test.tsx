@@ -60,6 +60,7 @@ describe('practice UI evidence', () => {
     expect(screen.getByRole('status').textContent).toMatch(/No practice attempts/)
     view.unmount()
     render(<PracticeWorkspace sessions={[session]} trend={points} subjects={subjects} preferredSubjectId={subjectId} timeZone="UTC" />)
+    fireEvent.click(screen.getByRole('tab', { name: 'Question practice' }))
     expect(screen.getByText(/Partial current-route evidence: 1\/5 eligible marks/)).toBeTruthy()
     expect(screen.getByText(/Separate from full-paper results and paper achievements/)).toBeTruthy()
     expect(screen.getByRole('button', { name: /Log Questions/ })).toBeTruthy()
@@ -287,6 +288,7 @@ describe('question form provenance and accessibility', () => {
   it('requires explicit delete confirmation and leaves the dialog open on failure', async () => {
     mockDelete.mockResolvedValueOnce({ error: 'Could not save the practice session.' }).mockResolvedValueOnce({ deleted: true })
     render(<PracticeWorkspace sessions={[session]} trend={points} subjects={subjects} preferredSubjectId={subjectId} timeZone="UTC" />)
+    fireEvent.click(screen.getByRole('tab', { name: 'Question practice' }))
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
     expect(mockDelete).not.toHaveBeenCalled()
     expect(screen.getByRole('dialog', { name: 'Delete question session?' })).toBeTruthy()

@@ -232,6 +232,15 @@ describe('full-paper-only selectors and practice analytics', () => {
     expect(summaries.lifetime).toMatchObject({ raw: 8, max: 10 })
     expect(summaries.currentRoute).toMatchObject({ raw: 0, max: 0 })
     expect(combinedChapterEvidence([], [historical])).toEqual([])
+    // Omitting the paper source must not turn the same Stats2 chapter into
+    // current-route evidence; it remains loggable and visible as topical history.
+    expect(eligiblePracticeLoggingChapterIds(maths, 'a2', null)).toContain(statistics2)
+    const topical = withPracticeEligibility({ ...session([{ id: uid(95), marks_obtained: 10, marks_available: 10,
+      subject_paper_id: null, chapter_ids: [statistics2] }]), stage: 'a2' }, maths)
+    expect(topical).toMatchObject({ route_status: 'historical', eligible_score_raw: 0, eligible_score_max: 0 })
+    expect(topical.items[0].eligibility_reason).toBe('inaccessible_chapter')
+    expect(combinedChapterEvidence([], [topical])).toEqual([])
+    expect(summarizeEvidence(attemptTrend([], [topical], new Map([[subjectId, maths]]))).currentRoute.max).toBe(0)
   })
 
   it('preserves science P3 and P5 logging exceptions without unlocking A2', () => {
@@ -244,6 +253,27 @@ describe('full-paper-only selectors and practice analytics', () => {
     }
     expect(eligiblePracticeLoggingChapterIds(p5, 'a2', otherPaperId)).toEqual([])
     expect(eligiblePracticeLoggingChapterIds({ ...p5, enrollment: { ...p5.enrollment!, currentStage: 'a2' } }, 'a2', otherPaperId)).toEqual([chapterId])
+  })
+
+  it('counts selected-stage topical items once and rejects mixed off-route chapter evidence without changing legacy unmapped items', () => {
+    const p5 = uid(90), p6 = uid(91), stats1 = uid(92), stats2 = uid(93)
+    const maths: PracticeRouteContext = { ...context,
+      enrollment: { ...context.enrollment!, currentStage: 'full', studyRoute: 'full_level' },
+      selections: [{ subjectPaperId: p5, componentName: 'Statistics 1', stage: 'a2' }],
+      papers: [{ id: p5, subjectId, paperNumber: 5 }, { id: p6, subjectId, paperNumber: 6 }],
+      chapters: [{ id: stats1, subjectId, stage: 'route_dependent', component: 'Statistics 1', isActive: true, paperIds: [p5] },
+        { id: stats2, subjectId, stage: 'a2', component: 'Statistics 2', isActive: true, paperIds: [p6] }],
+    }
+    const result = withPracticeEligibility({ ...session([
+      { id: uid(94), marks_obtained: 8, marks_available: 10, subject_paper_id: null, chapter_ids: [stats1] },
+      { id: uid(95), marks_obtained: 5, marks_available: 5, subject_paper_id: null, chapter_ids: [stats1, stats2] },
+      { id: uid(96), marks_obtained: 1, marks_available: 2, subject_paper_id: null, chapter_ids: [] },
+    ]), stage: 'a2' }, maths)
+    expect(result).toMatchObject({ eligible_score_raw: 9, eligible_score_max: 12 })
+    expect(result.items.map(item => item.eligible_for_readiness)).toEqual([true, false, true])
+    expect(combinedChapterEvidence([], [result]).map(chapter => chapter.chapterId)).toEqual([stats1])
+    const movedStage = { ...maths, selections: [{ ...maths.selections[0], stage: 'as' as const }] }
+    expect(withPracticeEligibility(result, movedStage).eligible_score_max).toBe(2)
   })
 
   it('uses mark weighting, variant-equivalent components, stage, best/latest and only full papers for prediction/threshold inputs', () => {

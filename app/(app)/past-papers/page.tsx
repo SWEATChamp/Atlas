@@ -3,7 +3,6 @@ import { getAuthenticatedContext, getCurrentProfile } from '@/lib/supabase/authe
 import { getAllPapersWithSubjects, getPapersForSubject, getUntaggedPapers } from '@/lib/actions/papers'
 import { getCombinedChapterEvidenceForSubject, getPracticeFormCatalogue, getPracticeOverview } from '@/lib/actions/practice-sessions'
 import { basePaperNumber, bestFullPaper, comparableComponentAnalytics, fullPaperCount, latestFullPaper, markWeightedPaperAverage, rankComponentEvidence } from '@/lib/practice-analytics'
-import { LogPaperButton } from '@/components/papers/log-paper-button'
 import { PracticeWorkspace } from '@/components/papers/practice-workspace'
 import { SubjectFilterTabs } from '@/components/papers/subject-filter-tabs'
 import { LazyChapterAccuracyChart } from '@/components/papers/paper-charts'
@@ -94,9 +93,6 @@ export default async function PastPapersPage(props: {
       key={activeSubjectId ?? 'all'}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-        {/* Untagged papers slot */}
-        <PaperStageTaggerSlot />
-
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div>
@@ -105,12 +101,14 @@ export default async function PastPapersPage(props: {
               Track your paper attempts and spot weak chapters
             </p>
           </div>
-          <LogPaperButton timeZone={timeZone} />
         </div>
 
         {/* Subject filter tabs */}
         <SubjectFilterTabs subjects={subjects} activeId={activeSubjectId} />
 
+        <PracticeWorkspace sessions={practice.sessions} trend={practice.trend} subjects={formSubjects} preferredSubjectId={activeSubjectId} timeZone={timeZone}>
+        {/* Keep server-rendered full-paper content separate from question evidence. */}
+        <PaperStageTaggerSlot />
         {/* Full-paper-only metrics remain separate from question-practice evidence. */}
         <div className="past-papers-stats-grid">
           {summaryStats.map((stat, index) => <div key={stat.label} className="past-papers-stat-cell" style={{ borderLeft: index > 0 ? '1px solid var(--border-subtle)' : undefined }}>
@@ -150,7 +148,7 @@ export default async function PastPapersPage(props: {
             <PaperAttemptsListSlot emptyMessage="No papers logged yet. Select Log Paper to record your first attempt." />
           </div>
         )}
-        <PracticeWorkspace sessions={practice.sessions} trend={practice.trend} subjects={formSubjects} preferredSubjectId={activeSubjectId} timeZone={timeZone} />
+        </PracticeWorkspace>
       </div>
     </PaperStageProvider>
   )

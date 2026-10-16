@@ -1,0 +1,139 @@
+-- Run on the 031 baseline in a disposable database. Applies 032 transactionally
+-- to actual old-RPC unmapped records; rollback restores the 031 schema.
+-- Migration 031 database contract. Disposable local database only; all fixtures
+-- roll back. Each scenario uses fresh users rather than accumulated evidence.
+BEGIN;
+CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
+SET LOCAL search_path = public, extensions, pg_catalog;
+SET LOCAL TIME ZONE 'UTC';
+SELECT plan(9);
+
+CREATE TEMP TABLE m4_ctx (key TEXT PRIMARY KEY, id UUID, value JSONB);
+GRANT SELECT, INSERT, UPDATE ON m4_ctx TO authenticated, anon;
+CREATE FUNCTION pg_temp.ref(p_key TEXT) RETURNS UUID LANGUAGE sql AS $$
+  SELECT id FROM pg_temp.m4_ctx WHERE key = p_key;
+$$;
+CREATE FUNCTION pg_temp.login(p_key TEXT) RETURNS TEXT LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM set_config('request.jwt.claims',
+    jsonb_build_object('sub', pg_temp.ref(p_key), 'role', 'authenticated')::TEXT, true);
+  RETURN set_config('request.jwt.claim.sub', pg_temp.ref(p_key)::TEXT, true);
+END;
+$$;
+CREATE FUNCTION pg_temp.new_user(p_key TEXT, p_code TEXT, p_route public.study_route_enum, p_combo TEXT DEFAULT NULL)
+RETURNS VOID LANGUAGE plpgsql AS $$
+DECLARE v_uid UUID := gen_random_uuid(); v_sid UUID; v_us UUID; v_selections JSONB;
+BEGIN
+  INSERT INTO auth.users(id, email, raw_user_meta_data)
+    VALUES (v_uid, v_uid::TEXT || '@m4.test', jsonb_build_object('full_name', p_key));
+  -- handle_new_user owns creation; update its rows instead of duplicate inserts.
+  UPDATE public.profiles SET timezone = 'UTC' WHERE id = v_uid;
+  SELECT id INTO STRICT v_sid FROM public.subjects WHERE code = p_code;
+  INSERT INTO public.user_subjects(user_id, subject_id) VALUES (v_uid, v_sid) RETURNING id INTO v_us;
+  INSERT INTO pg_temp.m4_ctx(key, id) VALUES (p_key, v_uid), (p_key || '.enrollment', v_us);
+  PERFORM pg_temp.login(p_key);
+  IF p_route <> 'unconfirmed' THEN
+    SELECT jsonb_agg(jsonb_build_object('paper_number', sp.paper_number, 'component_name', sp.name, 'stage', rp.stage)
+      ORDER BY sp.paper_number) INTO v_selections
+    FROM public.subject_valid_routes vr JOIN public.subject_route_papers rp ON rp.route_id = vr.id
+    JOIN public.subject_papers sp ON sp.id = rp.subject_paper_id
+    WHERE vr.subject_id = v_sid AND vr.route = p_route AND (p_combo IS NULL OR vr.combination_key = p_combo);
+    PERFORM public.configure_subject_route(v_uid, v_us, p_route, COALESCE(v_selections, '[]'));
+  END IF;
+END;
+$$;
+CREATE FUNCTION pg_temp.items(p_raw INTEGER DEFAULT 10, p_max INTEGER DEFAULT 10,
+  p_mode TEXT DEFAULT 'none', p_prov JSONB DEFAULT NULL, p_chapters JSONB DEFAULT '[]')
+RETURNS JSONB LANGUAGE sql AS $$
+  SELECT jsonb_build_array(jsonb_build_object('item_order', 1, 'marks_obtained', p_raw, 'marks_available', p_max,
+    'provenance_mode', p_mode, 'chapter_ids', p_chapters) ||
+    CASE WHEN p_prov IS NULL THEN '{}'::JSONB ELSE jsonb_build_object('provenance', p_prov) END);
+$$;
+CREATE FUNCTION pg_temp.log(p_user TEXT, p_code TEXT DEFAULT '9709', p_stage TEXT DEFAULT 'as',
+  p_prov JSONB DEFAULT '{}', p_items JSONB DEFAULT pg_temp.items())
+RETURNS public.practice_sessions LANGUAGE sql AS $$
+  SELECT public.log_practice_session_atomic(pg_temp.ref(p_user), (SELECT id FROM public.subjects WHERE code = p_code),
+    p_stage, 'Test', CURRENT_DATE, 30::SMALLINT, p_prov, p_items);
+$$;
+CREATE FUNCTION pg_temp.replace(p_user TEXT, p_id UUID, p_prov JSONB DEFAULT '{}', p_items JSONB DEFAULT pg_temp.items())
+RETURNS public.practice_sessions LANGUAGE sql AS $$
+  SELECT public.update_practice_session_atomic(pg_temp.ref(p_user), p_id, 'Updated', CURRENT_DATE, 30::SMALLINT, p_prov, p_items);
+$$;
+CREATE FUNCTION pg_temp.ready(p_user TEXT, p_code TEXT DEFAULT '9709', p_stage TEXT DEFAULT 'as')
+RETURNS NUMERIC LANGUAGE sql AS $$
+  SELECT public.compute_readiness_score(pg_temp.ref(p_user), (SELECT id FROM public.subjects WHERE code = p_code), p_stage);
+$$;
+CREATE FUNCTION pg_temp.paper(p_user TEXT, p_code TEXT DEFAULT '9709', p_base INTEGER DEFAULT 1,
+  p_stage TEXT DEFAULT 'as', p_raw INTEGER DEFAULT 60, p_max INTEGER DEFAULT 75)
+RETURNS UUID LANGUAGE sql AS $$
+  SELECT (public.log_past_paper_atomic(pg_temp.ref(p_user),
+    jsonb_build_object('subject_id', (SELECT id FROM public.subjects WHERE code = p_code),
+      'subject_paper_id', (SELECT sp.id FROM public.subject_papers sp JOIN public.subjects s ON s.id = sp.subject_id
+                          WHERE s.code = p_code AND sp.paper_number = p_base),
+      'paper_number', p_base * 10 + 2, 'stage', p_stage, 'year', 2024,
+      'session', 'may_jun', 'attempted_at', CURRENT_DATE -
+        (SELECT count(*)::INTEGER FROM public.past_papers WHERE user_id=pg_temp.ref(p_user))),
+    jsonb_build_array(jsonb_build_object('question_number', '1', 'chapter_id', NULL,
+      'marks_obtained', p_raw, 'marks_available', p_max))) ->> 'id')::UUID;
+$$;
+CREATE FUNCTION pg_temp.graph(p_id UUID) RETURNS JSONB LANGUAGE sql AS $$
+  SELECT jsonb_build_object('parent', (SELECT to_jsonb(p) FROM public.practice_sessions p WHERE p.id = p_id),
+    'items', COALESCE((SELECT jsonb_agg(to_jsonb(i) ORDER BY i.id) FROM public.practice_session_items i WHERE i.session_id = p_id), '[]'),
+    'chapters', COALESCE((SELECT jsonb_agg(to_jsonb(c) ORDER BY c.item_id, c.chapter_id)
+       FROM public.practice_session_chapters c JOIN public.practice_session_items i ON i.id = c.item_id WHERE i.session_id = p_id), '[]'));
+$$;
+CREATE FUNCTION pg_temp.side_effects(p_user TEXT) RETURNS JSONB LANGUAGE sql AS $$
+  SELECT jsonb_build_object('xp', (SELECT total_xp FROM public.profiles WHERE id = pg_temp.ref(p_user)),
+    'streak', (SELECT to_jsonb(s) FROM public.streaks s WHERE user_id = pg_temp.ref(p_user)),
+    'events', (SELECT count(*) FROM public.xp_events WHERE user_id = pg_temp.ref(p_user)),
+    'achievements', (SELECT count(*) FROM public.user_achievements WHERE user_id = pg_temp.ref(p_user)),
+    'notifications', (SELECT count(*) FROM public.notifications WHERE user_id = pg_temp.ref(p_user)));
+$$;
+CREATE FUNCTION pg_temp.paper_baseline(p_user TEXT) RETURNS JSONB LANGUAGE sql AS $$
+  SELECT jsonb_build_object('rows', COALESCE((SELECT jsonb_agg(to_jsonb(p) ORDER BY p.id) FROM public.past_papers p
+    WHERE p.user_id = pg_temp.ref(p_user)), '[]'), 'count', count(*), 'best', max(accuracy_pct),
+    'weighted', sum(score_raw::BIGINT)::NUMERIC / NULLIF(sum(score_max::BIGINT), 0))
+  FROM public.past_papers WHERE user_id = pg_temp.ref(p_user);
+$$;
+CREATE FUNCTION pg_temp.threshold_baseline() RETURNS JSONB LANGUAGE sql AS $$
+  SELECT jsonb_build_array(
+    (SELECT md5(COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t.id)::TEXT,'')) FROM public.grade_threshold_publications t),
+    (SELECT md5(COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t.id)::TEXT,'')) FROM public.grade_threshold_component_variants t),
+    (SELECT md5(COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t.id)::TEXT,'')) FROM public.grade_threshold_component_marks t),
+    (SELECT md5(COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t.id)::TEXT,'')) FROM public.grade_threshold_combinations t),
+    (SELECT md5(COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t.id)::TEXT,'')) FROM public.grade_threshold_combination_marks t),
+    (SELECT md5(COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t.id)::TEXT,'')) FROM public.grade_threshold_combination_tokens t));
+$$;
+
+
+SELECT pg_temp.new_user('upgrade','9709','as_only','p1_m1');
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.login('upgrade');
+INSERT INTO m4_ctx(key,id) SELECT 'old',(pg_temp.log('upgrade')).id;
+INSERT INTO m4_ctx(key,value) VALUES ('old.graph',pg_temp.graph(pg_temp.ref('old'))),
+ ('old.ready',to_jsonb(pg_temp.ready('upgrade')));
+SELECT is((SELECT count(*) FROM practice_session_chapters),0::bigint,'031 RPC created genuinely unmapped historical evidence');
+SELECT is(pg_temp.ready('upgrade'),40.00::numeric,'031 unmapped evidence counts before upgrade');
+RESET ROLE;
+INSERT INTO m4_ctx(key,value) SELECT 'before.functions',jsonb_agg(jsonb_build_object('oid',oid::text,'definition',pg_get_functiondef(oid)) ORDER BY oid)
+ FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN
+ ('compute_readiness_score','m4_chapter_eligible','m4_stage_open','m4_resolve_provenance','m4_write_items',
+ 'log_practice_session_atomic','update_practice_session_atomic','delete_practice_session');
+\ir ../../migrations/20261016000032_practice_mapping_validation.sql
+SELECT is((SELECT jsonb_agg(jsonb_build_object('oid',oid::text,'definition',replace(pg_get_functiondef(oid),'m4_assessment_chapter_eligible','m4_chapter_eligible')) ORDER BY oid)
+ FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN
+ ('compute_readiness_score','m4_chapter_eligible','m4_stage_open','m4_resolve_provenance','m4_write_items',
+ 'log_practice_session_atomic','update_practice_session_atomic','delete_practice_session')),
+ (SELECT value FROM m4_ctx WHERE key='before.functions'),'only practice readiness predicate changes; denominator/full-paper/weights/helpers/CRUD byte-identical');
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.login('upgrade');
+SELECT is(pg_temp.graph(pg_temp.ref('old')),(SELECT value FROM m4_ctx WHERE key='old.graph'),'upgrade preserves every historical parent/item/link field');
+SELECT is(to_jsonb(pg_temp.ready('upgrade')),(SELECT value FROM m4_ctx WHERE key='old.ready'),'upgrade preserves historical readiness');
+SELECT throws_ok($$SELECT pg_temp.replace('upgrade',pg_temp.ref('old'))$$,'P0003',NULL,'historical unmapped record cannot be resaved without mappings');
+SELECT is(pg_temp.graph(pg_temp.ref('old')),(SELECT value FROM m4_ctx WHERE key='old.graph'),'failed replacement preserves old graph and IDs');
+SELECT lives_ok($$SELECT pg_temp.replace('upgrade',pg_temp.ref('old'),'{}',pg_temp.items(5,10,'none',NULL,
+ (SELECT jsonb_build_array(c.id) FROM chapters c JOIN subjects s ON s.id=c.subject_id
+ WHERE s.code='9709' AND c.stage='as' AND c.is_active ORDER BY c.number LIMIT 1)))$$,'historical record can be explicitly mapped on replacement');
+SELECT is(pg_temp.ready('upgrade'),20.00::numeric,'mapped replacement retains mark-weighted readiness');
+SELECT * FROM finish();
+ROLLBACK;

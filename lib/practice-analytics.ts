@@ -104,6 +104,16 @@ export function eligiblePracticeChapterIds(context: PracticeRouteContext, stage:
   return context.chapters.filter(chapter => chapterEligible(chapter, stage, paperId, context)).map(chapter => chapter.id)
 }
 
+// A known catalogue chapter may be valid historical topical practice while its
+// assessed component is absent from the current route. Keep logging/denominators
+// unchanged and apply this stricter check only to scored practice evidence.
+function assessmentChapterEligible(chapter: PracticeChapterContext | undefined, stage: PaperStage, paperId: string | null, context: PracticeRouteContext) {
+  return chapterEligible(chapter, stage, paperId, context) && !!chapter &&
+    (paperId !== null || chapter.paperIds.length === 0 || context.selections.some(selection =>
+      selection.stage === stage && ((selection.subjectPaperId !== null && chapter.paperIds.includes(selection.subjectPaperId)) ||
+        selection.componentName === chapter.component)))
+}
+
 /** Explicit off-route paper sources may be logged as history; this does not grant readiness eligibility. */
 export function eligiblePracticeLoggingChapterIds(context: PracticeRouteContext, stage: PaperStage, paperId: string | null): string[] {
   if (!paperId) return eligiblePracticeChapterIds(context, stage, null)
@@ -133,7 +143,7 @@ export function withPracticeEligibility(session: Omit<PracticeSessionRead, 'elig
     let reason: PracticeItemRead['eligibility_reason'] = 'eligible'
     if (!open) reason = 'inactive_route_or_stage'
     else if (item.subject_paper_id && !selectedPaper(item.subject_paper_id, session.stage, context)) reason = 'off_route_paper'
-    else if (item.chapter_ids.some(id => !chapterEligible(context.chapters.find(chapter => chapter.id === id), session.stage, item.subject_paper_id, context))) reason = 'inaccessible_chapter'
+    else if (item.chapter_ids.some(id => !assessmentChapterEligible(context.chapters.find(chapter => chapter.id === id), session.stage, item.subject_paper_id, context))) reason = 'inaccessible_chapter'
     return { ...item, eligible_for_readiness: reason === 'eligible', eligibility_reason: reason }
   })
   return {

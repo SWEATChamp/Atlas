@@ -1,4 +1,4 @@
--- Migration 031 database contract. Disposable local database only; all fixtures
+-- Current 032 contract retains all 201 foundation/security assertions. Disposable local database only; all fixtures
 -- roll back. Each scenario uses fresh users rather than accumulated evidence.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
@@ -42,21 +42,59 @@ BEGIN
 END;
 $$;
 CREATE FUNCTION pg_temp.items(p_raw INTEGER DEFAULT 10, p_max INTEGER DEFAULT 10,
-  p_mode TEXT DEFAULT 'none', p_prov JSONB DEFAULT NULL, p_chapters JSONB DEFAULT '[]')
+  p_mode TEXT DEFAULT 'none', p_prov JSONB DEFAULT NULL, p_chapters JSONB DEFAULT '"fixture_auto"')
 RETURNS JSONB LANGUAGE sql AS $$
   SELECT jsonb_build_array(jsonb_build_object('item_order', 1, 'marks_obtained', p_raw, 'marks_available', p_max,
     'provenance_mode', p_mode, 'chapter_ids', p_chapters) ||
     CASE WHEN p_prov IS NULL THEN '{}'::JSONB ELSE jsonb_build_object('provenance', p_prov) END);
 $$;
+
+-- Test payload factory only: supply a real compatible catalogue chapter when a
+-- scenario omits chapter data. Explicit malformed/null/duplicate arrays are kept.
+-- Mapping validation itself is exercised by practice_mapping_validation.test.sql.
+CREATE FUNCTION pg_temp.auto_items(p_code TEXT,p_stage TEXT,p_parent JSONB,p_items JSONB)
+RETURNS JSONB LANGUAGE plpgsql AS $$
+DECLARE v_item JSONB; v_prov JSONB; v_paper UUID; v_chapter UUID; v_result JSONB := '[]';
+BEGIN
+  IF jsonb_typeof(p_items) IS DISTINCT FROM 'array' THEN RETURN p_items; END IF;
+  FOR v_item IN SELECT value FROM jsonb_array_elements(p_items) LOOP
+    IF jsonb_typeof(v_item)='object' AND (NOT v_item ? 'chapter_ids' OR v_item->'chapter_ids'='"fixture_auto"'::JSONB) THEN
+      v_prov := CASE v_item->>'provenance_mode' WHEN 'inherit' THEN p_parent
+        WHEN 'override' THEN v_item->'provenance' ELSE '{}'::JSONB END;
+      BEGIN
+        SELECT sp.id INTO v_paper FROM subject_papers sp JOIN subjects s ON s.id=sp.subject_id
+          WHERE s.code=p_code AND ((v_prov->>'subject_paper_id')::UUID=sp.id
+            OR ((v_prov->>'subject_paper_id') IS NULL AND sp.paper_number=(v_prov->>'paper_number')::INTEGER));
+      EXCEPTION WHEN invalid_text_representation OR numeric_value_out_of_range THEN
+        -- Do not intercept malformed-source validation before the actual RPC.
+        v_paper := NULL;
+      END;
+      SELECT c.id INTO v_chapter FROM chapters c JOIN subjects s ON s.id=c.subject_id
+        WHERE s.code=p_code AND c.is_active
+          AND (c.stage::TEXT IN (p_stage,'shared') OR (c.stage='route_dependent' AND EXISTS
+            (SELECT 1 FROM chapter_papers cp WHERE cp.chapter_id=c.id AND cp.subject_paper_id=v_paper)))
+          AND (v_paper IS NULL OR EXISTS(SELECT 1 FROM chapter_papers cp WHERE cp.chapter_id=c.id AND cp.subject_paper_id=v_paper)
+            OR (p_code IN ('9701','9702') AND EXISTS(SELECT 1 FROM subject_papers sp WHERE sp.id=v_paper AND sp.paper_number IN (3,5))))
+        ORDER BY c.number,c.id LIMIT 1;
+      v_item := jsonb_set(v_item,'{chapter_ids}',jsonb_build_array(v_chapter));
+    END IF;
+    v_result := v_result || jsonb_build_array(v_item);
+  END LOOP;
+  RETURN v_result;
+END;
+$$;
+
 CREATE FUNCTION pg_temp.log(p_user TEXT, p_code TEXT DEFAULT '9709', p_stage TEXT DEFAULT 'as',
   p_prov JSONB DEFAULT '{}', p_items JSONB DEFAULT pg_temp.items())
 RETURNS public.practice_sessions LANGUAGE sql AS $$
   SELECT public.log_practice_session_atomic(pg_temp.ref(p_user), (SELECT id FROM public.subjects WHERE code = p_code),
-    p_stage, 'Test', CURRENT_DATE, 30::SMALLINT, p_prov, p_items);
+    p_stage, 'Test', CURRENT_DATE, 30::SMALLINT, p_prov, pg_temp.auto_items(p_code,p_stage,p_prov,p_items));
 $$;
 CREATE FUNCTION pg_temp.replace(p_user TEXT, p_id UUID, p_prov JSONB DEFAULT '{}', p_items JSONB DEFAULT pg_temp.items())
 RETURNS public.practice_sessions LANGUAGE sql AS $$
-  SELECT public.update_practice_session_atomic(pg_temp.ref(p_user), p_id, 'Updated', CURRENT_DATE, 30::SMALLINT, p_prov, p_items);
+  SELECT public.update_practice_session_atomic(pg_temp.ref(p_user), p_id, 'Updated', CURRENT_DATE, 30::SMALLINT, p_prov,
+    pg_temp.auto_items((SELECT s.code FROM practice_sessions ps JOIN subjects s ON s.id=ps.subject_id WHERE ps.id=p_id),
+      (SELECT stage FROM practice_sessions WHERE id=p_id),p_prov,p_items));
 $$;
 CREATE FUNCTION pg_temp.ready(p_user TEXT, p_code TEXT DEFAULT '9709', p_stage TEXT DEFAULT 'as')
 RETURNS NUMERIC LANGUAGE sql AS $$
@@ -169,7 +207,7 @@ SELECT is((SELECT accuracy_pct FROM public.practice_sessions WHERE id = pg_temp.
 SELECT is((SELECT count(*) FROM public.practice_session_items WHERE session_id = pg_temp.ref('owned')), 1::BIGINT, 'owner reads their child item');
 SELECT lives_ok($$SELECT pg_temp.log('owner','9709','as','{"paper_number":4}',
   pg_temp.items(3,10,'inherit',NULL,jsonb_build_array(pg_temp.ref('math.mechanics'))))$$, 'owned junction fixture has an actual mapped item');
-SELECT is((SELECT count(*) FROM public.practice_session_chapters), 1::BIGINT, 'owner reads actual junction before foreign-read test');
+SELECT is((SELECT count(*) FROM public.practice_session_chapters), 2::BIGINT, 'owner reads required topical and explicit junctions before foreign-read test');
 SELECT throws_ok($$INSERT INTO public.practice_sessions DEFAULT VALUES$$, '42501', NULL, 'direct parent insert denied');
 SELECT throws_ok($$UPDATE public.practice_sessions SET title='tamper'$$, '42501', NULL, 'direct parent update denied');
 SELECT throws_ok($$DELETE FROM public.practice_sessions$$, '42501', NULL, 'direct parent delete denied');
@@ -345,7 +383,7 @@ SELECT is((SELECT total_score_max FROM practice_sessions WHERE id=pg_temp.ref('r
 SELECT is((SELECT exam_year FROM practice_session_items WHERE session_id=pg_temp.ref('replace') AND item_order=1), 2025::SMALLINT, 'inherit follows changed parent');
 SELECT is((SELECT subject_paper_id FROM practice_session_items WHERE session_id=pg_temp.ref('replace') AND item_order=2), NULL::UUID, 'override clears parent component');
 SELECT is((SELECT exam_year FROM practice_session_items WHERE session_id=pg_temp.ref('replace') AND item_order=2), NULL::SMALLINT, 'explicit override null clears parent year');
-SELECT is((SELECT count(*) FROM practice_session_chapters pc JOIN practice_session_items i ON i.id=pc.item_id WHERE i.session_id=pg_temp.ref('replace')), 0::BIGINT, 'replacement removes old mappings');
+SELECT is((SELECT count(*) FROM practice_session_chapters pc JOIN practice_session_items i ON i.id=pc.item_id WHERE i.session_id=pg_temp.ref('replace')), 2::BIGINT, 'replacement replaces old mappings with a required mapping on each new item');
 SELECT lives_ok($$SELECT pg_temp.replace('owner',pg_temp.ref('replace'),'{"paper_number":4}',pg_temp.items(2,10,'none'))$$, 'none item clears effective parent provenance');
 SELECT is((SELECT subject_paper_id FROM practice_session_items WHERE session_id=pg_temp.ref('replace')), NULL::UUID, 'none never inherits identified parent');
 SELECT lives_ok($$SELECT pg_temp.replace('owner',pg_temp.ref('replace'),'{"paper_number":4}',
@@ -513,7 +551,7 @@ UPDATE profiles SET timezone='Pacific/Kiritimati' WHERE id=pg_temp.ref('aggregat
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.login('aggregate');
 SELECT lives_ok($$SELECT public.log_practice_session_atomic(pg_temp.ref('aggregate'),
-  (SELECT id FROM subjects WHERE code='9709'),'as',NULL,public.get_user_local_date(pg_temp.ref('aggregate')),NULL,'{}',pg_temp.items())$$,
+  (SELECT id FROM subjects WHERE code='9709'),'as',NULL,public.get_user_local_date(pg_temp.ref('aggregate')),NULL,'{}',pg_temp.auto_items('9709','as','{}',pg_temp.items()))$$,
   'user-local today is accepted even across UTC date boundary');
 SELECT throws_ok($$SELECT public.log_practice_session_atomic(pg_temp.ref('aggregate'),
   (SELECT id FROM subjects WHERE code='9709'),'as',NULL,public.get_user_local_date(pg_temp.ref('aggregate'))+1,NULL,'{}',pg_temp.items())$$,

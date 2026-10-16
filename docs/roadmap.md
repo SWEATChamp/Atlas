@@ -201,10 +201,11 @@ The initial baseline at `848d139` is under Preview testing, with all 31 migratio
 - [x] Locally preserve the existing full-paper logger with required paper, variant, series, year, stage, date, and total marks.
 - [x] Locally add a separate **Log questions** workflow for one question or grouped past-year, topical, or mixed/custom question practice.
 - [x] Locally require subject, AS/A2 stage, date, marks obtained, marks available, and at least one eligible chapter per question in application create/replacement; support multi-selection while paper, variant, series, year, source label, question number, duration, and notes remain optional.
-- [x] Preserve older unmapped practice history and its existing readiness eligibility; replacement edits must select eligible chapters. This feedback correction is application-only.
-- [ ] Obtain approval for a forward migration enforcing compulsory chapters in direct create/update RPC calls; unchanged Migration 031 still accepts empty mappings.
+- [x] Preserve older unmapped practice history and its existing readiness eligibility; replacement edits must select eligible chapters.
+- [x] Locally prepare and test forward Migration 032 enforcing 1–200 valid mappings in shared direct create/update RPC validation; it is locally committed, not pushed or applied to hosted Preview or Production.
 - [x] Locally distinguish explicit, catalogue-stage-valid off-route question logging from current-route readiness: off-route questions remain history-only, including Statistics 2 on a Mechanics + Statistics 1 Mathematics route.
-- [ ] Include off-route historical chapter acceptance in the approved forward write-validator migration; preserve current-route readiness, full-paper filters, and notes/confidence chapter safeguards.
+- [x] Locally include logging-only off-route historical chapter acceptance in Migration 032. A separate assessment predicate also excludes source-free mapped Statistics 2 from an off-route Maths readiness score; full-paper filters, existing chapter helpers, notes/confidence safeguards and weighting remain unchanged.
+- [ ] Obtain separate approval for push and hosted Preview application of the independently reviewed, locally committed Migration 032, then retest the combined feedback patch in Preview.
 - [x] Locally implement Migration 031's separate practice sessions, scored items, and normalized chapter mappings without weakening `past_papers` identity.
 - [x] Locally save each practice session and all of its items and chapter mappings through an ownership-checked, stage-aware atomic operation.
 - [x] Locally include full papers and eligible question items in readiness using mark-weighted combined assessment accuracy, without double-counting full-paper question breakdowns.

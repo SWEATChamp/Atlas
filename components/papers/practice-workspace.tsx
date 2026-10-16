@@ -1,9 +1,10 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { startTransition, useRef, useState } from 'react'
+import { startTransition, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { Dialog } from '@/components/ui/dialog'
+import { LogPaperButton } from './log-paper-button'
 import { deletePracticeSession } from '@/lib/actions/practice-sessions'
 import { summarizeEvidence } from '@/lib/practice-analytics'
 import { trendModes, trendPointsForMode, type TrendMode } from '@/lib/practice-ui'
@@ -16,6 +17,11 @@ const LogQuestionsModal = dynamic(() => import('./log-questions-modal').then(mod
 
 function formatPercent(value: number | null) { return value === null ? '—' : `${value.toFixed(1)}%` }
 function formatDate(value: string) { return formatDateOnly(value, { day: 'numeric', month: 'short', year: 'numeric' }) }
+
+const attemptTabs = [
+  { id: 'full_paper', label: 'Full papers' },
+  { id: 'practice', label: 'Question practice' },
+] as const
 
 export function PracticeTrend({ points, subjects = [], preferredSubjectId }: {
   points: AttemptTrendPoint[]
@@ -84,14 +90,18 @@ export function PracticeTrend({ points, subjects = [], preferredSubjectId }: {
   </section>
 }
 
-export function PracticeWorkspace({ sessions, trend, subjects, preferredSubjectId, timeZone }: {
+export function PracticeWorkspace({ sessions, trend, subjects, preferredSubjectId, timeZone, children }: {
   sessions: PracticeSessionRead[]
   trend: AttemptTrendPoint[]
   subjects: PracticeFormSubjectOption[]
   preferredSubjectId: string | null
   timeZone: string
+  children?: ReactNode
 }) {
   const router = useRouter()
+  const [attemptType, setAttemptType] = useState<(typeof attemptTabs)[number]['id']>('full_paper')
+  const tabsId = useId()
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
   const [createOpen, setCreateOpen] = useState(false)
   const [editSession, setEditSession] = useState<PracticeSessionRead | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<PracticeSessionRead | null>(null)
@@ -101,6 +111,17 @@ export function PracticeWorkspace({ sessions, trend, subjects, preferredSubjectI
   const practicePoints = trend.filter(point => point.source === 'practice')
   const practiceSummary = summarizeEvidence(practicePoints)
   const subjectNames = new Map(subjects.map(subject => [subject.id, subject.name]))
+
+  function navigateTabs(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const next = event.key === 'ArrowRight' ? (index + 1) % attemptTabs.length
+      : event.key === 'ArrowLeft' ? (index + attemptTabs.length - 1) % attemptTabs.length
+      : event.key === 'Home' ? 0
+      : event.key === 'End' ? attemptTabs.length - 1 : null
+    if (next === null) return
+    event.preventDefault()
+    setAttemptType(attemptTabs[next].id)
+    tabRefs.current[next]?.focus()
+  }
 
   function confirmDelete() {
     if (!deleteTarget || deleteBusy) return
@@ -120,6 +141,28 @@ export function PracticeWorkspace({ sessions, trend, subjects, preferredSubjectI
   }
 
   return <>
+    <PracticeTrend points={trend} subjects={preferredSubjectId ? subjects.filter(subject => subject.id === preferredSubjectId) : subjects} preferredSubjectId={preferredSubjectId} />
+    <div className="past-papers-attempt-tabs" role="tablist" aria-label="Log and review attempts">
+      {attemptTabs.map((tab, index) => <button key={tab.id} ref={element => { tabRefs.current[index] = element }}
+        id={`${tabsId}-${tab.id}-tab`} type="button" role="tab"
+        aria-selected={attemptType === tab.id} aria-controls={`${tabsId}-${tab.id}-panel`}
+        tabIndex={attemptType === tab.id ? 0 : -1}
+        className={`btn ${attemptType === tab.id ? 'btn-primary' : 'btn-ghost'}`}
+        onClick={() => setAttemptType(tab.id)} onKeyDown={event => navigateTabs(event, index)}>{tab.label}</button>)}
+    </div>
+    <section role="tabpanel" id={`${tabsId}-full_paper-panel`} aria-labelledby={`${tabsId}-full_paper-tab`}
+      tabIndex={0} hidden={attemptType !== 'full_paper'} className="past-papers-attempt-panel">
+      {attemptType === 'full_paper' && <>
+        <div className="practice-workspace-heading">
+          <div><h2 className="text-heading-2" style={{ margin: 0 }}>Full papers</h2><p style={{ color: 'var(--text-muted)', margin: '4px 0 0' }}>Record complete papers and review your results.</p></div>
+          <LogPaperButton timeZone={timeZone} />
+        </div>
+        {children}
+      </>}
+    </section>
+    <section role="tabpanel" id={`${tabsId}-practice-panel`} aria-labelledby={`${tabsId}-practice-tab`}
+      tabIndex={0} hidden={attemptType !== 'practice'} className="past-papers-attempt-panel">
+    {attemptType === 'practice' && <>
     <div className="practice-workspace-heading">
       <div><h2 className="text-heading-2" style={{ margin: 0 }}>Question practice</h2><p style={{ color: 'var(--text-muted)', margin: '4px 0 0' }}>Separate from full-paper results and paper achievements.</p></div>
       <button className="btn btn-primary" type="button" disabled={subjects.length === 0} onClick={() => setCreateOpen(true)}>+ Log Questions</button>
@@ -130,7 +173,6 @@ export function PracticeWorkspace({ sessions, trend, subjects, preferredSubjectI
       <div className="card"><span>Question-practice accuracy</span><strong>{formatPercent(practiceSummary.lifetime.weightedAccuracyPct)}</strong><small>{practiceSummary.lifetime.raw}/{practiceSummary.lifetime.max} lifetime marks</small></div>
       <div className="card"><span>Current-route question evidence</span><strong>{formatPercent(practiceSummary.currentRoute.weightedAccuracyPct)}</strong><small>{practiceSummary.currentRoute.raw}/{practiceSummary.currentRoute.max} eligible marks</small></div>
     </div>
-    <PracticeTrend points={trend} subjects={preferredSubjectId ? subjects.filter(subject => subject.id === preferredSubjectId) : subjects} preferredSubjectId={preferredSubjectId} />
     <section aria-labelledby="practice-history-title" style={{ display: 'grid', gap: 'var(--space-3)' }}>
       <h2 id="practice-history-title" className="text-heading-3" style={{ margin: 0 }}>Question-practice history</h2>
       {sessions.length === 0 ? <p className="card" role="status" style={{ padding: 'var(--space-5)', color: 'var(--text-muted)' }}>No question sessions yet. Use Log Questions to record a topical, past-year, or mixed group.</p> : sessions.map(session => {
@@ -163,6 +205,8 @@ export function PracticeWorkspace({ sessions, trend, subjects, preferredSubjectI
           </div>
         </article>
       })}
+    </section>
+    </>}
     </section>
     {(createOpen || editSession) && <LogQuestionsModal
       subjects={subjects} timeZone={timeZone} preferredSubjectId={preferredSubjectId} existing={editSession ?? undefined}
