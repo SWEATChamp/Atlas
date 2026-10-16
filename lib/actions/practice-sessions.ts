@@ -86,8 +86,9 @@ async function routeContext(supabase: Awaited<ReturnType<typeof getAuthenticated
   const [enrollmentResult, subjectResult, chaptersResult, papersResult] = await Promise.all([
     supabase.from('user_subjects').select('id, subject_id, study_route, current_stage, is_archived').eq('user_id', userId).eq('subject_id', subjectId).maybeSingle(),
     supabase.from('subjects').select('code').eq('id', subjectId).maybeSingle(),
-    supabase.from('chapters').select('id, subject_id, title, stage, component, is_active, chapter_papers(subject_paper_id)').eq('subject_id', subjectId),
-    supabase.from('subject_papers').select('id, subject_id, paper_number, name').eq('subject_id', subjectId),
+    supabase.from('chapters').select('id, subject_id, title, number, stage, component, is_active, chapter_papers(subject_paper_id)').eq('subject_id', subjectId)
+      .order('number', { ascending: true }).order('id', { ascending: true }),
+    supabase.from('subject_papers').select('id, subject_id, paper_number, name, stage_behavior, default_stage').eq('subject_id', subjectId),
   ])
   if (enrollmentResult.error || subjectResult.error || chaptersResult.error || papersResult.error) throw new Error('Could not load practice route.')
   const enrollment = enrollmentResult.data
@@ -102,10 +103,11 @@ async function routeContext(supabase: Awaited<ReturnType<typeof getAuthenticated
     } : null,
     selections: (selectionsResult.data ?? []).map(row => ({ subjectPaperId: row.subject_paper_id, componentName: row.component_name, stage: row.stage })),
     chapters: (chaptersResult.data ?? []).map(row => ({
-      id: row.id, subjectId: row.subject_id, title: row.title, stage: row.stage, component: row.component, isActive: row.is_active,
+      id: row.id, subjectId: row.subject_id, title: row.title, number: row.number, stage: row.stage, component: row.component, isActive: row.is_active,
       paperIds: row.chapter_papers.map(link => link.subject_paper_id),
     })),
-    papers: (papersResult.data ?? []).map(row => ({ id: row.id, subjectId: row.subject_id, paperNumber: row.paper_number, name: row.name })),
+    papers: (papersResult.data ?? []).map(row => ({ id: row.id, subjectId: row.subject_id, paperNumber: row.paper_number, name: row.name,
+      stageBehavior: row.stage_behavior, defaultStage: row.default_stage })),
   }
 }
 

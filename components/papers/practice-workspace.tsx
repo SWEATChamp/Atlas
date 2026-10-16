@@ -17,9 +17,20 @@ const LogQuestionsModal = dynamic(() => import('./log-questions-modal').then(mod
 function formatPercent(value: number | null) { return value === null ? '—' : `${value.toFixed(1)}%` }
 function formatDate(value: string) { return formatDateOnly(value, { day: 'numeric', month: 'short', year: 'numeric' }) }
 
-export function PracticeTrend({ points }: { points: AttemptTrendPoint[] }) {
+export function PracticeTrend({ points, subjects = [], preferredSubjectId }: {
+  points: AttemptTrendPoint[]
+  subjects?: { id: string; name: string }[]
+  preferredSubjectId?: string | null
+}) {
   const [mode, setMode] = useState<TrendMode>('all')
-  const visible = trendPointsForMode(points, mode)
+  const subjectOptions = [...new Map([
+    ...subjects.map(subject => [subject.id, subject.name] as const),
+    ...points.filter(point => !subjects.some(subject => subject.id === point.subjectId)).map(point => [point.subjectId, 'Archived subject'] as const),
+  ]).entries()]
+  const [subjectId, setSubjectId] = useState(preferredSubjectId ?? points[0]?.subjectId ?? subjects[0]?.id ?? '')
+  const activeSubjectId = subjectOptions.some(([id]) => id === subjectId) ? subjectId : subjectOptions[0]?.[0] ?? ''
+  const subjectName = subjectOptions.find(([id]) => id === activeSubjectId)?.[1] ?? 'Subject'
+  const visible = trendPointsForMode(points.filter(point => point.subjectId === activeSubjectId), mode)
   const summary = summarizeEvidence(visible)
   const itemCount = visible.reduce((sum, point) => sum + point.itemCount, 0)
   const coordinate = (index: number, pct: number) => ({
@@ -33,6 +44,13 @@ export function PracticeTrend({ points }: { points: AttemptTrendPoint[] }) {
 
   return <section className="card" aria-labelledby="practice-trend-title" style={{ padding: 'var(--space-5)', minWidth: 0 }}>
     <h2 id="practice-trend-title" className="text-heading-3" style={{ marginTop: 0 }}>Score trend</h2>
+    <label className="practice-field" style={{ maxWidth: 360, marginBottom: 'var(--space-3)' }}>Trend subject
+      <select className="input" value={activeSubjectId} disabled={subjectOptions.length === 0} onChange={event => setSubjectId(event.target.value)}>
+        {subjectOptions.length === 0 && <option value="">No subjects yet</option>}
+        {subjectOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+      </select>
+    </label>
+    <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>Showing {subjectName} only. Choose a subject to compare its attempts over time.</p>
     <div role="group" aria-label="Trend evidence type" className="practice-trend-tabs">
       {trendModes.map(option => <button key={option.id} type="button" aria-pressed={mode === option.id} className={`btn ${mode === option.id ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setMode(option.id)}>{option.label}</button>)}
     </div>
@@ -112,7 +130,7 @@ export function PracticeWorkspace({ sessions, trend, subjects, preferredSubjectI
       <div className="card"><span>Question-practice accuracy</span><strong>{formatPercent(practiceSummary.lifetime.weightedAccuracyPct)}</strong><small>{practiceSummary.lifetime.raw}/{practiceSummary.lifetime.max} lifetime marks</small></div>
       <div className="card"><span>Current-route question evidence</span><strong>{formatPercent(practiceSummary.currentRoute.weightedAccuracyPct)}</strong><small>{practiceSummary.currentRoute.raw}/{practiceSummary.currentRoute.max} eligible marks</small></div>
     </div>
-    <PracticeTrend points={trend} />
+    <PracticeTrend points={trend} subjects={preferredSubjectId ? subjects.filter(subject => subject.id === preferredSubjectId) : subjects} preferredSubjectId={preferredSubjectId} />
     <section aria-labelledby="practice-history-title" style={{ display: 'grid', gap: 'var(--space-3)' }}>
       <h2 id="practice-history-title" className="text-heading-3" style={{ margin: 0 }}>Question-practice history</h2>
       {sessions.length === 0 ? <p className="card" role="status" style={{ padding: 'var(--space-5)', color: 'var(--text-muted)' }}>No question sessions yet. Use Log Questions to record a topical, past-year, or mixed group.</p> : sessions.map(session => {

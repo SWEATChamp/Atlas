@@ -122,6 +122,14 @@ export interface ChapterOption {
   stage?: string | null
 }
 
+// Keep the maximum as typed until submission so a student can replace 1 with
+// another value through an empty draft without weakening the saved mark rules.
+type QuestionDraft = Omit<QuestionInput, 'marksAvailable'> & { marksAvailable: string }
+
+function validMaximum(raw: string): boolean {
+  return raw.trim() !== '' && Number.isInteger(Number(raw)) && Number(raw) >= 1
+}
+
 export function matchPaperOption<T extends { id: string; paper_number: number; stage?: 'as' | 'a2' }>(
   papers: T[],
   targetSubjectPaperId?: string | null,
@@ -237,8 +245,8 @@ export function LogPaperModal({
   const [attemptedAt,        setAttemptedAt]        = useState(existingPaper?.attemptedAt        ?? localToday)
   const [timeTaken,          setTimeTaken]          = useState(existingPaper?.timeTakenMins ? String(existingPaper.timeTakenMins) : '')
   const [notes,              setNotes]              = useState(existingPaper?.notes              ?? '')
-  const [questions,          setQuestions]          = useState<QuestionInput[]>(
-    isEditing ? [] : [{ questionNumber: '1', chapterId: null, marksObtained: 0, marksAvailable: 1 }]
+  const [questions,          setQuestions]          = useState<QuestionDraft[]>(
+    isEditing ? [] : [{ questionNumber: '1', chapterId: null, marksObtained: 0, marksAvailable: '1' }]
   )
   const [questionsLoading, setQuestionsLoading] = useState(isEditing)
 
@@ -281,11 +289,11 @@ export function LogPaperModal({
             questionNumber: q.question_number,
             chapterId: q.chapter_id,
             marksObtained: q.marks_obtained,
-            marksAvailable: q.marks_available,
+            marksAvailable: String(q.marks_available),
           }))
         )
       } else {
-        setQuestions([{ questionNumber: '1', chapterId: null, marksObtained: 0, marksAvailable: 1 }])
+        setQuestions([{ questionNumber: '1', chapterId: null, marksObtained: 0, marksAvailable: '1' }])
       }
       setQuestionsLoading(false)
     }
@@ -395,15 +403,16 @@ export function LogPaperModal({
     ? `${activeSubject.code}/${paperNumber}${variant}/${SESSION_LABELS[selectedSession]}/${year.toString().slice(-2)}`
     : ''
 
-  // Marks update with validation
+  // Preserve maximum-mark drafts while editing; validate before saving.
   const updateQuestion = (index: number, field: keyof QuestionInput, raw: string | number | null) => {
     const updated = [...questions]
-    if (field === 'marksAvailable' || field === 'marksObtained') {
+    if (field === 'marksAvailable') {
+      updated[index] = { ...updated[index], marksAvailable: String(raw ?? '') }
+    } else if (field === 'marksObtained') {
       let val = parseInt(String(raw))
       if (isNaN(val) || val < 0) val = 0
-      if (field === 'marksAvailable' && val < 1) val = 1
-      if (field === 'marksObtained' && val > updated[index].marksAvailable) {
-        val = updated[index].marksAvailable
+      if (validMaximum(updated[index].marksAvailable) && val > Number(updated[index].marksAvailable)) {
+        val = Number(updated[index].marksAvailable)
       }
       updated[index] = { ...updated[index], [field]: val }
     } else {
@@ -417,13 +426,13 @@ export function LogPaperModal({
     const nextNum = last && !isNaN(Number(last.questionNumber))
       ? String(Number(last.questionNumber) + 1)
       : ''
-    setQuestions([...questions, { questionNumber: nextNum, chapterId: null, marksObtained: 0, marksAvailable: 1 }])
+    setQuestions([...questions, { questionNumber: nextNum, chapterId: null, marksObtained: 0, marksAvailable: '1' }])
   }
 
   const removeQuestion = (i: number) => setQuestions(questions.filter((_, idx) => idx !== i))
 
   const totalObtained  = questions.reduce((s, q) => s + (q.marksObtained  || 0), 0)
-  const totalAvailable = questions.reduce((s, q) => s + (q.marksAvailable || 0), 0)
+  const totalAvailable = questions.reduce((s, q) => s + (validMaximum(q.marksAvailable) ? Number(q.marksAvailable) : 0), 0)
   const pct = totalAvailable > 0 ? ((totalObtained / totalAvailable) * 100).toFixed(1) : '0'
 
   const step1Valid = !!(
@@ -439,9 +448,9 @@ export function LogPaperModal({
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i]
       if (!q.questionNumber.trim()) { setSubmitError(`Q${i + 1}: question number is required`); return }
-      if (q.marksAvailable < 1)    { setSubmitError(`Q${i + 1}: max marks must be at least 1`); return }
+      if (!validMaximum(q.marksAvailable)) { setSubmitError(`Q${i + 1}: max marks must be a whole number of at least 1`); return }
       if (q.marksObtained < 0)     { setSubmitError(`Q${i + 1}: marks cannot be negative`); return }
-      if (q.marksObtained > q.marksAvailable) { setSubmitError(`Q${i + 1}: marks obtained exceeds max marks`); return }
+      if (q.marksObtained > Number(q.marksAvailable)) { setSubmitError(`Q${i + 1}: marks obtained exceeds max marks`); return }
     }
     setLoading(true)
     const input: LogPaperInput = {
@@ -455,7 +464,7 @@ export function LogPaperModal({
       attemptedAt,
       timeTakenMins: timeTaken ? parseInt(timeTaken) : undefined,
       notes: notes || undefined,
-      questions,
+      questions: questions.map(q => ({ ...q, marksAvailable: Number(q.marksAvailable) })),
     }
     const { error } = isEditing && existingPaperId
       ? await updatePaper(existingPaperId, input)
@@ -532,7 +541,7 @@ export function LogPaperModal({
                   setSubjectId(e.target.value)
                   setSubjectPaperId(null)
                   if (!isEditing) {
-                    setQuestions([{ questionNumber: '1', chapterId: null, marksObtained: 0, marksAvailable: 1 }])
+                    setQuestions([{ questionNumber: '1', chapterId: null, marksObtained: 0, marksAvailable: '1' }])
                   }
                 }}
                 style={{ width: '100%' }}
@@ -727,7 +736,8 @@ export function LogPaperModal({
             {/* Question rows */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {questions.map((q, i) => {
-                const overMax = q.marksObtained > q.marksAvailable
+                const maximumInvalid = !validMaximum(q.marksAvailable)
+                const overMax = !maximumInvalid && q.marksObtained > Number(q.marksAvailable)
                 return (
                   <div key={i} style={{ display: 'grid', gridTemplateColumns: '40px 1fr 46px 6px 46px 44px', gap: 4, alignItems: 'center' }}>
                     <input className="input" placeholder="1a" value={q.questionNumber}
@@ -745,7 +755,7 @@ export function LogPaperModal({
                       ))}
                     </select>
 
-                    <input type="number" className="input" min={0} max={q.marksAvailable}
+                    <input type="number" className="input" min={0} max={maximumInvalid ? undefined : Number(q.marksAvailable)}
                       value={q.marksObtained === 0 ? '' : q.marksObtained} placeholder="0"
                       onChange={e => updateQuestion(i, 'marksObtained', e.target.value)}
                       aria-label={`Question ${i + 1} marks obtained`}
@@ -753,17 +763,24 @@ export function LogPaperModal({
 
                     <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.75rem' }}>/</div>
 
-                    <input type="number" className="input" min={1}
+                    <input type="number" className="input" min={1} step={1} required
                       value={q.marksAvailable}
                       onChange={e => updateQuestion(i, 'marksAvailable', e.target.value)}
                       aria-label={`Question ${i + 1} marks available`}
-                      style={{ height: 44, minHeight: 44, padding: '0 4px', textAlign: 'center', fontSize: '0.8125rem' }} />
+                      aria-invalid={maximumInvalid}
+                      aria-describedby={maximumInvalid ? `paper-question-${i}-max-error` : undefined}
+                      style={{ height: 44, minHeight: 44, padding: '0 4px', textAlign: 'center', fontSize: '0.8125rem', borderColor: maximumInvalid ? 'var(--danger)' : undefined }} />
 
                     <button type="button" className="btn btn-ghost" onClick={() => removeQuestion(i)} disabled={questions.length === 1}
                       aria-label={`Remove question ${i + 1}`}
                       style={{ height: 44, width: 44, minWidth: 44, minHeight: 44, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)', opacity: questions.length === 1 ? 0.2 : 1 }}>
                       <Trash2 size={16} />
                     </button>
+                    {maximumInvalid && (
+                      <p id={`paper-question-${i}-max-error`} style={{ gridColumn: '1 / -1', margin: 0, fontSize: '0.75rem', color: 'var(--danger)' }}>
+                        Q{i + 1}: enter a whole-number maximum of at least 1 mark.
+                      </p>
+                    )}
                   </div>
                 )
               })}
@@ -775,7 +792,7 @@ export function LogPaperModal({
             </button>
 
             {submitError && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 'var(--radius-md)', color: 'var(--danger)', fontSize: '0.875rem' }}>
+              <div role="alert" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 'var(--radius-md)', color: 'var(--danger)', fontSize: '0.875rem' }}>
                 <AlertCircle size={15} style={{ flexShrink: 0 }} /> {submitError}
               </div>
             )}

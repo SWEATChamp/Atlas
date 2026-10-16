@@ -20,7 +20,7 @@ export function toRpcItem(item: PracticeItemInput) {
     provenance_mode: item.provenanceMode,
     question_label: item.questionLabel ?? null,
     notes: item.notes ?? null,
-    chapter_ids: item.chapterIds ?? [],
+    chapter_ids: item.chapterIds,
   }
   return item.provenanceMode === 'inherit'
     ? base

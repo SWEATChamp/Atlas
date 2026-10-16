@@ -1,0 +1,42 @@
+.card {
+  padding: 40px;
+  min-width: 0;
+}
+
+.stepConnector {
+  width: 48px;
+}
+
+.sessionChoices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.sessionChoice {
+  min-width: 0;
+  min-height: 44px;
+  white-space: normal;
+}
+
+.gradeChoices {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(44px, 1fr));
+  gap: 6px;
+}
+
+@media (max-width: 480px) {
+  .card {
+    /* Reserve a separate row for the absolute-positioned cancel button. */
+    padding: 64px 16px 24px;
+  }
+
+  .stepConnector {
+    width: 20px;
+  }
+
+  .gradeChoices {
+    grid-template-columns: repeat(3, minmax(44px, 1fr));
+  }
+}

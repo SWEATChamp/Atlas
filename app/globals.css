@@ -673,7 +673,18 @@ body {
 .practice-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
 .practice-field { display: grid; gap: 6px; min-width: 0; color: var(--text-secondary); font-size: 0.875rem; font-weight: 600; }
 .practice-textarea { height: auto; min-height: 90px; padding: var(--space-3); resize: vertical; }
-.practice-chapter-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px var(--space-3); max-height: 230px; overflow-y: auto; }
+.practice-chapter-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px var(--space-3); }
+.practice-source-panel { display: grid; gap: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-4); background: var(--bg-secondary); min-width: 0; }
+.practice-optional { font-size: 0.75rem; font-weight: 500; color: var(--text-muted); }
+.practice-required { color: var(--accent-primary); font-size: 0.75rem; }
+.practice-chapter-panel { display: grid; gap: var(--space-3); border: 2px solid var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-4); min-width: 0; margin: 0; }
+.practice-chapter-panel legend { font-weight: 700; padding: 0 6px; }
+.practice-chapter-panel[aria-invalid="true"] { border-color: var(--danger); }
+.practice-field-error { color: var(--danger); margin: 0; font-size: 0.875rem; }
+.practice-chapter-scroll { max-height: 300px; overflow-y: auto; overscroll-behavior: contain; }
+.practice-chapter-group-title { margin: var(--space-3) 0 4px; color: var(--text-secondary); font-size: 0.8125rem; }
+.practice-chapter-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.practice-chapter-badges span { padding: 4px 8px; background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.75rem; overflow-wrap: anywhere; }
 .practice-chapter-option { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 0.8125rem; }
 .practice-chapter-option input { width: 18px; height: 18px; flex: 0 0 auto; }
 @media (max-width: 640px) {

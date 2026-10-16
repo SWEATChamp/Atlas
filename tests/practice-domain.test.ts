@@ -3,7 +3,7 @@ import { PracticeCreateSchema, PracticeUpdateSchema, dateWithinUserToday } from 
 import { toCreateRpcArgs, toUpdateRpcArgs } from '@/lib/practice-payload'
 import {
   attemptTrend, bestFullPaper, combinedChapterEvidence, comparableComponentAnalytics, comparableFullPapers, fullPaperCount,
-  latestFullPaper, markWeightedPaperAverage, officialThresholdPaperInputs, predictionPaperInputs,
+  eligiblePracticeChapterIds, eligiblePracticeLoggingChapterIds, latestFullPaper, markWeightedPaperAverage, officialThresholdPaperInputs, predictionPaperInputs,
   rankComponentEvidence, summarizeEvidence, withPracticeEligibility,
 } from '@/lib/practice-analytics'
 import type { PaperEvidence } from '@/lib/practice-analytics'
@@ -16,7 +16,7 @@ const otherPaperId = uid(3)
 const chapterId = uid(4)
 const otherChapterId = uid(5)
 const userId = uid(6)
-const base = { subjectId, stage: 'as' as const, sessionDate: '2026-10-13', items: [{ itemOrder: 1, marksObtained: 4, marksAvailable: 5, provenanceMode: 'none' as const }] }
+const base = { subjectId, stage: 'as' as const, sessionDate: '2026-10-13', items: [{ itemOrder: 1, marksObtained: 4, marksAvailable: 5, provenanceMode: 'none' as const, chapterIds: [chapterId] }] }
 
 const context: PracticeRouteContext = {
   enrollment: { id: uid(7), subjectId, subjectCode: '9709', studyRoute: 'staged', currentStage: 'as', isArchived: false },
@@ -111,8 +111,8 @@ describe('practice validation and atomic RPC mapping', () => {
   it('accepts strict valid payloads and maps whole provenance bundles', () => {
     const input = { ...base, provenance: { subjectPaperId: paperId, examYear: 2025, examSeries: 'may_jun' as const }, items: [
       { itemOrder: 1, marksObtained: 4, marksAvailable: 5, provenanceMode: 'inherit' as const, chapterIds: [chapterId] },
-      { itemOrder: 2, marksObtained: 2, marksAvailable: 5, provenanceMode: 'override' as const, provenance: { sourceLabel: 'Self-made' }, questionLabel: null },
-      { itemOrder: 3, marksObtained: 1, marksAvailable: 2, provenanceMode: 'none' as const, provenance: { sourceLabel: 'Unattributed' } },
+      { itemOrder: 2, marksObtained: 2, marksAvailable: 5, provenanceMode: 'override' as const, provenance: { sourceLabel: 'Self-made' }, questionLabel: null, chapterIds: [chapterId, otherChapterId] },
+      { itemOrder: 3, marksObtained: 1, marksAvailable: 2, provenanceMode: 'none' as const, provenance: { sourceLabel: 'Unattributed' }, chapterIds: [otherChapterId] },
     ] }
     const parsed = PracticeCreateSchema.parse(input)
     const args = toCreateRpcArgs(userId, parsed)
@@ -120,8 +120,26 @@ describe('practice validation and atomic RPC mapping', () => {
     expect(args.p_items[0]).not.toHaveProperty('provenance')
     expect(args.p_items[1]).toHaveProperty('provenance', { source_label: 'Self-made' })
     expect(args.p_items[2]).toHaveProperty('provenance', { source_label: 'Unattributed' })
+    expect(args.p_items[1].chapter_ids).toEqual([chapterId, otherChapterId])
     const updateFields = { sessionDate: input.sessionDate, provenance: input.provenance, items: input.items }
     expect(toUpdateRpcArgs(userId, PracticeUpdateSchema.parse({ ...updateFields, sessionId: uid(30) })).p_items).toEqual(args.p_items)
+  })
+
+  it('requires chapter selections on every new or replacement question without changing historical read eligibility', () => {
+    const missingChapters = { itemOrder: 1, marksObtained: 4, marksAvailable: 5, provenanceMode: 'none' as const }
+    for (const chapterIds of [undefined, []]) {
+      const items = [{ ...missingChapters, ...(chapterIds === undefined ? {} : { chapterIds }) }]
+      expect(PracticeCreateSchema.safeParse({ ...base, items }).success).toBe(false)
+      expect(PracticeUpdateSchema.safeParse({ sessionId: uid(30), sessionDate: base.sessionDate, items }).success).toBe(false)
+    }
+    const secondUnmappedQuestion = PracticeCreateSchema.safeParse({ ...base, items: [base.items[0], { ...missingChapters, itemOrder: 2, chapterIds: [] }] })
+    expect(secondUnmappedQuestion.success).toBe(false)
+    if (!secondUnmappedQuestion.success) expect(secondUnmappedQuestion.error.issues[0].path).toEqual(['items', 1, 'chapterIds'])
+    const historical = withPracticeEligibility(session([
+      { id: uid(31), marks_obtained: 4, marks_available: 5, subject_paper_id: null, chapter_ids: [] },
+    ]), context)
+    expect(historical.eligible_score_raw).toBe(4)
+    expect(historical.eligible_score_max).toBe(5)
   })
 
   for (const [candidate, label] of [
@@ -134,6 +152,7 @@ describe('practice validation and atomic RPC mapping', () => {
     [{ ...base, items: [{ ...base.items[0], marksObtained: 6 }] }, 'over-scored item'],
     [{ ...base, items: [{ ...base.items[0], marksAvailable: 1001 }] }, 'overlarge item'],
     [{ ...base, items: [{ ...base.items[0], chapterIds: [chapterId, chapterId] }] }, 'duplicate chapter'],
+    [{ ...base, items: [{ ...base.items[0], chapterIds: ['not-a-chapter-id'] }] }, 'invalid chapter UUID'],
     [{ ...base, items: [{ ...base.items[0], questionLabel: 'x'.repeat(51) }] }, 'long question label'],
     [{ ...base, items: [{ ...base.items[0], provenanceMode: 'inherit' }] }, 'inherit without parent'],
     [{ ...base, items: [{ ...base.items[0], provenanceMode: 'override', provenance: {} }] }, 'empty override'],
@@ -141,7 +160,7 @@ describe('practice validation and atomic RPC mapping', () => {
     [{ ...base, provenance: { examYear: 2025.5 } }, 'fractional year'],
     [{ ...base, provenance: { examVariant: 10 } }, 'variant bound'],
     [{ ...base, provenance: { subjectPaperId: 'not-uuid' } }, 'invalid uuid'],
-    [{ ...base, items: Array.from({ length: 11 }, (_, index) => ({ itemOrder: index + 1, marksObtained: 0, marksAvailable: 1000, provenanceMode: 'none' })) }, 'session maximum'],
+    [{ ...base, items: Array.from({ length: 11 }, (_, index) => ({ itemOrder: index + 1, marksObtained: 0, marksAvailable: 1000, provenanceMode: 'none', chapterIds: [chapterId] })) }, 'session maximum'],
     [{ ...base, items: [{ ...base.items[0], marksObtained: 1.5 }] }, 'fractional score'],
     [{ ...base, items: [{ ...base.items[0], notes: 'x'.repeat(1001) }] }, 'long item notes'],
   ] as [unknown, string][]) {
@@ -155,6 +174,78 @@ describe('practice validation and atomic RPC mapping', () => {
 })
 
 describe('full-paper-only selectors and practice analytics', () => {
+  it('permits explicit off-route chapter logging as history without widening current-route readiness', () => {
+    const mechanics = uid(80)
+    const mechanicsChapter = uid(81)
+    const offRoute: PracticeRouteContext = { ...context,
+      papers: [...context.papers, { id: mechanics, subjectId, paperNumber: 4, stageBehavior: 'route_dependent', defaultStage: 'as' }],
+      chapters: [...context.chapters, { id: mechanicsChapter, subjectId, stage: 'route_dependent', component: 'Mechanics', isActive: true, paperIds: [mechanics] }],
+    }
+    expect(eligiblePracticeLoggingChapterIds(offRoute, 'as', mechanics)).toEqual([mechanicsChapter])
+    expect(eligiblePracticeLoggingChapterIds(offRoute, 'as', null)).not.toContain(mechanicsChapter)
+    expect(eligiblePracticeChapterIds(offRoute, 'as', mechanics)).not.toContain(mechanicsChapter)
+    const historical = withPracticeEligibility(session([{ id: uid(82), marks_obtained: 5, marks_available: 5,
+      subject_paper_id: mechanics, chapter_ids: [mechanicsChapter] }]), offRoute)
+    expect(historical.items[0].eligibility_reason).toBe('off_route_paper')
+    expect(historical.eligible_score_max).toBe(0)
+    const trend = attemptTrend([], [historical], new Map([[subjectId, offRoute]]))
+    expect(summarizeEvidence(trend).lifetime.raw).toBe(5)
+    expect(summarizeEvidence(trend).currentRoute.raw).toBe(0)
+    expect(combinedChapterEvidence([], [historical])).toEqual([])
+  })
+
+  it('retains source-stage, subject, active-chapter and A2 locks for off-route logging', () => {
+    const offRoute: PracticeRouteContext = { ...context,
+      papers: [{ id: otherPaperId, subjectId, paperNumber: 2, stageBehavior: 'fixed_as', defaultStage: 'as' }],
+      chapters: [{ ...context.chapters[0], paperIds: [otherPaperId] },
+        { ...context.chapters[0], id: uid(83), isActive: false, paperIds: [otherPaperId] },
+        { ...context.chapters[0], id: uid(84), subjectId: uid(99), paperIds: [otherPaperId] },
+        { ...context.chapters[0], id: uid(85), stage: 'a2', paperIds: [otherPaperId] }],
+    }
+    expect(eligiblePracticeLoggingChapterIds(offRoute, 'as', otherPaperId)).toEqual([chapterId])
+    expect(eligiblePracticeLoggingChapterIds(offRoute, 'a2', otherPaperId)).toEqual([])
+    expect(eligiblePracticeLoggingChapterIds({ ...offRoute, enrollment: { ...offRoute.enrollment!, currentStage: 'a2' } }, 'a2', otherPaperId)).toEqual([])
+    expect(eligiblePracticeLoggingChapterIds(offRoute, 'as', uid(99))).toEqual([])
+    const remapped = { ...offRoute, selections: [{ subjectPaperId: otherPaperId, componentName: 'Pure 2', stage: 'a2' as const }] }
+    expect(eligiblePracticeLoggingChapterIds(remapped, 'as', otherPaperId)).toEqual([])
+    const fixedA2 = { ...offRoute, papers: [{ ...offRoute.papers[0], stageBehavior: 'fixed_a2' as const, defaultStage: 'a2' as const }] }
+    expect(eligiblePracticeLoggingChapterIds(fixedA2, 'as', otherPaperId)).toEqual([])
+  })
+
+  it('keeps Statistics 2 practice as history for a Mathematics Mechanics plus Statistics 1 route', () => {
+    const p4 = uid(90), p5 = uid(91), p6 = uid(92), statistics2 = uid(93)
+    const maths: PracticeRouteContext = { ...context,
+      enrollment: { ...context.enrollment!, currentStage: 'full', studyRoute: 'full_level' },
+      selections: [{ subjectPaperId: p4, componentName: 'Mechanics', stage: 'as' },
+        { subjectPaperId: p5, componentName: 'Statistics 1', stage: 'a2' }],
+      papers: [{ id: p4, subjectId, paperNumber: 4, stageBehavior: 'route_dependent', defaultStage: 'as' },
+        { id: p5, subjectId, paperNumber: 5, stageBehavior: 'route_dependent', defaultStage: 'as' },
+        { id: p6, subjectId, paperNumber: 6, stageBehavior: 'fixed_a2', defaultStage: 'a2' }],
+      chapters: [{ id: statistics2, subjectId, stage: 'a2', component: 'Statistics 2', isActive: true, paperIds: [p6] }],
+    }
+    expect(eligiblePracticeLoggingChapterIds(maths, 'a2', p6)).toEqual([statistics2])
+    const historical = withPracticeEligibility({ ...session([{ id: uid(94), marks_obtained: 8, marks_available: 10,
+      subject_paper_id: p6, chapter_ids: [statistics2] }]), stage: 'a2' }, maths)
+    expect(historical).toMatchObject({ route_status: 'historical', eligible_score_raw: 0, eligible_score_max: 0 })
+    expect(historical.items[0].eligibility_reason).toBe('off_route_paper')
+    const summaries = summarizeEvidence(attemptTrend([], [historical], new Map([[subjectId, maths]])))
+    expect(summaries.lifetime).toMatchObject({ raw: 8, max: 10 })
+    expect(summaries.currentRoute).toMatchObject({ raw: 0, max: 0 })
+    expect(combinedChapterEvidence([], [historical])).toEqual([])
+  })
+
+  it('preserves science P3 and P5 logging exceptions without unlocking A2', () => {
+    const science: PracticeRouteContext = { ...context, enrollment: { ...context.enrollment!, subjectCode: '9702' },
+      selections: [], papers: [{ id: otherPaperId, subjectId, paperNumber: 3, stageBehavior: 'fixed_as', defaultStage: 'as' }],
+    }
+    expect(eligiblePracticeLoggingChapterIds(science, 'as', otherPaperId)).toEqual([chapterId])
+    const p5: PracticeRouteContext = { ...science,
+      papers: [{ id: otherPaperId, subjectId, paperNumber: 5, stageBehavior: 'fixed_a2', defaultStage: 'a2' }],
+    }
+    expect(eligiblePracticeLoggingChapterIds(p5, 'a2', otherPaperId)).toEqual([])
+    expect(eligiblePracticeLoggingChapterIds({ ...p5, enrollment: { ...p5.enrollment!, currentStage: 'a2' } }, 'a2', otherPaperId)).toEqual([chapterId])
+  })
+
   it('uses mark weighting, variant-equivalent components, stage, best/latest and only full papers for prediction/threshold inputs', () => {
     expect(fullPaperCount(papers)).toBe(3)
     expect(markWeightedPaperAverage(papers)).toBeCloseTo(72, 4)

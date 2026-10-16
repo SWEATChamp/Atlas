@@ -1,6 +1,6 @@
 import { dateInTimeZone } from '@/lib/date'
 import type { PaperSession, PaperStage } from '@/types/database'
-import type { AttemptTrendPoint, PracticeCreateInput, PracticeItemInput, PracticeProvenanceInput, PracticeSessionRead, PracticeUpdateInput } from '@/types/practice-sessions'
+import type { AttemptTrendPoint, PracticeChapterContext, PracticeCreateInput, PracticeItemInput, PracticeProvenanceInput, PracticeRouteContext, PracticeSessionRead, PracticeUpdateInput } from '@/types/practice-sessions'
 
 export type TrendMode = 'all' | 'full_paper' | 'practice'
 export const trendModes: { id: TrendMode; label: string }[] = [
@@ -8,6 +8,20 @@ export const trendModes: { id: TrendMode; label: string }[] = [
 ]
 export const trendPointsForMode = (points: readonly AttemptTrendPoint[], mode: TrendMode) =>
   mode === 'all' ? [...points] : points.filter(point => point.source === mode)
+
+/** Paper/component order first, then the catalogue's numeric syllabus order. */
+export function practiceChapterGroups(chapters: PracticeChapterContext[], context: PracticeRouteContext) {
+  const groups = new Map<string, PracticeChapterContext[]>()
+  for (const chapter of chapters) {
+    const name = chapter.component ?? 'General'
+    groups.set(name, [...(groups.get(name) ?? []), chapter])
+  }
+  const paperOrder = (rows: PracticeChapterContext[]) => Math.min(...rows.flatMap(chapter =>
+    context.papers.filter(paper => chapter.paperIds.includes(paper.id)).map(paper => paper.paperNumber)), Number.POSITIVE_INFINITY)
+  return [...groups].map(([name, rows]) => ({ name, chapters: rows.toSorted((a, b) =>
+    (a.number ?? Number.POSITIVE_INFINITY) - (b.number ?? Number.POSITIVE_INFINITY)) }))
+    .toSorted((a, b) => paperOrder(a.chapters) - paperOrder(b.chapters))
+}
 
 export interface ProvenanceDraft {
   subjectPaperId: string

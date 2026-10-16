@@ -24,7 +24,8 @@ const itemFields = {
   marksAvailable: z.number().int().min(1).max(1000),
   questionLabel: nullableText(50),
   notes: nullableText(1000),
-  chapterIds: z.array(uuid).max(200).refine(ids => new Set(ids).size === ids.length, 'Duplicate chapter mapping').optional(),
+  chapterIds: z.array(uuid).min(1, 'Select at least one chapter for each question').max(200)
+    .refine(ids => new Set(ids).size === ids.length, 'Duplicate chapter mapping'),
 }
 
 export const PracticeItemSchema = z.discriminatedUnion('provenanceMode', [

@@ -26,7 +26,7 @@
 | Phase 2.13 / v1.2.0 Accessible UI Foundation & Subject Controls Guide | Deployed and production-verified on 2026-09-02 (merge commit `abed20b`, closeout `a4ea179`); annotated tag `v1.2.0` and GitHub Release published |
 | Security Hardening / Migration 029 Least-Privilege Grants | Applied and hosted-verified on 2026-09-30; 23/23 rollback-only pgTAP assertions passed; PR #25 merged at `d89e9a2`; Production deployment `dpl_6sSfNEtgKQyfVpPGaShxk2YXWMen` verified Ready in `sin1` |
 | Milestone 3: Official Grade-Threshold Foundation | Complete baseline; Migration 027 and June 2026 publications present in Singapore; publication discovery merged (PR #16, PR #18, PR #20); PR #30 activated daily discovery schedule (`0 7 * * *` UTC) on Vercel deployment `dpl_5x3V5hGMkf8vbRwYgtyMjqsiVhg4`; first authorized production run verified with sanitized structured log and outcome `no_change`; mutating endpoint remains dormant |
-| Milestone 4: Paper & Question-Practice Logging and Analytics | Locally prepared and test-verified in an isolated worktree; Migration 031 and application/UI are not hosted, merged, or deployed |
+| Milestone 4: Paper & Question-Practice Logging and Analytics | Baseline `848d139` and Migration 031 available in isolated Preview; feedback corrections are locally committed, not pushed or deployed; no Production release |
 | Milestone 5: Target-Grade Marks Planner | Planned; product rules documented, depends on Milestone 3 official thresholds and Milestone 4 practice logging |
 | Release-candidate checks | 201 database tests and 134 unit tests pass; type check, lint, production build, and whitespace checks pass |
 | Google Docs integration | Not started |
@@ -194,13 +194,17 @@
 - [x] Return “Threshold unavailable” for missing, ambiguous, unsupported, or unverified data rather than guessing.
 - [x] Add database constraints, indexes, RLS, import-audit records, idempotency tests, and revision-history tests.
 
-### Milestone 4: Paper & Question-Practice Logging and Analytics (Locally prepared; release gates pending)
+### Milestone 4: Paper & Question-Practice Logging and Analytics (Preview testing; release gates pending)
 
-The database, application-data, and UI/documentation slices are prepared locally. Disposable PostgreSQL verified 31 migrations and 201/201 pgTAP assertions; focused and full application checks are recorded in the implementation handoff. The hosted migration preflight, deployment, authenticated browser checks, and release approval are not complete.
+The initial baseline at `848d139` is under Preview testing, with all 31 migrations applied to isolated Supabase project `eiyrzzcmljhrucazgxpm`. Original disposable PostgreSQL verification passed 201/201 pgTAP assertions. The current feedback corrections are locally committed, not pushed or deployed; they are not included in that deployed baseline. Authenticated acceptance checks and Production release approval remain pending.
 
 - [x] Locally preserve the existing full-paper logger with required paper, variant, series, year, stage, date, and total marks.
 - [x] Locally add a separate **Log questions** workflow for one question or grouped past-year, topical, or mixed/custom question practice.
-- [x] Locally require subject, AS/A2 stage, date, marks obtained, and marks available for question practice while keeping paper, variant, series, year, source label, question number, duration, notes, and chapter mappings optional when genuinely unknown.
+- [x] Locally require subject, AS/A2 stage, date, marks obtained, marks available, and at least one eligible chapter per question in application create/replacement; support multi-selection while paper, variant, series, year, source label, question number, duration, and notes remain optional.
+- [x] Preserve older unmapped practice history and its existing readiness eligibility; replacement edits must select eligible chapters. This feedback correction is application-only.
+- [ ] Obtain approval for a forward migration enforcing compulsory chapters in direct create/update RPC calls; unchanged Migration 031 still accepts empty mappings.
+- [x] Locally distinguish explicit, catalogue-stage-valid off-route question logging from current-route readiness: off-route questions remain history-only, including Statistics 2 on a Mechanics + Statistics 1 Mathematics route.
+- [ ] Include off-route historical chapter acceptance in the approved forward write-validator migration; preserve current-route readiness, full-paper filters, and notes/confidence chapter safeguards.
 - [x] Locally implement Migration 031's separate practice sessions, scored items, and normalized chapter mappings without weakening `past_papers` identity.
 - [x] Locally save each practice session and all of its items and chapter mappings through an ownership-checked, stage-aware atomic operation.
 - [x] Locally include full papers and eligible question items in readiness using mark-weighted combined assessment accuracy, without double-counting full-paper question breakdowns.

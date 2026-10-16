@@ -79,6 +79,25 @@ describe('practice actions', () => {
     expect(revalidatePath).not.toHaveBeenCalled()
   })
 
+  it('rejects missing or empty chapter selections on create and replacement before any RPC', async () => {
+    for (const chapterIds of [undefined, []]) {
+      const items = [{ ...valid.items[0], chapterIds }]
+      expect((await createPracticeSession({ ...valid, items })).error).toBeDefined()
+      expect((await updatePracticeSession({ sessionDate: valid.sessionDate, provenance: valid.provenance, sessionId, items })).error).toBeDefined()
+    }
+    expect(mockRpc).not.toHaveBeenCalled()
+    expect(mockFrom).not.toHaveBeenCalled()
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it('preserves multiple chapter selections in the atomic payload', async () => {
+    const secondChapterId = '00000000-0000-4000-a000-000000000007'
+    expect(await createPracticeSession({ ...valid, items: [{ ...valid.items[0], chapterIds: [chapterId, secondChapterId] }] })).toEqual({ sessionId })
+    expect(mockRpc).toHaveBeenCalledWith('log_practice_session_atomic', expect.objectContaining({
+      p_items: [expect.objectContaining({ chapter_ids: [chapterId, secondChapterId] })],
+    }))
+  })
+
   it('requires owner-scoped lookup for full-replacement update and delete', async () => {
     const update = { ...valid, sessionId }
     delete (update as { subjectId?: string }).subjectId

@@ -6,6 +6,7 @@ import type {
   PracticeSessionItem,
   StudyRoute,
   SubjectStage,
+  StageBehavior,
 } from './database'
 
 export interface PracticeProvenanceInput {
@@ -23,7 +24,7 @@ export type PracticeItemInput = {
   marksAvailable: number
   questionLabel?: string | null
   notes?: string | null
-  chapterIds?: string[]
+  chapterIds: string[]
 } & (
   | { provenanceMode: 'inherit'; provenance?: never }
   | { provenanceMode: 'override'; provenance: PracticeProvenanceInput }
@@ -67,6 +68,7 @@ export interface PracticeChapterContext {
   id: string
   subjectId: string
   title?: string
+  number?: number
   stage: ChapterStage | null
   component: string | null
   isActive: boolean
@@ -78,6 +80,8 @@ export interface PracticePaperContext {
   subjectId: string
   paperNumber: number
   name?: string
+  stageBehavior?: StageBehavior
+  defaultStage?: PaperStage | null
 }
 
 export interface PracticeFormSubjectOption {

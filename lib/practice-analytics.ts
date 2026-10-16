@@ -104,6 +104,29 @@ export function eligiblePracticeChapterIds(context: PracticeRouteContext, stage:
   return context.chapters.filter(chapter => chapterEligible(chapter, stage, paperId, context)).map(chapter => chapter.id)
 }
 
+/** Explicit off-route paper sources may be logged as history; this does not grant readiness eligibility. */
+export function eligiblePracticeLoggingChapterIds(context: PracticeRouteContext, stage: PaperStage, paperId: string | null): string[] {
+  if (!paperId) return eligiblePracticeChapterIds(context, stage, null)
+  if (!stageOpen(stage, context)) return []
+  const paper = context.papers.find(candidate => candidate.id === paperId && candidate.subjectId === context.enrollment?.subjectId)
+  if (!paper) return []
+  const selection = context.selections.find(candidate => candidate.subjectPaperId === paperId)
+  if (selection) return selection.stage === stage ? eligiblePracticeChapterIds(context, stage, paperId) : []
+  const catalogStage = paper.stageBehavior === 'fixed_as' ? 'as' : paper.stageBehavior === 'fixed_a2' ? 'a2' : paper.defaultStage
+  if (catalogStage !== stage) return []
+  const science = context.enrollment?.subjectCode === '9701' || context.enrollment?.subjectCode === '9702'
+  return context.chapters.filter(chapter => {
+    if (!chapter.isActive || chapter.subjectId !== paper.subjectId) return false
+    const mapped = chapter.paperIds.includes(paperId)
+    const stageValid = chapter.stage === stage || chapter.stage === 'shared' ||
+      (chapter.stage === 'route_dependent' && mapped) ||
+      (science && paper.paperNumber === 5 && stage === 'a2' && chapter.stage === 'as')
+    const sourceValid = mapped || (science && paper.paperNumber === 3 && stage === 'as' && (chapter.stage === 'as' || chapter.stage === 'shared')) ||
+      (science && paper.paperNumber === 5 && stage === 'a2')
+    return stageValid && sourceValid
+  }).map(chapter => chapter.id)
+}
+
 export function withPracticeEligibility(session: Omit<PracticeSessionRead, 'eligible_score_raw' | 'eligible_score_max' | 'eligible_for_readiness' | 'route_status'>, context: PracticeRouteContext): PracticeSessionRead {
   const open = context.enrollment?.subjectId === session.subject_id && stageOpen(session.stage, context)
   const items: PracticeItemRead[] = session.items.map(item => {
