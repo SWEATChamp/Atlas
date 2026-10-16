@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { cache } from 'react'
 import { z } from 'zod'
 import { dateInTimeZone } from '@/lib/date'
 import { toCreateRpcArgs, toUpdateRpcArgs } from '@/lib/practice-payload'
@@ -82,7 +83,10 @@ export async function deletePracticeSession(input: unknown): Promise<MutationRes
   return { deleted: true }
 }
 
-async function routeContext(supabase: Awaited<ReturnType<typeof getAuthenticatedContext>>['supabase'], userId: string, subjectId: string): Promise<PracticeRouteContext> {
+// React cache lasts only for the current Server Component request. Include the
+// authenticated client and owner so personalized route/evidence reads cannot be
+// reused by another request, user, or subject. Never persist these results.
+const routeContext = cache(async (supabase: Awaited<ReturnType<typeof getAuthenticatedContext>>['supabase'], userId: string, subjectId: string): Promise<PracticeRouteContext> => {
   const [enrollmentResult, subjectResult, chaptersResult, papersResult] = await Promise.all([
     supabase.from('user_subjects').select('id, subject_id, study_route, current_stage, is_archived').eq('user_id', userId).eq('subject_id', subjectId).maybeSingle(),
     supabase.from('subjects').select('code').eq('id', subjectId).maybeSingle(),
@@ -109,7 +113,7 @@ async function routeContext(supabase: Awaited<ReturnType<typeof getAuthenticated
     papers: (papersResult.data ?? []).map(row => ({ id: row.id, subjectId: row.subject_id, paperNumber: row.paper_number, name: row.name,
       stageBehavior: row.stage_behavior, defaultStage: row.default_stage })),
   }
-}
+})
 
 function decorate(row: SessionWithItems, context: PracticeRouteContext): PracticeSessionRead {
   const { practice_session_items: children, ...session } = row
@@ -139,16 +143,26 @@ export async function getPracticeHistory(input: unknown = {}): Promise<PracticeH
   const offset = parsed.data.offset ?? 0
   const limit = parsed.data.limit ?? 50
   if (!user) return { sessions: [], total: 0, offset, limit }
-  let query = supabase.from('practice_sessions').select(sessionSelect, { count: 'exact' }).eq('user_id', user.id)
-  if (parsed.data.subjectId) query = query.eq('subject_id', parsed.data.subjectId)
-  if (parsed.data.stage && parsed.data.stage !== 'all') query = query.eq('stage', parsed.data.stage)
+  return readPracticeHistory(supabase, user.id, parsed.data)
+}
+
+async function readPracticeHistory(
+  supabase: Awaited<ReturnType<typeof getAuthenticatedContext>>['supabase'],
+  userId: string,
+  input: z.infer<typeof PracticeHistoryQuerySchema>,
+): Promise<PracticeHistoryPage> {
+  const offset = input.offset ?? 0
+  const limit = input.limit ?? 50
+  let query = supabase.from('practice_sessions').select(sessionSelect, { count: 'exact' }).eq('user_id', userId)
+  if (input.subjectId) query = query.eq('subject_id', input.subjectId)
+  if (input.stage && input.stage !== 'all') query = query.eq('stage', input.stage)
   const { data, count, error } = await query.order('session_date', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false }).range(offset, offset + limit - 1)
   if (error || !data) throw new Error('Could not load practice history.')
   const rows = z.array(PracticeSessionRowSchema).safeParse(data)
   if (!rows.success) throw new Error('Could not load practice history.')
   const contexts = new Map<string, PracticeRouteContext>()
   await Promise.all([...new Set(rows.data.map(row => row.subject_id))].map(async subjectId => {
-    contexts.set(subjectId, await routeContext(supabase, user.id, subjectId))
+    contexts.set(subjectId, await routeContext(supabase, userId, subjectId))
   }))
   return { sessions: rows.data.map(row => decorate(row, contexts.get(row.subject_id)!)), total: count ?? 0, offset, limit }
 }
@@ -157,37 +171,35 @@ export async function getPracticeHistoryForSubject(subjectId: string, stage: 'as
   return getPracticeHistory({ subjectId, stage, offset, limit })
 }
 
-async function allPracticeForSubject(subjectId?: string): Promise<PracticeSessionRead[]> {
+const allPracticeForSubject = cache(async (supabase: Awaited<ReturnType<typeof getAuthenticatedContext>>['supabase'], userId: string, subjectId?: string): Promise<PracticeSessionRead[]> => {
   const sessions: PracticeSessionRead[] = []
   for (let offset = 0; ; offset += 100) {
-    const page = await getPracticeHistory({ ...(subjectId ? { subjectId } : {}), offset, limit: 100 })
+    const page = await readPracticeHistory(supabase, userId, { ...(subjectId ? { subjectId } : {}), offset, limit: 100 })
     sessions.push(...page.sessions)
     if (offset + page.sessions.length >= page.total || page.sessions.length === 0) return sessions
   }
-}
+})
 
-async function allFullPapersForSubject(subjectId?: string): Promise<PaperEvidence[]> {
-  const { supabase, user } = await getAuthenticatedContext()
-  if (!user) return []
+const allFullPapersForSubject = cache(async (supabase: Awaited<ReturnType<typeof getAuthenticatedContext>>['supabase'], userId: string, subjectId?: string): Promise<PaperEvidence[]> => {
   const papers: PaperEvidence[] = []
   for (let offset = 0; ; offset += 100) {
     let query = supabase.from('past_papers')
       .select('id, subject_id, stage, attempted_at, created_at, subject_paper_id, paper_number, score_raw, score_max, accuracy_pct')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
     if (subjectId) query = query.eq('subject_id', subjectId)
     const { data, error } = await query.order('id').range(offset, offset + 99)
     if (error || !data) throw new Error('Could not load full-paper evidence.')
     papers.push(...data)
     if (data.length < 100) return papers
   }
-}
+})
 
 export async function getPracticeTrendForSubject(subjectId: string): Promise<AttemptTrendPoint[]> {
   if (!PracticeHistoryQuerySchema.safeParse({ subjectId }).success) return []
   const { supabase, user } = await getAuthenticatedContext()
   if (!user) return []
   const [papers, sessions, context] = await Promise.all([
-    allFullPapersForSubject(subjectId), allPracticeForSubject(subjectId), routeContext(supabase, user.id, subjectId),
+    allFullPapersForSubject(supabase, user.id, subjectId), allPracticeForSubject(supabase, user.id, subjectId), routeContext(supabase, user.id, subjectId),
   ])
   return attemptTrend(papers, sessions, new Map([[subjectId, context]]))
 }
@@ -196,7 +208,7 @@ export async function getPracticeOverview(subjectId?: string): Promise<{ session
   if (subjectId && !PracticeHistoryQuerySchema.safeParse({ subjectId }).success) return { sessions: [], trend: [] }
   const { supabase, user } = await getAuthenticatedContext()
   if (!user) return { sessions: [], trend: [] }
-  const [papers, sessions] = await Promise.all([allFullPapersForSubject(subjectId), allPracticeForSubject(subjectId)])
+  const [papers, sessions] = await Promise.all([allFullPapersForSubject(supabase, user.id, subjectId), allPracticeForSubject(supabase, user.id, subjectId)])
   const contexts = new Map<string, PracticeRouteContext>()
   await Promise.all([...new Set([...papers.map(paper => paper.subject_id), ...sessions.map(session => session.subject_id)])]
     .map(async id => contexts.set(id, await routeContext(supabase, user.id, id))))
@@ -225,9 +237,9 @@ export async function getPracticeFormCatalogue(): Promise<PracticeFormSubjectOpt
 
 export async function getCombinedChapterEvidenceForSubject(subjectId: string): Promise<ChapterEvidence[]> {
   if (!PracticeHistoryQuerySchema.safeParse({ subjectId }).success) return []
-  const [papers, sessions] = await Promise.all([allFullPapersForSubject(subjectId), allPracticeForSubject(subjectId)])
   const { supabase, user } = await getAuthenticatedContext()
   if (!user) return []
+  const [papers, sessions] = await Promise.all([allFullPapersForSubject(supabase, user.id, subjectId), allPracticeForSubject(supabase, user.id, subjectId)])
   const questions: PaperQuestionEvidence[] = []
   // The question table has no user_id; restrict every batch to IDs from the owner-scoped paper query.
   for (let start = 0; start < papers.length; start += 100) {

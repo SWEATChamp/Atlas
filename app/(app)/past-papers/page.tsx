@@ -11,7 +11,7 @@ import {
   PaperStageTaggerSlot,
   PaperAttemptsListSlot,
 } from '@/components/papers/paper-stage-provider'
-import type { ChapterAccuracy, PaperWithSubject } from '@/types'
+import type { ChapterAccuracy } from '@/types'
 
 export const metadata: Metadata = {
   title: 'Past Papers',
@@ -31,36 +31,21 @@ export default async function PastPapersPage(props: {
 
   const activeSubjectId = sp.subject || null
 
-  // ── Parallel data fetching ────────────────────────────────────────────────
-  let papers: PaperWithSubject[] = []
-  let untaggedPapers: PaperWithSubject[] = []
-  let subjects: { id: string; name: string; color_hex: string }[] = []
-
-  if (activeSubjectId) {
-    const [userSubjectsData, subjectPapers, globalUntagged] = await Promise.all([
-      supabase.from('user_subjects').select('subjects(id, name, color_hex)').eq('user_id', user.id),
-      getPapersForSubject(activeSubjectId),
-      getUntaggedPapers(), // Ensure global untagged papers across all subjects remain visible on filtered views
-    ])
-    subjects = (userSubjectsData.data || []).flatMap((row) => row.subjects ?? [])
-    papers = subjectPapers
-    untaggedPapers = globalUntagged
-  } else {
-    const [userSubjectsData, allPapers] = await Promise.all([
-      supabase.from('user_subjects').select('subjects(id, name, color_hex)').eq('user_id', user.id),
-      getAllPapersWithSubjects(),
-    ])
-    subjects = (userSubjectsData.data || []).flatMap((row) => row.subjects ?? [])
-    papers = allPapers
-    untaggedPapers = allPapers.filter((p) => !p.stage) // Derived directly on All view to eliminate duplicate query
-  }
-
-  const timeZone = profile?.timezone ?? 'UTC'
-  const [practice, formSubjects, chapterEvidence] = await Promise.all([
+  // Start every independent loader together, rather than delaying practice and
+  // form data until the paper-history batch has completed.
+  const papersPromise = activeSubjectId ? getPapersForSubject(activeSubjectId) : getAllPapersWithSubjects()
+  const [userSubjectsData, papers, untaggedPapers, practice, formSubjects, chapterEvidence] = await Promise.all([
+    supabase.from('user_subjects').select('subjects(id, name, color_hex)').eq('user_id', user.id),
+    papersPromise,
+    activeSubjectId
+      ? getUntaggedPapers() // Global untagged papers remain visible on filtered views.
+      : papersPromise.then(rows => rows.filter(paper => !paper.stage)), // No duplicate query on All.
     getPracticeOverview(activeSubjectId ?? undefined),
     getPracticeFormCatalogue(),
     activeSubjectId ? getCombinedChapterEvidenceForSubject(activeSubjectId) : Promise.resolve([]),
   ])
+  const subjects = (userSubjectsData.data || []).flatMap(row => row.subjects ?? [])
+  const timeZone = profile?.timezone ?? 'UTC'
   const chapterTitles = new Map(formSubjects.flatMap(subject => subject.context.chapters.map(chapter => [chapter.id, { title: chapter.title ?? 'Chapter', component: chapter.component }] as const)))
   const chapterAccuracy: ChapterAccuracy[] = chapterEvidence.map(row => ({
     chapter_id: row.chapterId, title: chapterTitles.get(row.chapterId)?.title ?? 'Chapter',

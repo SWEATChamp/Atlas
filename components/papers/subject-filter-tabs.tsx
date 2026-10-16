@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { SubjectNavigationStatus } from './subject-navigation-status'
 
 export interface SubjectFilterTabsProps {
   subjects: { id: string; name: string; color_hex: string }[]
@@ -38,6 +39,7 @@ export function SubjectFilterTabs({ subjects, activeId }: SubjectFilterTabsProps
         }}
       >
         All
+        <SubjectNavigationStatus name="all subjects" />
       </Link>
 
       {subjects.map((s) => {
@@ -61,6 +63,7 @@ export function SubjectFilterTabs({ subjects, activeId }: SubjectFilterTabsProps
             }}
           >
             {s.name}
+            <SubjectNavigationStatus name={s.name} />
           </Link>
         )
       })}

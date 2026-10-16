@@ -60,6 +60,22 @@ async function showPage(filtered = false, formSubjects = subjects, points = tren
 }
 
 describe('Past Papers page layout', () => {
+  it.each([false, true])('starts practice and form loading before the independent paper query completes (filtered=%s)', async filtered => {
+    let resolvePapers!: (rows: never[]) => void
+    const pendingPapers = new Promise<never[]>(resolve => { resolvePapers = resolve })
+    papersForSubject.mockReturnValue(pendingPapers)
+    overview.mockResolvedValue({ sessions: [], trend: [] })
+    catalogue.mockResolvedValue(subjects)
+    const page = PastPapersPage({ searchParams: Promise.resolve(filtered ? { subject: subjectId } : {}) })
+    await waitFor(() => {
+      expect(papersForSubject).toHaveBeenCalled()
+      expect(overview).toHaveBeenCalledWith(filtered ? subjectId : undefined)
+      expect(catalogue).toHaveBeenCalled()
+    })
+    resolvePapers([])
+    expect(await page).toBeTruthy()
+  })
+
   it.each([false, true])('places the graph before attempt tabs and displays only the selected evidence and action (filtered=%s)', async filtered => {
     await showPage(filtered)
     const graph = screen.getByRole('heading', { name: 'Score trend' }).closest('section')!
