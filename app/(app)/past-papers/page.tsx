@@ -106,7 +106,9 @@ export default async function PastPapersPage(props: {
         {/* Subject filter tabs */}
         <SubjectFilterTabs subjects={subjects} activeId={activeSubjectId} />
 
-        <PracticeWorkspace sessions={practice.sessions} trend={practice.trend} subjects={formSubjects} preferredSubjectId={activeSubjectId} timeZone={timeZone}>
+        <PracticeWorkspace sessions={practice.sessions} trend={practice.trend} subjects={formSubjects}
+          trendSubjects={[...new Map([...formSubjects, ...subjects, ...papers.map(paper => ({ id: paper.subject_id, name: paper.subjects.name }))].map(subject => [subject.id, subject])).values()]}
+          preferredSubjectId={activeSubjectId} timeZone={timeZone}>
         {/* Keep server-rendered full-paper content separate from question evidence. */}
         <PaperStageTaggerSlot />
         {/* Full-paper-only metrics remain separate from question-practice evidence. */}

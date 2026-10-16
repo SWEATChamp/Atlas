@@ -7,7 +7,8 @@ import { Dialog } from '@/components/ui/dialog'
 import { LogPaperButton } from './log-paper-button'
 import { deletePracticeSession } from '@/lib/actions/practice-sessions'
 import { summarizeEvidence } from '@/lib/practice-analytics'
-import { trendModes, trendPointsForMode, type TrendMode } from '@/lib/practice-ui'
+import { trendModes, type TrendMode } from '@/lib/practice-ui'
+import { buildPracticeTrend, type TrendSubject } from '@/lib/practice-trend'
 import { formatDateOnly } from '@/lib/date'
 import type { AttemptTrendPoint, PracticeFormSubjectOption, PracticeSessionRead } from '@/types/practice-sessions'
 
@@ -25,38 +26,26 @@ const attemptTabs = [
 
 export function PracticeTrend({ points, subjects = [], preferredSubjectId }: {
   points: AttemptTrendPoint[]
-  subjects?: { id: string; name: string }[]
+  subjects?: TrendSubject[]
   preferredSubjectId?: string | null
 }) {
   const [mode, setMode] = useState<TrendMode>('all')
-  const subjectOptions = [...new Map([
-    ...subjects.map(subject => [subject.id, subject.name] as const),
-    ...points.filter(point => !subjects.some(subject => subject.id === point.subjectId)).map(point => [point.subjectId, 'Archived subject'] as const),
-  ]).entries()]
-  const [subjectId, setSubjectId] = useState(preferredSubjectId ?? points[0]?.subjectId ?? subjects[0]?.id ?? '')
-  const activeSubjectId = subjectOptions.some(([id]) => id === subjectId) ? subjectId : subjectOptions[0]?.[0] ?? ''
-  const subjectName = subjectOptions.find(([id]) => id === activeSubjectId)?.[1] ?? 'Subject'
-  const visible = trendPointsForMode(points.filter(point => point.subjectId === activeSubjectId), mode)
+  const { visible, series, overall, showOverall } = buildPracticeTrend(points, subjects, mode, preferredSubjectId)
+  const subjectNames = new Map(series.map(subject => [subject.id, subject.name]))
   const summary = summarizeEvidence(visible)
   const itemCount = visible.reduce((sum, point) => sum + point.itemCount, 0)
   const coordinate = (index: number, pct: number) => ({
     x: visible.length === 1 ? 400 : 35 + (index / (visible.length - 1)) * 730,
     y: 208 - Math.min(100, Math.max(0, pct)) * 1.72,
   })
-  const line = visible.map((point, index) => {
-    const { x, y } = coordinate(index, point.accuracyPct)
+  const overallLine = overall.map((point) => {
+    const { x, y } = coordinate(point.index, point.accuracyPct)
     return `${x},${y}`
   }).join(' ')
 
   return <section className="card" aria-labelledby="practice-trend-title" style={{ padding: 'var(--space-5)', minWidth: 0 }}>
     <h2 id="practice-trend-title" className="text-heading-3" style={{ marginTop: 0 }}>Score trend</h2>
-    <label className="practice-field" style={{ maxWidth: 360, marginBottom: 'var(--space-3)' }}>Trend subject
-      <select className="input" value={activeSubjectId} disabled={subjectOptions.length === 0} onChange={event => setSubjectId(event.target.value)}>
-        {subjectOptions.length === 0 && <option value="">No subjects yet</option>}
-        {subjectOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-      </select>
-    </label>
-    <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>Showing {subjectName} only. Choose a subject to compare its attempts over time.</p>
+    <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>{showOverall ? 'Subject lines show each attempt. Overall is the running mark-weighted average.' : 'Attempt scores for the subject selected above.'}</p>
     <div role="group" aria-label="Trend evidence type" className="practice-trend-tabs">
       {trendModes.map(option => <button key={option.id} type="button" aria-pressed={mode === option.id} className={`btn ${mode === option.id ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setMode(option.id)}>{option.label}</button>)}
     </div>
@@ -66,22 +55,37 @@ export function PracticeTrend({ points, subjects = [], preferredSubjectId }: {
           <p><strong>Lifetime:</strong> {formatPercent(summary.lifetime.weightedAccuracyPct)} mark-weighted · {summary.lifetime.raw}/{summary.lifetime.max} marks · {summary.lifetime.attempts} {summary.lifetime.attempts === 1 ? 'attempt' : 'attempts'}{mode !== 'full_paper' ? ` · ${itemCount} question ${itemCount === 1 ? 'item' : 'items'}` : ''}</p>
           <p><strong>Current route evidence:</strong> {formatPercent(summary.currentRoute.weightedAccuracyPct)} · {summary.currentRoute.raw}/{summary.currentRoute.max} eligible marks · {summary.currentRoute.attempts} contributing {summary.currentRoute.attempts === 1 ? 'attempt' : 'attempts'}. Partial sessions contribute eligible items only.</p>
         </div>
-        <svg viewBox="0 0 800 235" role="img" aria-label={`${visible.length} attempt${visible.length === 1 ? '' : 's'} in date order; full papers are circles and question sessions are diamonds`} style={{ width: '100%', height: 'auto', maxHeight: 260 }}>
+        <ul aria-label="Trend legend" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px', listStyle: 'none', padding: 0, margin: '12px 0' }}>
+          {series.map(subject => <li key={subject.id} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <svg aria-hidden="true" width="28" height="12" style={{ flexShrink: 0 }}><line x1="0" y1="6" x2="28" y2="6" stroke={subject.colour} strokeWidth="3" strokeDasharray={subject.dash} /></svg>
+            <span style={{ overflowWrap: 'anywhere' }}>{subject.name}</span>
+          </li>)}
+          {showOverall && <li style={{ display: 'flex', alignItems: 'center', gap: 8 }}><svg aria-hidden="true" width="28" height="12"><line x1="0" y1="6" x2="28" y2="6" stroke="var(--text-primary)" strokeWidth="3" strokeDasharray="6 5" /></svg>Overall · cumulative weighted</li>}
+        </ul>
+        <svg viewBox="0 0 800 250" role="img" aria-label={`${visible.length} attempt${visible.length === 1 ? '' : 's'} in date order; ${series.map(subject => subject.name).join(', ')}${showOverall ? '; overall cumulative mark-weighted trend' : ''}; full papers are circles and question sessions are diamonds`} style={{ width: '100%', height: 'auto', maxHeight: 280 }}>
           {[0, 25, 50, 75, 100].map(pct => <g key={pct}><line x1="35" x2="765" y1={coordinate(0, pct).y} y2={coordinate(0, pct).y} stroke="var(--border-subtle)" /><text x="0" y={coordinate(0, pct).y + 4} fill="var(--text-muted)" fontSize="11">{pct}%</text></g>)}
-          {visible.length > 1 && <polyline points={line} fill="none" stroke="var(--accent-primary)" strokeWidth="2" opacity="0.6" />}
-          {visible.map((point, index) => {
-            const { x, y } = coordinate(index, point.accuracyPct)
-            return point.source === 'full_paper'
-              ? <circle key={point.id} cx={x} cy={y} r="7" fill="var(--accent-primary)" stroke="var(--bg-card)" strokeWidth="2" />
-              : <rect key={point.id} x={x - 6} y={y - 6} width="12" height="12" transform={`rotate(45 ${x} ${y})`} fill="var(--accent-secondary)" stroke="var(--bg-card)" strokeWidth="2" />
-          })}
+          {showOverall && overall.length > 1 && <polyline aria-label="Overall cumulative mark-weighted accuracy" points={overallLine} fill="none" stroke="var(--text-primary)" strokeWidth="3" strokeDasharray="6 5" />}
+          {series.map(subject => <g key={subject.id} aria-label={`${subject.name} attempt scores`}>
+            {subject.attempts.length > 1 && <polyline points={subject.attempts.map(({ point, index }) => { const { x, y } = coordinate(index, point.accuracyPct); return `${x},${y}` }).join(' ')} fill="none" stroke={subject.colour} strokeWidth="2" strokeDasharray={subject.dash} />}
+            {subject.attempts.map(({ point, index }) => {
+              const { x, y } = coordinate(index, point.accuracyPct)
+              const title = `${subject.name}: ${formatDate(point.attemptDate)}, ${point.raw}/${point.max} marks (${point.accuracyPct.toFixed(1)}%)`
+              return point.source === 'full_paper'
+                ? <circle key={`${point.source}-${point.id}`} cx={x} cy={y} r="7" fill={subject.colour} stroke="var(--bg-card)" strokeWidth="2"><title>{title}</title></circle>
+                : <rect key={`${point.source}-${point.id}`} x={x - 6} y={y - 6} width="12" height="12" transform={`rotate(45 ${x} ${y})`} fill={subject.colour} stroke="var(--bg-card)" strokeWidth="2"><title>{title}</title></rect>
+            })}
+          </g>)}
+          {visible.length > 0 && <>
+            <text x="35" y="238" fill="var(--text-muted)" fontSize="11">{formatDate(visible[0].attemptDate)}</text>
+            {visible.length > 1 && <text x="765" y="238" textAnchor="end" fill="var(--text-muted)" fontSize="11">{formatDate(visible[visible.length - 1].attemptDate)}</text>}
+          </>}
         </svg>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>● Full paper &nbsp; ◆ Question session. Each marker is one attempt, including attempts made on the same day.</p>
         <details>
           <summary style={{ cursor: 'pointer', minHeight: 44, display: 'flex', alignItems: 'center' }}>Text evidence for all {visible.length} attempts</summary>
           <ol className="practice-trend-evidence">
-            {visible.map(point => <li key={`${point.source}-${point.id}`}>
-              {formatDate(point.attemptDate)} · {point.source === 'full_paper' ? 'Full paper' : `Question practice (${point.itemCount} items)`} · {point.stage?.toUpperCase() ?? 'Stage untagged'} · {point.raw}/{point.max} marks ({point.accuracyPct.toFixed(1)}%). {point.eligibleForCurrentRoute ? `Current route: ${point.eligibleRaw}/${point.eligibleMax} eligible marks.` : 'Historical/off-route; no current-route marks.'}
+            {visible.map((point, index) => <li key={`${point.source}-${point.id}`}>
+              {subjectNames.get(point.subjectId)} · {formatDate(point.attemptDate)} · {point.source === 'full_paper' ? 'Full paper' : `Question practice (${point.itemCount} items)`} · {point.stage?.toUpperCase() ?? 'Stage untagged'} · {point.raw}/{point.max} marks ({point.accuracyPct.toFixed(1)}%). {showOverall ? `Overall to this attempt: ${overall[index].raw}/${overall[index].max} marks (${overall[index].accuracyPct.toFixed(1)}%). ` : ''}{point.eligibleForCurrentRoute ? `Current route: ${point.eligibleRaw}/${point.eligibleMax} eligible marks.` : 'Historical/off-route; no current-route marks.'}
             </li>)}
           </ol>
         </details>
@@ -90,10 +94,11 @@ export function PracticeTrend({ points, subjects = [], preferredSubjectId }: {
   </section>
 }
 
-export function PracticeWorkspace({ sessions, trend, subjects, preferredSubjectId, timeZone, children }: {
+export function PracticeWorkspace({ sessions, trend, subjects, trendSubjects = subjects, preferredSubjectId, timeZone, children }: {
   sessions: PracticeSessionRead[]
   trend: AttemptTrendPoint[]
   subjects: PracticeFormSubjectOption[]
+  trendSubjects?: TrendSubject[]
   preferredSubjectId: string | null
   timeZone: string
   children?: ReactNode
@@ -141,7 +146,7 @@ export function PracticeWorkspace({ sessions, trend, subjects, preferredSubjectI
   }
 
   return <>
-    <PracticeTrend points={trend} subjects={preferredSubjectId ? subjects.filter(subject => subject.id === preferredSubjectId) : subjects} preferredSubjectId={preferredSubjectId} />
+    <PracticeTrend points={trend} subjects={trendSubjects} preferredSubjectId={preferredSubjectId} />
     <div className="past-papers-attempt-tabs" role="tablist" aria-label="Log and review attempts">
       {attemptTabs.map((tab, index) => <button key={tab.id} ref={element => { tabRefs.current[index] = element }}
         id={`${tabsId}-${tab.id}-tab`} type="button" role="tab"

@@ -66,16 +66,22 @@ describe('practice UI evidence', () => {
     expect(screen.getByRole('button', { name: /Log Questions/ })).toBeTruthy()
   })
 
-  it('shows one selected subject at a time across all evidence modes instead of joining subjects', () => {
+  it('uses the page subject filter and shows separate subject lines with a weighted overall in All', () => {
     const chemistry = uid(80)
-    render(<PracticeTrend subjects={[{ id: subjectId, name: 'Mathematics' }, { id: chemistry, name: 'Chemistry' }]} points={[...points, { ...points[0], id: uid(81), subjectId: chemistry, raw: 5, max: 50, accuracyPct: 10, eligibleRaw: 5 }]} />)
-    expect(screen.getByText(/41\/60 marks · 2 attempts/)).toBeTruthy()
-    fireEvent.change(screen.getByLabelText('Trend subject'), { target: { value: chemistry } })
+    const props = { subjects: [{ id: subjectId, name: 'Mathematics' }, { id: chemistry, name: 'Chemistry' }], points: [...points, { ...points[0], id: uid(81), subjectId: chemistry, raw: 5, max: 50, accuracyPct: 10, eligibleRaw: 5 }] }
+    const view = render(<PracticeTrend {...props} />)
+    expect(screen.queryByLabelText('Trend subject')).toBeNull()
+    expect(screen.getByText(/46\/110 marks · 3 attempts/)).toBeTruthy()
+    expect(screen.getByLabelText('Overall cumulative mark-weighted accuracy')).toBeTruthy()
+    expect(screen.getByRole('list', { name: 'Trend legend' }).textContent).toContain('Mathematics')
+    expect(screen.getByRole('list', { name: 'Trend legend' }).textContent).toContain('Chemistry')
+    view.rerender(<PracticeTrend {...props} preferredSubjectId={chemistry} />)
     expect(screen.getByText(/5\/50 marks · 1 attempt/)).toBeTruthy()
-    expect(screen.queryByText(/41\/60 marks/)).toBeNull()
+    expect(screen.queryByLabelText('Overall cumulative mark-weighted accuracy')).toBeNull()
+    expect(screen.queryByLabelText('Mathematics attempt scores')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Question practice' }))
     expect(screen.getByRole('status').textContent).toMatch(/No question-practice attempts/)
-    fireEvent.change(screen.getByLabelText('Trend subject'), { target: { value: subjectId } })
+    view.rerender(<PracticeTrend {...props} preferredSubjectId={subjectId} />)
     expect(screen.getByText(/1\/10 marks · 1 attempt/)).toBeTruthy()
   })
 })

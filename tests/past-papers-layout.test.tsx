@@ -79,7 +79,8 @@ describe('Past Papers page layout', () => {
     expect(screen.getByText(/42\/60 marks · 2 attempts/)).toBeTruthy()
     const filters = screen.getByRole('navigation', { name: 'Filter past papers by subject' })
     expect(within(filters).getByRole('link', { name: 'Mathematics' }).getAttribute('href')).toBe(`/past-papers?subject=${subjectId}`)
-    expect(screen.getByLabelText('Trend subject')).toHaveProperty('value', subjectId)
+    expect(screen.queryByLabelText('Trend subject')).toBeNull()
+    expect(screen.queryByLabelText('Overall cumulative mark-weighted accuracy') !== null).toBe(!filtered)
     expect(overview).toHaveBeenCalledWith(filtered ? subjectId : undefined)
 
     fireEvent.click(screen.getByRole('tab', { name: 'Question practice' }))
@@ -145,23 +146,22 @@ describe('Past Papers page layout', () => {
     fireEvent.keyDown(questionTab, { key: 'ArrowLeft' }); expectSelected(paperTab, questionTab)
   })
 
-  it('preserves graph subject, evidence mode and chart node when switching history/logging tabs', async () => {
+  it('preserves all subject series, evidence mode and chart node when switching history/logging tabs', async () => {
     const chemistry = '00000000-0000-4000-a000-000000000004'
     await showPage(false, [...subjects, { ...subjects[0], id: chemistry, name: 'Chemistry' }], [
       ...trend, { ...trend[1], id: 'chemistry-practice', subjectId: chemistry, raw: 9, accuracyPct: 90, eligibleRaw: 9 },
     ])
-    const subjectSelector = screen.getByLabelText('Trend subject')
-    fireEvent.change(subjectSelector, { target: { value: chemistry } })
     const practiceMode = within(screen.getByRole('group', { name: 'Trend evidence type' })).getByRole('button', { name: 'Question practice' })
     fireEvent.click(practiceMode)
     const chart = screen.getByRole('img')
     fireEvent.click(screen.getByRole('tab', { name: 'Question practice' }))
     fireEvent.click(screen.getByRole('tab', { name: 'Full papers' }))
-    expect(screen.getByLabelText('Trend subject')).toBe(subjectSelector)
-    expect(subjectSelector).toHaveProperty('value', chemistry)
+    expect(screen.queryByLabelText('Trend subject')).toBeNull()
     expect(practiceMode.getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByRole('img')).toBe(chart)
-    expect(screen.getByText(/9\/10 marks · 1 attempt/)).toBeTruthy()
+    expect(screen.getByText(/11\/20 marks · 2 attempts/)).toBeTruthy()
+    expect(screen.getByLabelText('Mathematics attempt scores')).toBeTruthy()
+    expect(screen.getByLabelText('Chemistry attempt scores')).toBeTruthy()
   })
 
   it('keeps question history selectable without active subjects, while disabling new question logging', () => {
