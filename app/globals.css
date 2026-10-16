@@ -682,9 +682,23 @@ body {
 .practice-metrics span { color: var(--text-muted); font-size: 0.8125rem; }
 .practice-metrics strong { font-size: 1.375rem; }
 .practice-metrics small { color: var(--text-muted); }
+.practice-trend-card {
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  min-width: 0;
+}
+.practice-trend-heading { display: grid; gap: var(--space-2); min-width: 0; }
+.practice-trend-heading h2,
+.practice-trend-description,
+.practice-trend-summary p { margin: 0; }
+.practice-trend-description { color: var(--text-muted); }
 .practice-trend-tabs { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.practice-trend-summary { display: flex; flex-wrap: wrap; gap: 0 var(--space-5); }
-.practice-trend-summary p { margin-bottom: 0; }
+.practice-trend-content { display: grid; gap: var(--space-4); min-width: 0; }
+.practice-trend-summary { display: grid; gap: var(--space-3); line-height: 1.6; overflow-wrap: anywhere; }
+.practice-trend-summary .practice-trend-help { margin-top: var(--space-2); color: var(--text-secondary); font-size: 0.875rem; }
+.practice-trend-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); list-style: none; padding: 0; margin: 0; }
+.practice-trend-marker-note { font-size: 0.8125rem; }
 .practice-trend-evidence,
 .practice-item-list { padding-left: 1.5rem; display: grid; gap: var(--space-2); overflow-wrap: anywhere; }
 .practice-history-card { padding: var(--space-4); display: grid; gap: var(--space-3); min-width: 0; }
@@ -706,6 +720,7 @@ body {
 .practice-chapter-option { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 0.8125rem; }
 .practice-chapter-option input { width: 18px; height: 18px; flex: 0 0 auto; }
 @media (max-width: 640px) {
+  .practice-trend-card { padding: var(--space-4); gap: var(--space-4); }
   .practice-metrics,
   .practice-form-grid,
   .practice-chapter-options { grid-template-columns: minmax(0, 1fr); }

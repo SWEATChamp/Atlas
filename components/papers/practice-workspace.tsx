@@ -43,19 +43,24 @@ export function PracticeTrend({ points, subjects = [], preferredSubjectId }: {
     return `${x},${y}`
   }).join(' ')
 
-  return <section className="card" aria-labelledby="practice-trend-title" style={{ padding: 'var(--space-5)', minWidth: 0 }}>
-    <h2 id="practice-trend-title" className="text-heading-3" style={{ marginTop: 0 }}>Score trend</h2>
-    <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>{showOverall ? 'Subject lines show each attempt. Overall is the running mark-weighted average.' : 'Attempt scores for the subject selected above.'}</p>
+  return <section className="card practice-trend-card" aria-labelledby="practice-trend-title">
+    <header className="practice-trend-heading">
+      <h2 id="practice-trend-title" className="text-heading-3">Score trend</h2>
+      <p className="practice-trend-description">{showOverall ? 'Subject lines show each attempt. Overall is the running mark-weighted average.' : 'Attempt scores for the subject selected above.'}</p>
+    </header>
     <div role="group" aria-label="Trend evidence type" className="practice-trend-tabs">
       {trendModes.map(option => <button key={option.id} type="button" aria-pressed={mode === option.id} className={`btn ${mode === option.id ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setMode(option.id)}>{option.label}</button>)}
     </div>
-    <div role="region" aria-label={`${trendModes.find(option => option.id === mode)?.label} trend`}>
-      {visible.length === 0 ? <p role="status" style={{ color: 'var(--text-muted)' }}>No {mode === 'full_paper' ? 'full-paper' : mode === 'practice' ? 'question-practice' : 'practice'} attempts yet.</p> : <>
+    <div role="region" aria-label={`${trendModes.find(option => option.id === mode)?.label} trend`} className="practice-trend-content">
+      {visible.length === 0 ? <p role="status" className="practice-trend-description">No {mode === 'full_paper' ? 'full-paper' : mode === 'practice' ? 'question-practice' : 'practice'} attempts yet.</p> : <>
         <div className="practice-trend-summary" aria-live="polite">
           <p><strong>Lifetime:</strong> {formatPercent(summary.lifetime.weightedAccuracyPct)} mark-weighted · {summary.lifetime.raw}/{summary.lifetime.max} marks · {summary.lifetime.attempts} {summary.lifetime.attempts === 1 ? 'attempt' : 'attempts'}{mode !== 'full_paper' ? ` · ${itemCount} question ${itemCount === 1 ? 'item' : 'items'}` : ''}</p>
-          <p><strong>Current route evidence:</strong> {formatPercent(summary.currentRoute.weightedAccuracyPct)} · {summary.currentRoute.raw}/{summary.currentRoute.max} eligible marks · {summary.currentRoute.attempts} contributing {summary.currentRoute.attempts === 1 ? 'attempt' : 'attempts'}. Partial sessions contribute eligible items only.</p>
+          <div>
+            <p><strong>Current route evidence:</strong> {formatPercent(summary.currentRoute.weightedAccuracyPct)} · {summary.currentRoute.raw}/{summary.currentRoute.max} eligible marks · {summary.currentRoute.attempts} contributing {summary.currentRoute.attempts === 1 ? 'attempt' : 'attempts'}.</p>
+            <p className="practice-trend-help">Partial sessions contribute eligible items only.</p>
+          </div>
         </div>
-        <ul aria-label="Trend legend" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px', listStyle: 'none', padding: 0, margin: '12px 0' }}>
+        <ul aria-label="Trend legend" className="practice-trend-legend">
           {series.map(subject => <li key={subject.id} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
             <svg aria-hidden="true" width="28" height="12" style={{ flexShrink: 0 }}><line x1="0" y1="6" x2="28" y2="6" stroke={subject.colour} strokeWidth="3" strokeDasharray={subject.dash} /></svg>
             <span style={{ overflowWrap: 'anywhere' }}>{subject.name}</span>
@@ -80,7 +85,7 @@ export function PracticeTrend({ points, subjects = [], preferredSubjectId }: {
             {visible.length > 1 && <text x="765" y="238" textAnchor="end" fill="var(--text-muted)" fontSize="11">{formatDate(visible[visible.length - 1].attemptDate)}</text>}
           </>}
         </svg>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>● Full paper &nbsp; ◆ Question session. Each marker is one attempt, including attempts made on the same day.</p>
+        <p className="practice-trend-description practice-trend-marker-note">● Full paper &nbsp; ◆ Question session. Each marker is one attempt, including attempts made on the same day.</p>
         <details>
           <summary style={{ cursor: 'pointer', minHeight: 44, display: 'flex', alignItems: 'center' }}>Text evidence for all {visible.length} attempts</summary>
           <ol className="practice-trend-evidence">
