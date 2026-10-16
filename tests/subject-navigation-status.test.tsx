@@ -17,6 +17,16 @@ afterEach(() => { cleanup(); navigation.pendingHref = '' })
 const subject = { id: 'math & stats', name: 'Mathematics', color_hex: '#00ff00' }
 
 describe('subject navigation feedback', () => {
+  it('contains every screen-reader status inside a positioned link in the horizontal scroll region', () => {
+    render(<SubjectFilterTabs subjects={[subject, { ...subject, id: 'physics', name: 'Physics' }]} activeId={null} />)
+    for (const status of screen.getAllByRole('status')) {
+      expect(status.classList.contains('sr-only')).toBe(true)
+      const link = status.closest('a')!
+      expect(link.style.position).toBe('relative')
+      expect(link.closest('nav')?.style.overflowX).toBe('auto')
+    }
+  })
+
   it('keeps real URL links, committed selection and reserved feedback without pending text', () => {
     render(<SubjectFilterTabs subjects={[subject]} activeId={null} />)
     const all = screen.getByRole('link', { name: 'All' })
