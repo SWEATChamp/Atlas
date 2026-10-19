@@ -251,7 +251,7 @@ describe('full-paper-only selectors and practice analytics', () => {
     const p5: PracticeRouteContext = { ...science,
       papers: [{ id: otherPaperId, subjectId, paperNumber: 5, stageBehavior: 'fixed_a2', defaultStage: 'a2' }],
     }
-    expect(eligiblePracticeLoggingChapterIds(p5, 'a2', otherPaperId)).toEqual([])
+    expect(eligiblePracticeLoggingChapterIds(p5, 'a2', otherPaperId)).toEqual([chapterId])
     expect(eligiblePracticeLoggingChapterIds({ ...p5, enrollment: { ...p5.enrollment!, currentStage: 'a2' } }, 'a2', otherPaperId)).toEqual([chapterId])
   })
 

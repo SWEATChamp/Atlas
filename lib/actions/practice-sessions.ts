@@ -30,6 +30,8 @@ function safeMutationError(code: string | undefined): string {
 function revalidatePracticeRoutes(subjectId: string) {
   revalidatePath('/dashboard')
   revalidatePath('/past-papers')
+  revalidatePath('/logs')
+  revalidatePath('/stats')
   revalidatePath(`/subjects/${subjectId}`)
 }
 

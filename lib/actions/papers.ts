@@ -230,6 +230,8 @@ export async function logPaper(data: LogPaperInput): Promise<{ error?: string; p
   if (rpcError) return { error: rpcError.message }
 
   revalidatePath('/past-papers')
+  revalidatePath('/logs')
+  revalidatePath('/stats')
   revalidatePath('/dashboard')
   revalidatePath(`/subjects/${data.subjectId}`)
   return { paperId: (result as { id?: string })?.id }
@@ -248,6 +250,8 @@ export async function deletePaper(paperId: string): Promise<{ error?: string }> 
 
   if (error) return { error: error.message }
   revalidatePath('/past-papers')
+  revalidatePath('/logs')
+  revalidatePath('/stats')
   revalidatePath('/dashboard')
   return {}
 }
@@ -305,6 +309,8 @@ export async function updatePaper(
 
   revalidatePath('/past-papers')
   revalidatePath(`/past-papers/${paperId}`)
+  revalidatePath('/logs')
+  revalidatePath('/stats')
   revalidatePath('/dashboard')
   revalidatePath(`/subjects/${data.subjectId}`)
   return {}
@@ -374,6 +380,8 @@ export async function assignPaperStage(
   }
 
   revalidatePath('/past-papers')
+  revalidatePath('/logs')
+  revalidatePath('/stats')
   revalidatePath('/dashboard')
   return { success: true, paperId, stage }
 }

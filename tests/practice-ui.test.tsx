@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { LogQuestionsModal } from '@/components/papers/log-questions-modal'
 import { PracticeTrend, PracticeWorkspace } from '@/components/papers/practice-workspace'
+import { StudyIndicators, type IndicatorItem } from '@/components/papers/study-indicators'
 import { blankPracticeDraft, draftFromPracticeSession, toPracticeWriteInput, trendPointsForMode } from '@/lib/practice-ui'
 import { PracticeCreateSchema, PracticeUpdateSchema } from '@/lib/validations/practice-sessions'
 import type { AttemptTrendPoint, PracticeFormSubjectOption, PracticeSessionRead } from '@/types/practice-sessions'
@@ -304,5 +305,38 @@ describe('question form provenance and accessibility', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete session' }))
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled())
     expect(mockDelete).toHaveBeenCalledWith({ sessionId: session.id })
+  })
+
+  it('renders locked A2 preparation history status independently of readiness eligibility', () => {
+    const lockedWithHistory: IndicatorItem = {
+      subjectId,
+      subjectName: 'Mathematics',
+      stage: 'a2',
+      isCurrentStage: false,
+      isLockedA2: true,
+      hasRecordedHistory: true,
+      predicted: {
+        subjectId,
+        stage: 'a2',
+        predictedPercentage: null,
+        obtainedMarks: 0,
+        availableMarks: 0,
+        fullPaperCount: 0,
+        practiceItemCount: 0,
+        contributingAttemptCount: 0,
+      },
+      readinessScore: null,
+    }
+
+    const lockedWithoutHistory: IndicatorItem = {
+      ...lockedWithHistory,
+      hasRecordedHistory: false,
+    }
+
+    const { rerender } = render(<StudyIndicators indicators={[lockedWithHistory]} />)
+    expect(screen.getByText(/Early A2 practice recorded as preparation history/)).toBeTruthy()
+
+    rerender(<StudyIndicators indicators={[lockedWithoutHistory]} />)
+    expect(screen.getByText(/A2 readiness locked while studying AS/)).toBeTruthy()
   })
 })

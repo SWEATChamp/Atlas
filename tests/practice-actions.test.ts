@@ -63,6 +63,8 @@ describe('practice actions', () => {
     expect(queries.profiles.calls).toContainEqual(['eq', ['id', userId]])
     expect(revalidatePath).toHaveBeenCalledWith('/dashboard')
     expect(revalidatePath).toHaveBeenCalledWith('/past-papers')
+    expect(revalidatePath).toHaveBeenCalledWith('/logs')
+    expect(revalidatePath).toHaveBeenCalledWith('/stats')
     expect(revalidatePath).toHaveBeenCalledWith(`/subjects/${subjectId}`)
     expect(mockRpc).toHaveBeenCalledTimes(1)
   })

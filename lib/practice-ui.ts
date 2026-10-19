@@ -38,6 +38,7 @@ export interface PracticeItemDraft {
   notes: string
   chapterIds: string[]
   provenanceMode: 'inherit' | 'override' | 'none'
+  isModeUntouched?: boolean
   provenance: ProvenanceDraft
 }
 export interface PracticeDraft {
@@ -51,12 +52,40 @@ export interface PracticeDraft {
   items: PracticeItemDraft[]
 }
 
+export function hasSharedProvenance(provenance: ProvenanceDraft): boolean {
+  return Boolean(
+    provenance.subjectPaperId ||
+    provenance.sourceLabel.trim() ||
+    provenance.examYear ||
+    provenance.examSeries ||
+    provenance.examVariant
+  )
+}
+
 export const blankProvenance = (): ProvenanceDraft => ({ subjectPaperId: '', examYear: '', examSeries: '', examVariant: '', sourceLabel: '' })
-export const blankPracticeItem = (key: string): PracticeItemDraft => ({
-  key, marksObtained: '', marksAvailable: '', questionLabel: '', notes: '', chapterIds: [], provenanceMode: 'none', provenance: blankProvenance(),
+export const blankPracticeItem = (key: string, parentProvenance?: ProvenanceDraft): PracticeItemDraft => ({
+  key,
+  marksObtained: '',
+  marksAvailable: '',
+  questionLabel: '',
+  notes: '',
+  chapterIds: [],
+  provenanceMode: parentProvenance && hasSharedProvenance(parentProvenance) ? 'inherit' : 'none',
+  isModeUntouched: true,
+  provenance: blankProvenance(),
 })
 export function blankPracticeDraft(subjectId: string, timeZone: string): PracticeDraft {
-  return { subjectId, stage: 'as', sessionDate: dateInTimeZone(new Date(), timeZone), title: '', durationMins: '', notes: '', provenance: blankProvenance(), items: [blankPracticeItem('item-1')] }
+  const provenance = blankProvenance()
+  return {
+    subjectId,
+    stage: 'as',
+    sessionDate: dateInTimeZone(new Date(), timeZone),
+    title: '',
+    durationMins: '',
+    notes: '',
+    provenance,
+    items: [blankPracticeItem('item-1', provenance)],
+  }
 }
 
 function provenanceFromRead(value: { subject_paper_id: string | null; exam_year: number | null; exam_series: PaperSession | null; exam_variant: number | null; source_label: string | null }): ProvenanceDraft {
@@ -70,7 +99,7 @@ export function draftFromPracticeSession(session: PracticeSessionRead): Practice
     items: session.items.map(item => ({
       key: item.id, marksObtained: item.marks_obtained.toString(), marksAvailable: item.marks_available.toString(),
       questionLabel: item.question_label ?? '', notes: item.notes ?? '', chapterIds: [...item.chapter_ids],
-      provenanceMode: item.provenance_mode, provenance: provenanceFromRead(item),
+      provenanceMode: item.provenance_mode, isModeUntouched: false, provenance: provenanceFromRead(item),
     })),
   }
 }

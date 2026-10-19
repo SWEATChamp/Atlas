@@ -487,6 +487,8 @@ export async function addSubjectEnrollment(
   revalidatePath('/subjects')
   revalidatePath('/dashboard')
   revalidatePath('/past-papers')
+  revalidatePath('/logs')
+  revalidatePath('/stats')
   return { enrollmentId: typeof data === 'string' ? data : undefined }
 }
 
@@ -515,5 +517,7 @@ export async function archiveSubjectEnrollment(
   revalidatePath('/subjects')
   revalidatePath('/dashboard')
   revalidatePath('/past-papers')
+  revalidatePath('/logs')
+  revalidatePath('/stats')
   return { skippedMissions: typeof data === 'number' ? data : undefined }
 }

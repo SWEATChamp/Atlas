@@ -114,27 +114,96 @@ function assessmentChapterEligible(chapter: PracticeChapterContext | undefined, 
         selection.componentName === chapter.component)))
 }
 
-/** Explicit off-route paper sources may be logged as history; this does not grant readiness eligibility. */
-export function eligiblePracticeLoggingChapterIds(context: PracticeRouteContext, stage: PaperStage, paperId: string | null): string[] {
-  if (!paperId) return eligiblePracticeChapterIds(context, stage, null)
-  if (!stageOpen(stage, context)) return []
-  const paper = context.papers.find(candidate => candidate.id === paperId && candidate.subjectId === context.enrollment?.subjectId)
-  if (!paper) return []
-  const selection = context.selections.find(candidate => candidate.subjectPaperId === paperId)
-  if (selection) return selection.stage === stage ? eligiblePracticeChapterIds(context, stage, paperId) : []
-  const catalogStage = paper.stageBehavior === 'fixed_as' ? 'as' : paper.stageBehavior === 'fixed_a2' ? 'a2' : paper.defaultStage
-  if (catalogStage !== stage) return []
+/** Permissive enrollment check for logging: confirmed, non-archived enrollment allows AS or A2. */
+export function loggingStageOpen(stage: PaperStage, context: PracticeRouteContext): boolean {
+  const enrollment = context.enrollment
+  return Boolean(enrollment && !enrollment.isArchived && enrollment.studyRoute !== 'unconfirmed' && (stage === 'as' || stage === 'a2'))
+}
+
+/** Logging-specific chapter predicate across all three provenance branches. */
+function chapterLoggingEligible(
+  chapter: PracticeChapterContext | undefined,
+  stage: PaperStage,
+  paperId: string | null,
+  context: PracticeRouteContext
+): boolean {
+  if (!chapter || !chapter.isActive || chapter.subjectId !== context.enrollment?.subjectId || !loggingStageOpen(stage, context)) {
+    return false
+  }
+
   const science = context.enrollment?.subjectCode === '9701' || context.enrollment?.subjectCode === '9702'
-  return context.chapters.filter(chapter => {
-    if (!chapter.isActive || chapter.subjectId !== paper.subjectId) return false
-    const mapped = chapter.paperIds.includes(paperId)
-    const stageValid = chapter.stage === stage || chapter.stage === 'shared' ||
-      (chapter.stage === 'route_dependent' && mapped) ||
+
+  // Branch 1: Source-free (paperId is null)
+  // Matching-stage / shared chapters and existing selected route-dependent rules only.
+  // NO science cross-stage exception without an effective paper source.
+  if (!paperId) {
+    if (chapter.stage === stage || chapter.stage === 'shared') return true
+    if (chapter.stage === 'route_dependent') {
+      return context.selections.some(sel =>
+        sel.stage === stage && (
+          (sel.subjectPaperId !== null && chapter.paperIds.includes(sel.subjectPaperId)) ||
+          sel.componentName === chapter.component
+        )
+      )
+    }
+    return false
+  }
+
+  const paper = context.papers.find(p => p.id === paperId && p.subjectId === chapter.subjectId)
+  if (!paper) return false
+
+  const selection = context.selections.find(sel => sel.subjectPaperId === paperId)
+
+  // Branch 2: Selected paper on user's route
+  if (selection) {
+    if (selection.stage !== stage) return false
+
+    // BOTH chapter-stage compatibility AND paper compatibility must pass.
+    const chapterStageValid =
+      chapter.stage === stage ||
+      chapter.stage === 'shared' ||
+      (chapter.stage === 'route_dependent' && (
+        chapter.paperIds.includes(paperId) ||
+        selection.componentName === chapter.component
+      )) ||
       (science && paper.paperNumber === 5 && stage === 'a2' && chapter.stage === 'as')
-    const sourceValid = mapped || (science && paper.paperNumber === 3 && stage === 'as' && (chapter.stage === 'as' || chapter.stage === 'shared')) ||
+
+    if (!chapterStageValid) return false
+
+    const paperSourceValid =
+      chapter.paperIds.includes(paperId) ||
+      (science && paper.paperNumber === 3 && stage === 'as' && (chapter.stage === 'as' || chapter.stage === 'shared')) ||
       (science && paper.paperNumber === 5 && stage === 'a2')
-    return stageValid && sourceValid
-  }).map(chapter => chapter.id)
+
+    return paperSourceValid
+  }
+
+  // Branch 3: Off-route paper
+  const catalogStage = paper.stageBehavior === 'fixed_as' ? 'as' : paper.stageBehavior === 'fixed_a2' ? 'a2' : paper.defaultStage
+  if (catalogStage !== stage) return false
+
+  // BOTH chapter-stage compatibility AND paper compatibility must pass.
+  const chapterStageValid =
+    chapter.stage === stage ||
+    chapter.stage === 'shared' ||
+    (chapter.stage === 'route_dependent' && chapter.paperIds.includes(paperId)) ||
+    (science && paper.paperNumber === 5 && stage === 'a2' && chapter.stage === 'as')
+
+  if (!chapterStageValid) return false
+
+  const paperSourceValid =
+    chapter.paperIds.includes(paperId) ||
+    (science && paper.paperNumber === 3 && stage === 'as' && (chapter.stage === 'as' || chapter.stage === 'shared')) ||
+    (science && paper.paperNumber === 5 && stage === 'a2')
+
+  return paperSourceValid
+}
+
+/** Public logging helper: delegates strictly to chapterLoggingEligible. */
+export function eligiblePracticeLoggingChapterIds(context: PracticeRouteContext, stage: PaperStage, paperId: string | null): string[] {
+  return context.chapters
+    .filter(chapter => chapterLoggingEligible(chapter, stage, paperId, context))
+    .map(chapter => chapter.id)
 }
 
 export function withPracticeEligibility(session: Omit<PracticeSessionRead, 'eligible_score_raw' | 'eligible_score_max' | 'eligible_for_readiness' | 'route_status'>, context: PracticeRouteContext): PracticeSessionRead {
@@ -210,4 +279,78 @@ export function combinedChapterEvidence(questions: readonly PaperQuestionEvidenc
   }
   return [...evidence.values()].map(row => ({ ...row, accuracyPct: percent(row.raw, row.max) ?? 0, weakTopic: (percent(row.raw, row.max) ?? 0) < weakBelowPct }))
     .sort((a, b) => a.accuracyPct - b.accuracyPct || a.chapterId.localeCompare(b.chapterId))
+}
+
+export interface PredictedExamMarkResult {
+  subjectId: string
+  stage: PaperStage
+  predictedPercentage: number | null
+  obtainedMarks: number
+  availableMarks: number
+  fullPaperCount: number
+  practiceItemCount: number
+  contributingAttemptCount: number
+}
+
+/**
+ * Non-official, practice-informed estimate strictly per subject and stage.
+ * Mark-weighted: (total eligible obtained marks / total eligible available marks) * 100.
+ * Counts each eligible full-paper parent once and each eligible standalone practice item once.
+ * Never adds full-paper child questions, practice parent totals, or duplicated chapter marks.
+ * Returns null percentage if no eligible marks exist (unavailable, not zero).
+ */
+export function computePredictedExamMark(
+  subjectId: string,
+  stage: PaperStage,
+  papers: readonly PaperEvidence[],
+  sessions: readonly PracticeSessionRead[],
+  context: PracticeRouteContext | undefined
+): PredictedExamMarkResult {
+  let obtainedMarks = 0
+  let availableMarks = 0
+  let fullPaperCount = 0
+  let practiceItemCount = 0
+  let contributingSessionsCount = 0
+
+  // 1. Eligible full-paper parents for this subject and stage
+  const eligiblePapers = fullPaperHistory(papers).filter(
+    paper => paper.subject_id === subjectId && paper.stage === stage && paperEligible(paper, context)
+  )
+
+  for (const paper of eligiblePapers) {
+    obtainedMarks += paper.score_raw
+    availableMarks += paper.score_max
+    fullPaperCount += 1
+  }
+
+  // 2. Eligible practice session items for this subject and stage
+  for (const session of sessions) {
+    if (session.subject_id !== subjectId || session.stage !== stage) continue
+    let sessionContributed = false
+    for (const item of session.items) {
+      if (item.eligible_for_readiness) {
+        obtainedMarks += item.marks_obtained
+        availableMarks += item.marks_available
+        practiceItemCount += 1
+        sessionContributed = true
+      }
+    }
+    if (sessionContributed) {
+      contributingSessionsCount += 1
+    }
+  }
+
+  const contributingAttemptCount = fullPaperCount + contributingSessionsCount
+  const predictedPercentage = availableMarks > 0 ? (obtainedMarks / availableMarks) * 100 : null
+
+  return {
+    subjectId,
+    stage,
+    predictedPercentage,
+    obtainedMarks,
+    availableMarks,
+    fullPaperCount,
+    practiceItemCount,
+    contributingAttemptCount,
+  }
 }
