@@ -1,0 +1,135 @@
+-- Executable pgTAP fixture asserting Migration 032 baseline expectations.
+-- Runs against a database migrated up to Migration 032.
+-- Captures the strict 032 behavior where locked A2 students were forbidden from logging A2 practice,
+-- unconfirmed routes rejected all practice, and valid AS practice succeeded.
+-- All fixtures run inside a transaction and roll back completely.
+
+BEGIN;
+CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
+SET LOCAL search_path = public, extensions, pg_catalog;
+SET LOCAL TIME ZONE 'UTC';
+SELECT plan(6);
+
+CREATE TEMP TABLE m4_ctx (key TEXT PRIMARY KEY, id UUID, value JSONB);
+GRANT SELECT, INSERT, UPDATE ON m4_ctx TO authenticated, anon;
+
+CREATE FUNCTION pg_temp.ref(p_key TEXT) RETURNS UUID LANGUAGE sql AS $$
+  SELECT id FROM pg_temp.m4_ctx WHERE key = p_key;
+$$;
+
+CREATE FUNCTION pg_temp.login(p_key TEXT) RETURNS TEXT LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM set_config('request.jwt.claims',
+    jsonb_build_object('sub', pg_temp.ref(p_key), 'role', 'authenticated')::TEXT, true);
+  RETURN set_config('request.jwt.claim.sub', pg_temp.ref(p_key)::TEXT, true);
+END;
+$$;
+
+CREATE FUNCTION pg_temp.new_user(p_key TEXT, p_code TEXT, p_route public.study_route_enum, p_combo TEXT DEFAULT NULL, p_stage TEXT DEFAULT 'as')
+RETURNS VOID LANGUAGE plpgsql AS $$
+DECLARE v_uid UUID := gen_random_uuid(); v_sid UUID; v_us UUID; v_selections JSONB;
+BEGIN
+  INSERT INTO auth.users(id, email, raw_user_meta_data)
+    VALUES (v_uid, v_uid::TEXT || '@m4.test', jsonb_build_object('full_name', p_key));
+  UPDATE public.profiles SET timezone = 'UTC' WHERE id = v_uid;
+  SELECT id INTO STRICT v_sid FROM public.subjects WHERE code = p_code;
+  IF p_route = 'unconfirmed' THEN
+    INSERT INTO public.user_subjects(user_id, subject_id, study_route, current_stage) VALUES (v_uid, v_sid, 'unconfirmed', NULL) RETURNING id INTO v_us;
+  ELSE
+    INSERT INTO public.user_subjects(user_id, subject_id, study_route, current_stage) VALUES (v_uid, v_sid, p_route, p_stage::public.subject_stage_enum) RETURNING id INTO v_us;
+  END IF;
+  INSERT INTO pg_temp.m4_ctx(key, id) VALUES (p_key, v_uid), (p_key || '.enrollment', v_us);
+  PERFORM pg_temp.login(p_key);
+  IF p_route <> 'unconfirmed' THEN
+    SELECT jsonb_agg(jsonb_build_object('paper_number', sp.paper_number, 'component_name', sp.name, 'stage', rp.stage)
+      ORDER BY sp.paper_number) INTO v_selections
+    FROM public.subject_valid_routes vr JOIN public.subject_route_papers rp ON rp.route_id = vr.id
+    JOIN public.subject_papers sp ON sp.id = rp.subject_paper_id
+    WHERE vr.subject_id = v_sid AND vr.route = p_route AND (p_combo IS NULL OR vr.combination_key = p_combo);
+    PERFORM public.configure_subject_route(v_uid, v_us, p_route, COALESCE(v_selections, '[]'));
+  END IF;
+END;
+$$;
+
+CREATE FUNCTION pg_temp.items(p_raw INTEGER DEFAULT 10, p_max INTEGER DEFAULT 10,
+  p_mode TEXT DEFAULT 'none', p_prov JSONB DEFAULT NULL, p_chapters JSONB DEFAULT '[]')
+RETURNS JSONB LANGUAGE sql AS $$
+  SELECT jsonb_build_array(jsonb_build_object('item_order', 1, 'marks_obtained', p_raw, 'marks_available', p_max,
+    'provenance_mode', p_mode, 'chapter_ids', p_chapters) ||
+    CASE WHEN p_prov IS NULL THEN '{}'::JSONB ELSE jsonb_build_object('provenance', p_prov) END);
+$$;
+
+CREATE FUNCTION pg_temp.log(p_user TEXT, p_code TEXT DEFAULT '9709', p_stage TEXT DEFAULT 'as',
+  p_prov JSONB DEFAULT '{}', p_items JSONB DEFAULT pg_temp.items())
+RETURNS public.practice_sessions LANGUAGE sql AS $$
+  SELECT public.log_practice_session_atomic(pg_temp.ref(p_user), (SELECT id FROM public.subjects WHERE code = p_code),
+    p_stage, '032 Baseline Test Session', CURRENT_DATE, 30::SMALLINT, p_prov, p_items);
+$$;
+
+CREATE FUNCTION pg_temp.ready(p_user TEXT, p_code TEXT DEFAULT '9709', p_stage TEXT DEFAULT 'all')
+RETURNS NUMERIC LANGUAGE sql AS $$
+  SELECT public.compute_readiness_score(pg_temp.ref(p_user), (SELECT id FROM public.subjects WHERE code = p_code), p_stage);
+$$;
+
+-- Setup test subjects & users
+SELECT pg_temp.new_user('locked_as', '9709', 'staged', 'mech_stats', 'as');
+SELECT pg_temp.new_user('unconfirmed_user', '9709', 'unconfirmed');
+
+-- Resolve reference chapter IDs
+INSERT INTO pg_temp.m4_ctx(key, id)
+  SELECT '9709.ch.pure1', id FROM public.chapters WHERE subject_id = (SELECT id FROM public.subjects WHERE code = '9709') AND component = 'Pure 1' AND number = 1 LIMIT 1;
+INSERT INTO pg_temp.m4_ctx(key, id)
+  SELECT '9709.ch.pure3', id FROM public.chapters WHERE subject_id = (SELECT id FROM public.subjects WHERE code = '9709') AND stage::TEXT = 'a2' LIMIT 1;
+INSERT INTO pg_temp.m4_ctx(key, id)
+  SELECT '9709.ch.stats2', id FROM public.chapters WHERE subject_id = (SELECT id FROM public.subjects WHERE code = '9709') AND component = 'Statistics 2' LIMIT 1;
+
+-- 1. 032 baseline: AS learner can log valid AS practice
+SELECT pg_temp.login('locked_as');
+SELECT lives_ok(
+  $$SELECT pg_temp.log('locked_as', '9709', 'as', '{"paper_number": 1}', pg_temp.items(40, 50, 'inherit', NULL, jsonb_build_array(pg_temp.ref('9709.ch.pure1'))))$$,
+  '032 baseline: valid AS practice succeeds for staged AS learner'
+);
+
+-- 2. 032 baseline: AS practice contributes to AS readiness
+SELECT cmp_ok(
+  pg_temp.ready('locked_as', '9709', 'as'),
+  '>',
+  0.00::NUMERIC,
+  '032 baseline: recorded AS practice contributes to AS readiness'
+);
+
+-- 3. 032 baseline: Locked A2 practice create denied with P0005
+SELECT throws_ok(
+  $$SELECT pg_temp.log('locked_as', '9709', 'a2', '{"paper_number": 3}', pg_temp.items(10, 10, 'inherit', NULL, jsonb_build_array(pg_temp.ref('9709.ch.pure3'))))$$,
+  'P0005',
+  NULL,
+  '032 baseline: locked A2 create denied with P0005'
+);
+
+-- 4. 032 baseline: Off-route paper never bypasses locked A2 (P0005)
+SELECT throws_ok(
+  $$SELECT pg_temp.log('locked_as', '9709', 'a2', '{"paper_number": 6}', pg_temp.items(10, 10, 'inherit', NULL, jsonb_build_array(pg_temp.ref('9709.ch.stats2'))))$$,
+  'P0005',
+  NULL,
+  '032 baseline: off-route paper never bypasses locked A2'
+);
+
+-- 5. 032 baseline: Unconfirmed route rejects practice with P0005
+SELECT pg_temp.login('unconfirmed_user');
+SELECT throws_ok(
+  $$SELECT pg_temp.log('unconfirmed_user', '9709', 'as', '{}', pg_temp.items(10, 10, 'none', NULL, jsonb_build_array(pg_temp.ref('9709.ch.pure1'))))$$,
+  'P0005',
+  NULL,
+  '032 baseline: unconfirmed route rejects practice logging'
+);
+
+-- 6. 032 baseline: Locked A2 readiness returns 0.00 for AS learner
+SELECT pg_temp.login('locked_as');
+SELECT is(
+  pg_temp.ready('locked_as', '9709', 'a2'),
+  0.00::NUMERIC,
+  '032 baseline: locked A2 readiness returns 0.00 for AS learner'
+);
+
+SELECT * FROM finish();
+ROLLBACK;

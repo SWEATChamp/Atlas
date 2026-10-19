@@ -321,7 +321,7 @@ SELECT lives_ok($$SELECT pg_temp.log('off-dependent','9709','as','{"paper_number
 SELECT throws_ok($$SELECT pg_temp.log('off-dependent','9709','a2','{"paper_number":4}')$$, 'P0008', NULL, 'off-route route-dependent A2 rejected against default');
 
 SELECT pg_temp.login('locked');
-SELECT throws_ok($$SELECT pg_temp.log('locked','9709','a2')$$, 'P0005', NULL, 'locked A2 create denied');
+SELECT lives_ok($$SELECT pg_temp.log('locked','9709','a2')$$, 'locked A2 create permitted for preparation history');
 SELECT pg_temp.login('unconfirmed');
 SELECT throws_ok($$SELECT pg_temp.log('unconfirmed')$$, 'P0005', NULL, 'unconfirmed enrollment denied');
 SELECT throws_ok($$SELECT pg_temp.log('unconfirmed','9702')$$, 'P0005', NULL, 'missing enrollment denied separately');

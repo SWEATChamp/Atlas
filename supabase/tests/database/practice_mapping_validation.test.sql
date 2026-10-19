@@ -4,7 +4,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions, pg_catalog;
 SET LOCAL TIME ZONE 'UTC';
-SELECT plan(90);
+SELECT plan(91);
 
 CREATE TEMP TABLE m4_ctx (key TEXT PRIMARY KEY, id UUID, value JSONB);
 GRANT SELECT, INSERT, UPDATE ON m4_ctx TO authenticated, anon;
@@ -197,7 +197,8 @@ SELECT is(pg_temp.ready('stats','9709','all'),0.00::numeric,'off-route AS Mechan
 SELECT throws_ok($$SELECT pg_temp.log('stats','9709','as','{}',pg_temp.mapped(1,10,'mechanics'))$$,'P0006',NULL,'source-free off-route Mechanics remains forbidden');
 SELECT throws_ok($$SELECT pg_temp.log('stats','9709','a2','{"paper_number":4}',pg_temp.mapped(1,10,'mechanics','inherit'))$$,'P0008',NULL,'off-route Mechanics respects catalogue AS stage');
 SELECT pg_temp.login('locked');
-SELECT throws_ok($$SELECT pg_temp.log('locked','9709','a2','{"paper_number":6}',pg_temp.mapped(1,10,'stats2','inherit'))$$,'P0005',NULL,'off-route paper never bypasses locked A2');
+SELECT lives_ok($$SELECT pg_temp.log('locked','9709','a2','{"paper_number":6}',pg_temp.mapped(1,10,'stats2','inherit'))$$,'staged AS learner may log off-route A2 Stats 2 as preparation history');
+SELECT is(pg_temp.ready('locked','9709','all'),0.00::numeric,'early A2 practice contributes no readiness while A2 locked');
 SELECT pg_temp.login('unconfirmed');
 SELECT throws_ok($$SELECT pg_temp.log('unconfirmed','9709','as','{}',pg_temp.mapped())$$,'P0005',NULL,'unconfirmed route rejected');
 SELECT pg_temp.login('physics');
