@@ -40,7 +40,7 @@ describe('subject navigation feedback', () => {
     expect(math.getAttribute('aria-disabled')).toBeNull()
     expect(within(math).getByRole('status').textContent).toBe('')
     const hint = math.querySelector<HTMLElement>('[aria-hidden="true"]')!
-    expect(hint.style.width).toBe('1em')
+    expect(hint.style.position).toBe('absolute')
     expect(hint.style.opacity).toBe('0')
   })
 

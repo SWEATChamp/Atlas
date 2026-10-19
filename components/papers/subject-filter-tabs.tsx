@@ -4,12 +4,19 @@ import { SubjectNavigationStatus } from './subject-navigation-status'
 export interface SubjectFilterTabsProps {
   subjects: { id: string; name: string; color_hex: string }[]
   activeId: string | null
+  basePath?: string
+  ariaLabel?: string
 }
 
-export function SubjectFilterTabs({ subjects, activeId }: SubjectFilterTabsProps) {
+export function SubjectFilterTabs({
+  subjects,
+  activeId,
+  basePath = '/past-papers',
+  ariaLabel = 'Filter by subject',
+}: SubjectFilterTabsProps) {
   return (
     <nav
-      aria-label="Filter past papers by subject"
+      aria-label={ariaLabel}
       style={{
         display: 'flex',
         overflowX: 'auto',
@@ -23,12 +30,12 @@ export function SubjectFilterTabs({ subjects, activeId }: SubjectFilterTabsProps
       }}
     >
       <Link
-        href="/past-papers"
+        href={basePath}
         scroll={false}
         aria-current={activeId === null ? 'page' : undefined}
         className={`btn ${activeId === null ? 'btn-primary' : 'btn-ghost'}`}
         style={{
-          position: 'relative', // Contain the absolutely positioned screen-reader status inside this scrollable tab.
+          position: 'relative',
           background: activeId === null ? 'var(--accent-strong)' : undefined,
           color: activeId === null ? '#fff' : 'var(--text-secondary)',
           textDecoration: 'none',
@@ -48,12 +55,12 @@ export function SubjectFilterTabs({ subjects, activeId }: SubjectFilterTabsProps
         return (
           <Link
             key={s.id}
-            href={`/past-papers?subject=${encodeURIComponent(s.id)}`}
+            href={`${basePath}?subject=${encodeURIComponent(s.id)}`}
             scroll={false}
             aria-current={isActive ? 'page' : undefined}
             className={`btn ${isActive ? 'btn-primary' : 'btn-ghost'}`}
             style={{
-              position: 'relative', // Keep off-screen status text within the horizontal navigation's scroll container.
+              position: 'relative',
               background: isActive ? 'var(--accent-strong)' : undefined,
               color: isActive ? '#fff' : 'var(--text-secondary)',
               textDecoration: 'none',

@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, Trash2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Plus, Trash2, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import { Dialog } from '@/components/ui/dialog'
 import { createClient } from '@/lib/supabase/client'
 import { logPaper, updatePaper, LogPaperInput, QuestionInput } from '@/lib/actions/papers'
@@ -249,6 +249,14 @@ export function LogPaperModal({
     isEditing ? [] : [{ questionNumber: '1', chapterId: null, marksObtained: 0, marksAvailable: '1' }]
   )
   const [questionsLoading, setQuestionsLoading] = useState(isEditing)
+  const [optionsLoading, setOptionsLoading] = useState(false)
+  const [optionsError, setOptionsError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
+  const currentSelectionRef = useRef({ subjectPaperId, paperNumber })
+  useEffect(() => {
+    currentSelectionRef.current = { subjectPaperId, paperNumber }
+  }, [subjectPaperId, paperNumber])
+  const optionsSeqRef = useRef(0)
 
   // Fetch enrolled subjects + route information on mount
   useEffect(() => {
@@ -302,77 +310,117 @@ export function LogPaperModal({
 
   // Fetch chapters, subject_papers, and chapter_papers when subject changes
   useEffect(() => {
-    if (!subjectId) return
-    async function load() {
-      const activeEnrollment = enrollments.find(e => e.subject_id === subjectId)
-      const [chRes, spRes, cpRes, selRes] = await Promise.all([
-        supabase
-          .from('chapters')
-          .select('id, title, component, number, stage')
-          .eq('subject_id', subjectId)
-          .eq('is_active', true)
-          .order('component', { ascending: true, nullsFirst: false })
-          .order('number',    { ascending: true }),
-        supabase
-          .from('subject_papers')
-          .select('id, name, paper_number')
-          .eq('subject_id', subjectId)
-          .order('paper_number', { ascending: true }),
-        supabase
-          .from('chapter_papers')
-          .select('chapter_id, subject_paper_id'),
-        supabase
-          .from('subject_paper_selections')
-          .select('subject_paper_id, paper_number, stage, component_name')
-          .eq('user_subject_id', activeEnrollment?.id ?? ''),
-      ])
+    let isCurrent = true
+    const seq = ++optionsSeqRef.current
 
-      if (chRes.data) setChapters(chRes.data as RawChapter[])
-      if (cpRes.data) setChapterPapers(cpRes.data as RawChapterPaper[])
-
-      const allPapers = (spRes.data ?? []) as RawSubjectPaper[]
-      const userSelections = (selRes.data ?? []) as RawPaperSelection[]
-      const currentSubject = subjects.find(s => s.id === subjectId)
-      const isMVP = currentSubject?.code ? MVP_SUBJECT_CODES.has(currentSubject.code) : false
-
-      let availablePapers: RawSubjectPaper[] = []
-      if (isMVP) {
-        if (userSelections.length > 0) {
-          availablePapers = userSelections.map(sel => {
-            const sp = allPapers.find(p => p.id === sel.subject_paper_id || p.paper_number === sel.paper_number)
-            return {
-              id: sel.subject_paper_id || sp?.id || '',
-              name: sp?.name || sel.component_name || `Paper ${sel.paper_number}`,
-              paper_number: sel.paper_number,
-              stage: (sel.stage || 'as') as 'as' | 'a2',
-            }
-          }).filter(p => {
-            if (activeEnrollment?.current_stage === 'as' && p.stage === 'a2') return false
-            return true
-          })
-        }
+    queueMicrotask(() => {
+      if (!isCurrent) return
+      if (!subjectId) {
+        setOptionsLoading(false)
+        setOptionsError(null)
+        return
       }
+      setOptionsLoading(true)
+      setOptionsError(null)
+      load()
+    })
 
-      setSubjectPapers(availablePapers)
+    async function load() {
+      try {
+        const activeEnrollment = enrollments.find(e => e.subject_id === subjectId)
+        const [chRes, spRes, cpRes, selRes] = await Promise.all([
+          supabase
+            .from('chapters')
+            .select('id, title, component, number, stage')
+            .eq('subject_id', subjectId)
+            .eq('is_active', true)
+            .order('component', { ascending: true, nullsFirst: false })
+            .order('number',    { ascending: true }),
+          supabase
+            .from('subject_papers')
+            .select('id, name, paper_number')
+            .eq('subject_id', subjectId)
+            .order('paper_number', { ascending: true }),
+          supabase
+            .from('chapter_papers')
+            .select('chapter_id, subject_paper_id'),
+          supabase
+            .from('subject_paper_selections')
+            .select('subject_paper_id, paper_number, stage, component_name')
+            .eq('user_subject_id', activeEnrollment?.id ?? ''),
+        ])
 
-      if (isMVP) {
-        if (availablePapers.length > 0) {
-          const selected = isEditing
-            ? matchPaperOption(availablePapers, existingPaper?.subjectPaperId, existingPaper?.paperNumber)
-            : availablePapers[0]
+        if (!isCurrent || seq !== optionsSeqRef.current) return
 
-          if (selected) {
-            setSubjectPaperId(selected.id)
-            setPaperNumber(selected.paper_number)
-            setStage(selected.stage ?? 'as')
+        if (chRes.error || spRes.error || cpRes.error || selRes.error) {
+          setOptionsError('Failed to load paper options. Please retry.')
+          setOptionsLoading(false)
+          return
+        }
+
+        if (chRes.data) setChapters(chRes.data as RawChapter[])
+        if (cpRes.data) setChapterPapers(cpRes.data as RawChapterPaper[])
+
+        const allPapers = (spRes.data ?? []) as RawSubjectPaper[]
+        const userSelections = (selRes.data ?? []) as RawPaperSelection[]
+        const currentSubject = subjects.find(s => s.id === subjectId)
+        const isMVP = currentSubject?.code ? MVP_SUBJECT_CODES.has(currentSubject.code) : false
+
+        let availablePapers: RawSubjectPaper[] = []
+        if (isMVP) {
+          if (userSelections.length > 0) {
+            availablePapers = userSelections.map(sel => {
+              const sp = allPapers.find(p => p.id === sel.subject_paper_id || p.paper_number === sel.paper_number)
+              return {
+                id: sel.subject_paper_id || sp?.id || '',
+                name: sp?.name || sel.component_name || `Paper ${sel.paper_number}`,
+                paper_number: sel.paper_number,
+                stage: (sel.stage || 'as') as 'as' | 'a2',
+              }
+            }).filter(p => {
+              if (activeEnrollment?.current_stage === 'as' && p.stage === 'a2') return false
+              return true
+            })
           }
-        } else {
-          setSubjectPaperId(null)
+        }
+
+        setSubjectPapers(availablePapers)
+
+        if (isMVP) {
+          if (isEditing) {
+            const matched =
+              (existingPaper?.subjectPaperId ? availablePapers.find(p => p.id === existingPaper.subjectPaperId) : undefined) ||
+              (existingPaper?.paperNumber != null ? availablePapers.find(p => p.paper_number === existingPaper.paperNumber) : undefined)
+            if (matched) {
+              setSubjectPaperId(matched.id)
+              setPaperNumber(matched.paper_number)
+              setStage(matched.stage ?? 'as')
+            }
+          } else if (availablePapers.length > 0) {
+            const { subjectPaperId: currentPaperId, paperNumber: currentNum } = currentSelectionRef.current
+            const currentMatch =
+              (currentPaperId ? availablePapers.find(p => p.id === currentPaperId) : undefined) ||
+              (currentNum != null ? availablePapers.find(p => p.paper_number === currentNum) : undefined)
+            const chosen = currentMatch || availablePapers[0]
+            setSubjectPaperId(chosen.id)
+            setPaperNumber(chosen.paper_number)
+            setStage(chosen.stage ?? 'as')
+          } else {
+            setSubjectPaperId(null)
+          }
+        }
+        setOptionsLoading(false)
+      } catch {
+        if (isCurrent && seq === optionsSeqRef.current) {
+          setOptionsError('Failed to load paper options. Please retry.')
+          setOptionsLoading(false)
         }
       }
     }
-    load()
-  }, [subjectId, enrollments, isEditing, existingPaper, subjects, supabase])
+    return () => {
+      isCurrent = false
+    }
+  }, [subjectId, enrollments, isEditing, existingPaper, subjects, supabase, retryCount])
 
   // Current subject check
   const activeSubject = subjects.find(s => s.id === subjectId)
@@ -435,16 +483,23 @@ export function LogPaperModal({
   const totalAvailable = questions.reduce((s, q) => s + (validMaximum(q.marksAvailable) ? Number(q.marksAvailable) : 0), 0)
   const pct = totalAvailable > 0 ? ((totalObtained / totalAvailable) * 100).toFixed(1) : '0'
 
-  const step1Valid = !!(
+  const canProceed = Boolean(
     subjectId &&
     year &&
     attemptedAt &&
     availableSessions.includes(selectedSession) &&
+    !optionsLoading &&
+    !optionsError &&
     (!isMVP || subjectPapers.length > 0)
   )
+  const step1Valid = canProceed
 
   const handleSubmit = async () => {
     setSubmitError('')
+    if (!canProceed) {
+      setSubmitError('Please resolve any errors and wait for options to load before saving.')
+      return
+    }
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i]
       if (!q.questionNumber.trim()) { setSubmitError(`Q${i + 1}: question number is required`); return }
@@ -512,8 +567,36 @@ export function LogPaperModal({
           </div>
         </div>
 
-        {/* Unconfigured MVP Subject Banner */}
-        {isMVP && subjectPapers.length === 0 && (
+        {/* Loading Indicator */}
+        {optionsLoading && (
+          <div role="status" style={{ margin: 'var(--space-4) var(--space-6) 0', padding: 12, borderRadius: 'var(--radius-md)', background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+            <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+            <span>Loading paper options for {activeSubject?.name ?? 'subject'}…</span>
+          </div>
+        )}
+
+        {/* Option Loading Error Banner with Retry */}
+        {!optionsLoading && optionsError && (
+          <div style={{ margin: 'var(--space-4) var(--space-6) 0', padding: 12, borderRadius: 'var(--radius-md)', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <AlertCircle size={18} style={{ color: 'var(--danger)', flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <p style={{ margin: 0, fontWeight: 600, fontSize: '0.875rem', color: 'var(--danger)' }}>
+                  Unable to load paper options
+                </p>
+                <p style={{ margin: '4px 0 0', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+                  {optionsError}
+                </p>
+              </div>
+            </div>
+            <button type="button" className="btn btn-ghost" style={{ flexShrink: 0, fontSize: '0.8125rem', padding: '4px 8px' }} onClick={() => setRetryCount(c => c + 1)}>
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* Genuinely Unconfigured MVP Subject Banner */}
+        {!optionsLoading && !optionsError && isMVP && subjectPapers.length === 0 && (
           <div style={{ margin: 'var(--space-4) var(--space-6) 0', padding: 12, borderRadius: 'var(--radius-md)', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
             <AlertCircle size={18} style={{ color: 'var(--danger)', flexShrink: 0, marginTop: 2 }} />
             <div>

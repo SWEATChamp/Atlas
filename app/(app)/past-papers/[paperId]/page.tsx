@@ -48,8 +48,8 @@ export default async function PaperDetailPage(props: {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', maxWidth: 900, margin: '0 auto' }}>
 
       {/* Back link */}
-      <Link href="/past-papers" className="btn btn-ghost" style={{ alignSelf: 'flex-start', gap: 6 }}>
-        <ArrowLeft size={16} /> Back to Papers
+      <Link href="/logs" className="btn btn-ghost" style={{ alignSelf: 'flex-start', gap: 6 }}>
+        <ArrowLeft size={16} /> Back to Logs
       </Link>
 
       {/* ── Header ────────────────────────────────────────────────────────── */}

@@ -5,15 +5,17 @@ import { Dialog } from '@/components/ui/dialog'
 import { createPracticeSession, updatePracticeSession } from '@/lib/actions/practice-sessions'
 import { eligiblePracticeLoggingChapterIds } from '@/lib/practice-analytics'
 import {
-  blankPracticeDraft, blankPracticeItem, blankProvenance, draftFromPracticeSession, toPracticeWriteInput,
+  blankPracticeDraft, blankPracticeItem, blankProvenance, draftFromPracticeSession, hasSharedProvenance, toPracticeWriteInput,
   practiceChapterGroups,
   type PracticeDraft, type PracticeItemDraft, type ProvenanceDraft,
 } from '@/lib/practice-ui'
 import { PracticeCreateSchema, PracticeUpdateSchema } from '@/lib/validations/practice-sessions'
-import type { PracticeFormSubjectOption, PracticeSessionRead } from '@/types/practice-sessions'
+import type { PracticeChapterContext, PracticeFormSubjectOption, PracticeSessionRead } from '@/types/practice-sessions'
 
 type Props = {
   subjects: PracticeFormSubjectOption[]
+  catalogueLoading?: boolean
+  catalogueError?: string | null
   timeZone: string
   preferredSubjectId?: string | null
   existing?: PracticeSessionRead
@@ -56,7 +58,16 @@ function ProvenanceFields({ value, onChange, subject, stage, prefix }: {
   )
 }
 
-export function LogQuestionsModal({ subjects, timeZone, preferredSubjectId, existing, onClose, onSuccess }: Props) {
+export function LogQuestionsModal({
+  subjects,
+  catalogueLoading = false,
+  catalogueError = null,
+  timeZone,
+  preferredSubjectId,
+  existing,
+  onClose,
+  onSuccess,
+}: Props) {
   const initialSubject = subjects.find(subject => subject.id === (existing?.subject_id ?? preferredSubjectId)) ?? subjects[0]
   const [draft, setDraft] = useState<PracticeDraft>(() => existing ? draftFromPracticeSession(existing) : blankPracticeDraft(initialSubject?.id ?? '', timeZone))
   const [busy, setBusy] = useState(false)
@@ -64,23 +75,77 @@ export function LogQuestionsModal({ subjects, timeZone, preferredSubjectId, exis
   const [showChapterErrors, setShowChapterErrors] = useState(false)
   const errorRef = useRef<HTMLParagraphElement>(null)
   const subject = subjects.find(option => option.id === draft.subjectId)
-  const a2Open = subject?.context.enrollment?.currentStage === 'a2' || subject?.context.enrollment?.currentStage === 'full'
+  const a2Eligible = Boolean(subject && !subject.context.enrollment?.isArchived && subject.context.enrollment?.studyRoute !== 'unconfirmed')
+  const isCurrentlyAS = subject?.context.enrollment?.currentStage === 'as'
+  const isCatalogueBlocked = catalogueLoading || Boolean(catalogueError) || !subject || subjects.length === 0
   const localToday = blankPracticeDraft('', timeZone).sessionDate
   const nextKey = useRef(draft.items.length + 1)
 
   const updateItem = (key: string, change: Partial<PracticeItemDraft>) => setDraft(current => ({
     ...current, items: current.items.map(item => item.key === key ? { ...item, ...change } : item),
   }))
-  const updateParent = (value: ProvenanceDraft) => setDraft(current => ({
-    ...current, provenance: value,
-    items: current.provenance.subjectPaperId === value.subjectPaperId ? current.items :
-      current.items.map(item => item.provenanceMode === 'inherit' ? { ...item, chapterIds: [] } : item),
-  }))
+  const updateParent = (value: ProvenanceDraft) => setDraft(current => {
+    const hadShared = hasSharedProvenance(current.provenance)
+    const hasSharedNow = hasSharedProvenance(value)
+    const paperChanged = current.provenance.subjectPaperId !== value.subjectPaperId
+
+    const updatedItems = current.items.map(item => {
+      let mode = item.provenanceMode
+      // Untouched defaults adapt when shared provenance changes.
+      // Explicit none/override choices and saved provenance must not be overwritten.
+      if (item.isModeUntouched) {
+        if (!hadShared && hasSharedNow && mode === 'none') {
+          mode = 'inherit'
+        } else if (hadShared && !hasSharedNow && mode === 'inherit') {
+          mode = 'none'
+        }
+      }
+
+      let chapterIds = item.chapterIds
+      if (paperChanged && mode === 'inherit') {
+        const allowed = new Set(subject ? eligiblePracticeLoggingChapterIds(subject.context, current.stage, value.subjectPaperId || null) : [])
+        chapterIds = chapterIds.filter(id => allowed.has(id))
+      }
+
+      return { ...item, provenanceMode: mode, chapterIds }
+    })
+
+    return { ...current, provenance: value, items: updatedItems }
+  })
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (busy) return
+
+    if (catalogueLoading) {
+      setError('Updating subject catalogue. Please wait before saving.')
+      requestAnimationFrame(() => errorRef.current?.focus())
+      return
+    }
+
+    if (catalogueError) {
+      setError(catalogueError)
+      requestAnimationFrame(() => errorRef.current?.focus())
+      return
+    }
+
+    if (!subject || subjects.length === 0) {
+      setError('The selected subject is no longer available in your active route.')
+      requestAnimationFrame(() => errorRef.current?.focus())
+      return
+    }
+
     setShowChapterErrors(true)
+
+    // Explicit inherit with an emptied shared source must show actionable validation and block saving.
+    const hasShared = hasSharedProvenance(draft.provenance)
+    const emptyInheritIdx = draft.items.findIndex(item => item.provenanceMode === 'inherit' && !hasShared)
+    if (emptyInheritIdx >= 0) {
+      setError(`Question ${emptyInheritIdx + 1} is set to "Use shared source above", but the shared source details are empty. Enter shared source details above or change this question to "No paper / topical".`)
+      requestAnimationFrame(() => errorRef.current?.focus())
+      return
+    }
+
     const invalidChapterItem = draft.items.findIndex(item => {
       const paperId = item.provenanceMode === 'inherit' ? draft.provenance.subjectPaperId : item.provenanceMode === 'override' ? item.provenance.subjectPaperId : ''
       const allowed = new Set(subject ? eligiblePracticeLoggingChapterIds(subject.context, draft.stage, paperId || null) : [])
@@ -120,16 +185,71 @@ export function LogQuestionsModal({ subjects, timeZone, preferredSubjectId, exis
           <h2 id="practice-dialog-title" className="text-heading-2" style={{ margin: 0 }}>{existing ? 'Edit question practice' : 'Log Questions'}</h2>
           <p id="practice-dialog-description" style={{ color: 'var(--text-muted)', marginBottom: 0 }}>Record one question or a group. Select at least one chapter for each question; paper source details are optional.</p>
         </div>
+        {catalogueLoading && (
+          <div
+            role="status"
+            style={{
+              background: 'var(--bg-subtle)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)',
+              padding: 'var(--space-3)',
+              fontSize: '0.875rem',
+              color: 'var(--text-secondary)',
+            }}
+          >
+            Updating subject catalogue. Form submission is paused until the catalogue is ready.
+          </div>
+        )}
+        {catalogueError && (
+          <div
+            role="alert"
+            style={{
+              background: 'var(--bg-subtle)',
+              border: '1px solid var(--danger)',
+              borderRadius: 'var(--radius-md)',
+              padding: 'var(--space-3)',
+              fontSize: '0.875rem',
+              color: 'var(--danger)',
+            }}
+          >
+            {catalogueError}
+          </div>
+        )}
+        {!catalogueLoading && !catalogueError && (!subject || subjects.length === 0) && (
+          <div
+            role="alert"
+            style={{
+              background: 'var(--bg-subtle)',
+              border: '1px solid var(--danger)',
+              borderRadius: 'var(--radius-md)',
+              padding: 'var(--space-3)',
+              fontSize: '0.875rem',
+              color: 'var(--danger)',
+            }}
+          >
+            The selected subject is no longer available in your active route.
+          </div>
+        )}
         {error && <p ref={errorRef} tabIndex={-1} role="alert" style={{ color: 'var(--danger)', margin: 0 }}>{error}</p>}
         <div className="practice-form-grid">
           <label className="practice-field">Subject
-            <select className="input" required value={draft.subjectId} disabled={!!existing || busy} onChange={event => setDraft(current => ({ ...current, subjectId: event.target.value, stage: 'as', provenance: blankProvenance(), items: current.items.map(item => ({ ...item, chapterIds: [], provenance: blankProvenance() })) }))}>
+            <select className="input" required value={draft.subjectId} disabled={!!existing || busy || catalogueLoading} onChange={event => setDraft(current => ({ ...current, subjectId: event.target.value, stage: 'as', provenance: blankProvenance(), items: current.items.map(item => ({ ...item, chapterIds: [], provenance: blankProvenance() })) }))}>
               {subjects.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
             </select>
           </label>
           <label className="practice-field">Actual stage
-            <select className="input" value={draft.stage} disabled={!!existing || busy} onChange={event => setDraft(current => ({ ...current, stage: event.target.value as 'as' | 'a2', provenance: blankProvenance(), items: current.items.map(item => ({ ...item, chapterIds: [], provenance: blankProvenance() })) }))}>
-              <option value="as">AS</option>{a2Open && <option value="a2">A2</option>}
+            <select className="input" value={draft.stage} disabled={!!existing || busy || catalogueLoading} onChange={event => {
+              const nextStage = event.target.value as 'as' | 'a2'
+              setDraft(current => {
+                const nextItems = current.items.map(item => {
+                  const paperId = item.provenanceMode === 'inherit' ? current.provenance.subjectPaperId : item.provenanceMode === 'override' ? item.provenance.subjectPaperId : ''
+                  const allowed = new Set(subject ? eligiblePracticeLoggingChapterIds(subject.context, nextStage, paperId || null) : [])
+                  return { ...item, chapterIds: item.chapterIds.filter(id => allowed.has(id)) }
+                })
+                return { ...current, stage: nextStage, items: nextItems }
+              })
+            }}>
+              <option value="as">AS</option>{a2Eligible && <option value="a2">A2</option>}
             </select>
           </label>
           <label className="practice-field">Attempt date
@@ -141,6 +261,11 @@ export function LogQuestionsModal({ subjects, timeZone, preferredSubjectId, exis
           <label className="practice-field">Duration in minutes (optional)
             <input className="input" type="number" min={1} max={1440} value={draft.durationMins} onChange={event => setDraft(current => ({ ...current, durationMins: event.target.value }))} />
           </label>
+          {draft.stage === 'a2' && isCurrentlyAS && (
+            <div role="status" style={{ gridColumn: '1 / -1', background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+              <strong>Early A2 preparation history:</strong> This practice is recorded with stage A2 and is excluded from your AS readiness score. It will automatically activate for A2 readiness when you unlock A2 with a matching route.
+            </div>
+          )}
         </div>
         <section className="practice-source-panel" aria-labelledby="practice-shared-source-title">
           <h3 id="practice-shared-source-title" className="text-heading-3" style={{ margin: 0 }}>Paper or worksheet source <span className="practice-optional">Optional</span></h3>
@@ -152,7 +277,23 @@ export function LogQuestionsModal({ subjects, timeZone, preferredSubjectId, exis
             const paperId = item.provenanceMode === 'inherit' ? draft.provenance.subjectPaperId : item.provenanceMode === 'override' ? item.provenance.subjectPaperId : ''
             const allowed = new Set(subject ? eligiblePracticeLoggingChapterIds(subject.context, draft.stage, paperId || null) : [])
             const recordedChapterIds = existing?.items.find(recorded => recorded.id === item.key)?.chapter_ids ?? []
-            const chapters = subject?.context.chapters.filter(chapter => allowed.has(chapter.id) || item.chapterIds.includes(chapter.id) || recordedChapterIds.includes(chapter.id)) ?? []
+            const existingChapterMap = new Map((subject?.context.chapters ?? []).map(ch => [ch.id, ch]))
+            const allSelectedChapterIds = Array.from(new Set([...item.chapterIds, ...recordedChapterIds]))
+            const missingChapters: PracticeChapterContext[] = allSelectedChapterIds
+              .filter(id => !existingChapterMap.has(id))
+              .map(id => ({
+                id,
+                subjectId: draft.subjectId,
+                title: `Chapter (${id.slice(0, 8)})`,
+                stage: draft.stage,
+                component: 'Removed / Ineligible',
+                isActive: false,
+                paperIds: [],
+              }))
+            const chapters = [
+              ...(subject?.context.chapters.filter(chapter => allowed.has(chapter.id) || item.chapterIds.includes(chapter.id) || recordedChapterIds.includes(chapter.id)) ?? []),
+              ...missingChapters,
+            ]
             const groups = subject ? practiceChapterGroups(chapters, subject.context) : []
             const invalidChapters = item.chapterIds.length === 0 || item.chapterIds.some(id => !allowed.has(id))
             return <fieldset key={item.key} className="card" style={{ border: '1px solid var(--border-subtle)', padding: 'var(--space-4)', minWidth: 0, display: 'grid', gap: 'var(--space-3)' }}>
@@ -170,17 +311,43 @@ export function LogQuestionsModal({ subjects, timeZone, preferredSubjectId, exis
               </div>
               <div className="practice-source-panel">
                 <label className="practice-field">Where is this question from? (optional)
-                  <select className="input" value={item.provenanceMode} onChange={event => updateItem(item.key, { provenanceMode: event.target.value as PracticeItemDraft['provenanceMode'], chapterIds: [] })}>
+                  <select className="input" value={item.provenanceMode} onChange={event => {
+                    const nextMode = event.target.value as PracticeItemDraft['provenanceMode']
+                    const effectivePaperId = nextMode === 'inherit' ? draft.provenance.subjectPaperId : nextMode === 'override' ? item.provenance.subjectPaperId : ''
+                    const allowedForMode = new Set(subject ? eligiblePracticeLoggingChapterIds(subject.context, draft.stage, effectivePaperId || null) : [])
+                    updateItem(item.key, {
+                      provenanceMode: nextMode,
+                      isModeUntouched: false,
+                      chapterIds: item.chapterIds.filter(id => allowedForMode.has(id)),
+                    })
+                  }}>
                     <option value="none">No paper / topical or worksheet</option>
-                    <option value="inherit">Use shared source above</option>
+                    <option value="inherit" disabled={!hasSharedProvenance(draft.provenance) && item.provenanceMode !== 'inherit'}>
+                      Use shared source above{!hasSharedProvenance(draft.provenance) ? ' (shared source is empty)' : ''}
+                    </option>
                     <option value="override">Different source for this question</option>
                   </select>
                 </label>
-              {item.provenanceMode === 'override' && <ProvenanceFields value={item.provenance} onChange={value => updateItem(item.key, { provenance: value, chapterIds: value.subjectPaperId === item.provenance.subjectPaperId ? item.chapterIds : [] })} subject={subject} stage={draft.stage} prefix={`Question ${index + 1}`} />}
+              {item.provenanceMode === 'override' && <ProvenanceFields value={item.provenance} onChange={value => {
+                const paperChanged = value.subjectPaperId !== item.provenance.subjectPaperId
+                const allowedForNewPaper = new Set(subject ? eligiblePracticeLoggingChapterIds(subject.context, draft.stage, value.subjectPaperId || null) : [])
+                updateItem(item.key, {
+                  provenance: value,
+                  isModeUntouched: false,
+                  chapterIds: paperChanged ? item.chapterIds.filter(id => allowedForNewPaper.has(id)) : item.chapterIds,
+                })
+              }} subject={subject} stage={draft.stage} prefix={`Question ${index + 1}`} />}
               {item.provenanceMode === 'none' && <label className="practice-field">Source label (optional)
-                <input className="input" maxLength={120} value={item.provenance.sourceLabel} placeholder="e.g. topical worksheet" onChange={event => updateItem(item.key, { provenance: { ...item.provenance, sourceLabel: event.target.value } })} />
+                <input className="input" maxLength={120} value={item.provenance.sourceLabel} placeholder="e.g. topical worksheet" onChange={event => updateItem(item.key, { isModeUntouched: false, provenance: { ...item.provenance, sourceLabel: event.target.value } })} />
               </label>}
-              {item.provenanceMode === 'inherit' && <p style={{ color: 'var(--text-muted)', margin: 0 }}>Uses the shared source above{draft.provenance.subjectPaperId ? ` · Paper ${subject?.context.papers.find(paper => paper.id === draft.provenance.subjectPaperId)?.paperNumber ?? ''}` : ''}{draft.provenance.sourceLabel ? ` · ${draft.provenance.sourceLabel}` : ''}. Add at least one shared detail.</p>}
+              {item.provenanceMode === 'inherit' && hasSharedProvenance(draft.provenance) && (
+                <p style={{ color: 'var(--text-muted)', margin: 0 }}>Uses the shared source above{draft.provenance.subjectPaperId ? ` · Paper ${subject?.context.papers.find(paper => paper.id === draft.provenance.subjectPaperId)?.paperNumber ?? ''}` : ''}{draft.provenance.sourceLabel ? ` · ${draft.provenance.sourceLabel}` : ''}. Add at least one shared detail.</p>
+              )}
+              {item.provenanceMode === 'inherit' && !hasSharedProvenance(draft.provenance) && (
+                <p role="alert" style={{ color: 'var(--danger)', margin: '4px 0 0', fontSize: '0.8125rem' }}>
+                  Shared source details are empty. Add shared details above, or change this question to “No paper / topical”.
+                </p>
+              )}
               {paperId && !subject?.context.selections.some(selection => selection.subjectPaperId === paperId && selection.stage === draft.stage) && <p style={{ color: 'var(--text-muted)', margin: 0 }}>This paper is outside your selected {draft.stage.toUpperCase()} route. The question stays in your history but does not contribute to current-route readiness.</p>}
               </div>
               <fieldset className="practice-chapter-panel" aria-describedby={`chapters-help-${item.key}${showChapterErrors && invalidChapters ? ` chapters-error-${item.key}` : ''}`} aria-invalid={showChapterErrors && invalidChapters}>
@@ -204,14 +371,14 @@ export function LogQuestionsModal({ subjects, timeZone, preferredSubjectId, exis
               {draft.items.length > 1 && <button className="btn btn-ghost" type="button" onClick={() => setDraft(current => ({ ...current, items: current.items.filter(other => other.key !== item.key) }))}>Remove question {index + 1}</button>}
             </fieldset>
           })}
-          <button className="btn btn-ghost" type="button" disabled={draft.items.length >= 200} onClick={() => { const key = `item-${nextKey.current++}`; setDraft(current => ({ ...current, items: [...current.items, blankPracticeItem(key)] })) }}>+ Add question</button>
+          <button className="btn btn-ghost" type="button" disabled={draft.items.length >= 200} onClick={() => { const key = `item-${nextKey.current++}`; setDraft(current => ({ ...current, items: [...current.items, blankPracticeItem(key, current.provenance)] })) }}>+ Add question</button>
         </div>
         <label className="practice-field">Session notes (optional)
           <textarea className="input practice-textarea" maxLength={2000} value={draft.notes} onChange={event => setDraft(current => ({ ...current, notes: event.target.value }))} />
         </label>
         <div className="practice-modal-actions">
           <button className="btn btn-ghost" type="button" disabled={busy} onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" type="submit" disabled={busy || !subject}>{busy ? 'Saving…' : existing ? 'Save changes' : 'Log questions'}</button>
+          <button className="btn btn-primary" type="submit" disabled={busy || isCatalogueBlocked}>{busy ? 'Saving…' : existing ? 'Save changes' : 'Log questions'}</button>
         </div>
       </form>
     </Dialog>

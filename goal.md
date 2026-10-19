@@ -206,6 +206,15 @@ For readiness and accuracy analytics:
 - Keep “Papers logged,” full-paper best score, and full-paper average distinct from question-session counts and question-practice accuracy.
 - Do not award paper-count, paper-grade, or best-paper achievements from standalone question practice.
 - Do not change XP or streak behaviour for question practice in the first release unless those effects are separately designed and approved.
+- Decouple primary navigation into Dashboard, Subjects, Stats, and Logs; configure `/past-papers` to redirect (HTTP 307 via `RedirectType.replace`) to `/logs` preserving all query parameters (including repeated keys), and update `/past-papers/[paperId]` back-links to `/logs`.
+- Separate Stats and Logs data workspaces: `/stats` serves graphs, component rankings, and dual indicators without awaiting practice catalogues; `/logs` serves logging modals and paginated attempt history with parallel independent failure handling.
+- Surface dual study indicators on `/stats`:
+  - **Predicted Exam Mark:** Mark-weighted assessment percentage strictly per subject and stage, accompanied by factual evidence volume disclosure (`X/Y eligible marks · N full paper(s), M question(s)`) and an explicit non-official `Estimate` label without invented High/Moderate/Limited categorization.
+  - **Readiness Score:** Canonical syllabus readiness evaluating 35% notes completion, 40% paper and practice accuracy, and 25% confidence level, with locked A2 readiness isolated as null.
+- Support Early A2 Question Practice: Confirmed staged AS learners can record valid A2 question practice (stored directly with `stage='a2'`) as preparation history. Early A2 practice is excluded from active AS readiness, excluded from overall readiness while in AS, and activates automatically for A2 readiness upon A2 unlock. Canonical 032 readiness is preserved byte-for-byte without alteration.
+- Add URL-driven pagination on `/logs` with `page` query parameter and page-scoped evidence disclosure instead of mislabeling page subsets as lifetime totals; keep analytical summary metrics on `/stats`.
+- Resolve UI usability defects: convert `SubjectNavigationStatus` to a zero-whitespace absolute badge preventing mobile overflow; eliminate `LogPaperModal` false route flashes, preserve valid paper selections across option reloads, and distinguish route loading versus error states with retry.
+- Implement untouched, explicit, and saved provenance lifecycle in `LogQuestionsModal`: untouched defaults adapt to shared source changes, explicit none/override choices and saved provenance are never overwritten, explicit inherit with empty shared source blocks saving with actionable validation, and valid chapter selections are preserved when sources change.
 
 **Practice evidence and isolation rules:**
 

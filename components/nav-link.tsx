@@ -2,12 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, BookOpen, FileText, type LucideIcon } from 'lucide-react'
+import { LayoutDashboard, BookOpen, FileText, TrendingUp, type LucideIcon } from 'lucide-react'
 
 // Icons live here in the client component — never passed as props from the server
 const ICON_MAP: Record<string, LucideIcon> = {
   '/dashboard': LayoutDashboard,
   '/subjects':  BookOpen,
+  '/stats':     TrendingUp,
+  '/logs':      FileText,
   '/past-papers': FileText,
 }
 

@@ -402,3 +402,33 @@ Authored in `supabase/migrations/20260926000029_least_privilege_grant_remediatio
 - The readiness definition changes only the practice-item chapter predicate. The current-route chapter helper, full-paper branch, notes/confidence denominator, 35/40/25 weights, table grants, RLS and public RPC signatures are unchanged. Both new helpers deny direct PUBLIC/anonymous/authenticated/service-role execution.
 - Migration 032 has been compiled and tested only in disposable network-disabled PostgreSQL 17.11: unchanged 031 baseline 201/201 assertions, true 031→032 historical-data upgrade 9/9, updated foundation 201/201, and current 032 contract 90/90. Upgrade tests normalize only the renamed practice predicate and compare the remaining readiness/helper/CRUD definitions byte-for-byte; real 031-RPC unmapped history and readiness are preserved. The new migration is locally committed, not pushed or applied to hosted Preview or Production. See `supabase/tests/README.md` for baseline fixtures and current-suite execution.
 - Readiness adds eligible question-item marks to full-paper parent totals once each, using actual recorded stage and the student's **current** route. Off-route or inaccessible items remain in lifetime history but do not contribute current-route marks. Full-paper child questions contribute only to chapter analytics, not readiness totals.
+
+---
+
+## Milestone 4 A2 Practice Logging & Study Indicators (Migration 033) — Local Stage 2 Verification
+
+Authored in `supabase/migrations/20261017000033_a2_practice_logging_and_indicators.sql`. Rollback-only database tests are defined in `supabase/tests/database/a2_practice_logging.test.sql` (24 assertions), `supabase/tests/database/as_a2_readiness.test.sql` (27 assertions), and `supabase/tests/fixtures/practice_032_to_033_upgrade.fixture` (14 assertions). Status: **Local uncommitted implementation and tests; verified locally in isolated disposable PostgreSQL; not applied to hosted Supabase**.
+
+### Schema & Function Updates
+
+1. **`m4_logging_stage_open(public.user_subjects, TEXT)`**:
+   - Private helper decoupling practice logging stage access from assessment readiness.
+   - Permits confirmed, non-archived AS learners (`study_route != 'unconfirmed'`) to record valid practice sessions in both `'as'` and `'a2'` stages.
+   - A2 practice logged while in AS stage is preserved as preparation history, but strictly isolated from AS readiness calculations until A2 is unlocked.
+
+2. **`m4_logging_chapter_eligible(public.user_subjects, TEXT, UUID, UUID)`**:
+   - Refines logging chapter eligibility across all three provenance branches:
+     - **Branch 1 (Source-free)**: Matching-stage or shared chapters, plus existing selected route-dependent chapters. Strictly denies science practical cross-stage exemptions without an effective paper source.
+     - **Branch 2 (Selected paper on route)**: Enforces both chapter-stage compatibility and paper compatibility, allowing science practical cross-stage exemptions (e.g. 9702/9701 Paper 5 AS chapters in A2).
+     - **Branch 3 (Off-route paper)**: Enforces paper stage-behavior (`fixed_as`, `fixed_a2`, or `default_stage`), chapter-stage compatibility, and paper compatibility.
+   - Denies direct client and service execution (`REVOKE ALL FROM PUBLIC, anon, authenticated, service_role`).
+
+3. **`resolve_practice_payload`**:
+   - Replaced enrollment check with `m4_logging_stage_open(v_us, p_stage)`, allowing early A2 question practice while enforcing 1–200 valid chapter mappings per item via `m4_logging_chapter_eligible`.
+
+4. **Canonical 032 Readiness Preserved**:
+   - Canonical Migration 032 `compute_readiness_score` is preserved byte-for-byte without alteration. Migration 032 readiness already filters practice items via `m4_stage_open(us, ps.stage)` and `m4_assessment_chapter_eligible(us, ps.stage, ...)`, naturally isolating early A2 preparation practice while in AS stage and automatically incorporating it into A2 readiness upon transition.
+
+5. **Permissions & Least Privilege**:
+   - No unnecessary table or helper grants are added. Specifically, elevated-privilege helpers `get_user_local_date(UUID)` and `get_user_timezone(UUID)` are not granted to `authenticated` because they lack caller-ownership checks (`WHERE user_id = auth.uid()`).
+   - Private helpers `m4_logging_stage_open`, `m4_logging_chapter_eligible`, and `resolve_practice_payload` have all direct execution privileges revoked from `PUBLIC`, `anon`, `authenticated`, and `service_role`.

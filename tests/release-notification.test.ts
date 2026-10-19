@@ -7,6 +7,30 @@ import {
   STORAGE_KEY_LAST_SEEN_RELEASE,
 } from '@/lib/release-state'
 
+const store = new Map<string, string>()
+const mockLocalStorage: Storage = {
+  getItem: (key: string) => store.get(key) ?? null,
+  setItem: (key: string, value: string) => {
+    store.set(key, String(value))
+  },
+  removeItem: (key: string) => {
+    store.delete(key)
+  },
+  clear: () => {
+    store.clear()
+  },
+  key: (index: number) => Array.from(store.keys())[index] ?? null,
+  get length() {
+    return store.size
+  },
+}
+
+Object.defineProperty(window, 'localStorage', {
+  value: mockLocalStorage,
+  configurable: true,
+  writable: true,
+})
+
 describe('Release Notification State', () => {
   beforeEach(() => {
     resetInMemoryReleaseState()

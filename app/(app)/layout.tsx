@@ -9,9 +9,10 @@ import MotionProvider from '@/components/motion-provider'
 import { CURRENT_RELEASE } from '@/lib/version'
 
 const NAV_ITEMS = [
-  { href: '/dashboard',   label: 'Dashboard'   },
-  { href: '/subjects',    label: 'Subjects'    },
-  { href: '/past-papers', label: 'Past Papers' },
+  { href: '/dashboard', label: 'Dashboard' },
+  { href: '/subjects',  label: 'Subjects'  },
+  { href: '/stats',     label: 'Stats'     },
+  { href: '/logs',      label: 'Logs'      },
 ]
 
 /**
