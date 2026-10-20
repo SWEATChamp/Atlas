@@ -12,7 +12,7 @@ import type {
   ChapterAccuracy,
 } from '@/types'
 
-export async function getAllPapersWithSubjects(): Promise<PaperWithSubject[]> {
+export const getAllPapersWithSubjects = cache(async (): Promise<PaperWithSubject[]> => {
   const { supabase, user } = await getAuthenticatedContext()
   if (!user) return []
 
@@ -27,9 +27,9 @@ export async function getAllPapersWithSubjects(): Promise<PaperWithSubject[]> {
 
   if (error) return []
   return data as unknown as PaperWithSubject[]
-}
+})
 
-export async function getPapersForSubject(subjectId: string): Promise<PaperWithSubject[]> {
+export const getPapersForSubject = cache(async (subjectId: string): Promise<PaperWithSubject[]> => {
   const { supabase, user } = await getAuthenticatedContext()
   if (!user) return []
 
@@ -45,7 +45,7 @@ export async function getPapersForSubject(subjectId: string): Promise<PaperWithS
 
   if (error) return []
   return data as unknown as PaperWithSubject[]
-}
+})
 
 export const getPaperDetail = cache(async (paperId: string): Promise<PaperWithQuestions | null> => {
   const { supabase, user } = await getAuthenticatedContext()

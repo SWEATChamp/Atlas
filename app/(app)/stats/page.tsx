@@ -1,40 +1,30 @@
+import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { getAuthenticatedContext } from '@/lib/supabase/authenticated'
 import { getAllPapersWithSubjects, getPapersForSubject } from '@/lib/actions/papers'
-import { getCombinedChapterEvidenceForSubject, getPracticeOverview } from '@/lib/actions/practice-sessions'
+import { getPracticeOverview } from '@/lib/actions/practice-sessions'
 import {
   basePaperNumber,
   bestFullPaper,
   comparableComponentAnalytics,
-  computePredictedExamMark,
   fullPaperCount,
   markWeightedPaperAverage,
   rankComponentEvidence,
 } from '@/lib/practice-analytics'
 import { PracticeTrend } from '@/components/papers/practice-workspace'
 import { SubjectFilterTabs } from '@/components/papers/subject-filter-tabs'
-import { LazyChapterAccuracyChart } from '@/components/papers/paper-charts'
-import { StudyIndicators, type IndicatorItem } from '@/components/papers/study-indicators'
-import type { ChapterAccuracy } from '@/types'
-import type { PaperStage } from '@/types/database'
-import type { PracticeRouteContext } from '@/types/practice-sessions'
+import {
+  AsyncChapterAccuracySection,
+  ChapterAccuracySkeleton,
+} from '@/components/papers/async-chapter-accuracy'
+import {
+  AsyncStudyIndicators,
+  StudyIndicatorsSkeleton,
+  type RawEnrollment,
+} from '@/components/papers/async-study-indicators'
 
 export const metadata: Metadata = {
   title: 'Stats & Analytics',
-}
-
-interface RawEnrollment {
-  id: string
-  subject_id: string
-  current_stage: string
-  study_route: string
-  is_archived: boolean
-  subjects: {
-    id: string
-    name: string
-    code?: string | null
-    color_hex?: string | null
-  } | null
 }
 
 export default async function StatsPage(props: {
@@ -51,7 +41,7 @@ export default async function StatsPage(props: {
   const activeSubjectId = sp.subject || null
 
   const papersPromise = activeSubjectId ? getPapersForSubject(activeSubjectId) : getAllPapersWithSubjects()
-  const [userSubjectsData, papers, practice, chapterEvidence] = await Promise.all([
+  const [userSubjectsData, papers, practice] = await Promise.all([
     supabase
       .from('user_subjects')
       .select('id, subject_id, current_stage, study_route, is_archived, subjects(id, name, code, color_hex)')
@@ -59,7 +49,6 @@ export default async function StatsPage(props: {
       .eq('is_archived', false),
     papersPromise,
     getPracticeOverview(activeSubjectId ?? undefined),
-    activeSubjectId ? getCombinedChapterEvidenceForSubject(activeSubjectId) : Promise.resolve([]),
   ])
 
   const enrollments = (userSubjectsData.data || []) as unknown as RawEnrollment[]
@@ -70,29 +59,6 @@ export default async function StatsPage(props: {
 
   const activeEnrollment = enrollments.find(e => e.subject_id === activeSubjectId)
   const activeSubject = subjects.find(s => s.id === activeSubjectId)
-
-  // Load chapter titles directly without calling getPracticeFormCatalogue()
-  const chapterIds = chapterEvidence.map(row => row.chapterId)
-  let chapterTitles = new Map<string, { title: string; component: string | null }>()
-  if (chapterIds.length > 0) {
-    const { data: chaptersData } = await supabase
-      .from('chapters')
-      .select('id, title, component')
-      .in('id', chapterIds)
-    if (chaptersData) {
-      chapterTitles = new Map(chaptersData.map(ch => [ch.id, { title: ch.title ?? 'Chapter', component: ch.component }]))
-    }
-  }
-
-  const chapterAccuracy: ChapterAccuracy[] = chapterEvidence.map(row => ({
-    chapter_id: row.chapterId,
-    title: chapterTitles.get(row.chapterId)?.title ?? 'Chapter',
-    component: chapterTitles.get(row.chapterId)?.component ?? null,
-    total_obtained: row.raw,
-    total_available: row.max,
-    accuracy_pct: row.accuracyPct,
-    attempt_count: row.attempts,
-  }))
 
   const avgScore = markWeightedPaperAverage(papers)
   const best = bestFullPaper(papers)
@@ -110,99 +76,7 @@ export default async function StatsPage(props: {
     { label: 'Best full paper', value: best ? `${Number(best.accuracy_pct).toFixed(1)}%` : '—' },
   ]
 
-  // Compute Dual Study Indicators for target subjects, exposing separately inspectable AS and A2 stages
   const targetEnrollments = activeEnrollment ? [activeEnrollment] : enrollments
-  const indicatorItems: IndicatorItem[] = (
-    await Promise.all(
-      targetEnrollments.map(async enrollment => {
-        if (enrollment.study_route === 'unconfirmed') return []
-        const sId = enrollment.subject_id
-        const sName = enrollment.subjects?.name ?? 'Subject'
-        const sCode = enrollment.subjects?.code ?? undefined
-        const route = enrollment.study_route
-
-        // Fetch route context for this subject
-        const [chData, spData, selData] = await Promise.all([
-          supabase.from('chapters').select('id, subject_id, stage, component, is_active').eq('subject_id', sId).eq('is_active', true),
-          supabase.from('subject_papers').select('id, subject_id, paper_number, stage_behavior, default_stage').eq('subject_id', sId),
-          supabase.from('subject_paper_selections').select('subject_paper_id, component_name, stage').eq('user_subject_id', enrollment.id),
-        ])
-
-        const context: PracticeRouteContext = {
-          enrollment: {
-            id: enrollment.id,
-            subjectId: sId,
-            subjectCode: sCode ?? '',
-            currentStage: enrollment.current_stage as 'as' | 'a2' | 'full',
-            studyRoute: enrollment.study_route as 'as_only' | 'full_level' | 'staged' | 'unconfirmed',
-            isArchived: enrollment.is_archived,
-          },
-          chapters: (chData.data ?? []).map(ch => ({
-            id: ch.id,
-            subjectId: ch.subject_id,
-            stage: ch.stage,
-            component: ch.component,
-            isActive: ch.is_active,
-            paperIds: [],
-          })),
-          papers: (spData.data ?? []).map(sp => ({
-            id: sp.id,
-            subjectId: sp.subject_id,
-            paperNumber: sp.paper_number,
-            stageBehavior: sp.stage_behavior,
-            defaultStage: sp.default_stage,
-          })),
-          selections: (selData.data ?? []).map(sel => ({
-            subjectPaperId: sel.subject_paper_id,
-            componentName: sel.component_name,
-            stage: sel.stage,
-          })),
-        }
-
-        const stages: PaperStage[] = route === 'as_only' ? ['as'] : ['as', 'a2']
-
-        const itemsForEnrollment = await Promise.all(
-          stages.map(async stage => {
-            const isCurrent =
-              enrollment.current_stage === 'full'
-                ? true
-                : enrollment.current_stage === stage
-            const isLockedA2 = stage === 'a2' && enrollment.current_stage === 'as'
-
-            const predicted = computePredictedExamMark(sId, stage, papers, practice.sessions, context)
-
-            const hasRecordedHistory =
-              practice.sessions.some(s => s.subject_id === sId && s.stage === stage) ||
-              papers.some(p => p.subject_id === sId && p.stage === stage)
-
-            let readinessScore: number | null = null
-            if (!isLockedA2) {
-              const rpcRes = await supabase.rpc('compute_readiness_score', {
-                p_user_id: user.id,
-                p_subject_id: sId,
-                p_stage: stage,
-              })
-              readinessScore = typeof rpcRes.data === 'number' ? rpcRes.data : null
-            }
-
-            return {
-              subjectId: sId,
-              subjectName: sName,
-              subjectCode: sCode,
-              stage,
-              isCurrentStage: isCurrent,
-              isLockedA2,
-              predicted,
-              readinessScore,
-              hasRecordedHistory,
-            }
-          })
-        )
-
-        return itemsForEnrollment
-      })
-    )
-  ).flat()
 
   const trendSubjects = [
     ...new Map(
@@ -228,11 +102,24 @@ export default async function StatsPage(props: {
       {/* Subject Filter Tabs */}
       <SubjectFilterTabs subjects={subjects} activeId={activeSubjectId} basePath="/stats" ariaLabel="Filter stats by subject" />
 
-      {/* Study Indicators */}
-      <StudyIndicators indicators={indicatorItems} activeSubjectName={activeSubject?.name} />
-
-      {/* Score Trend */}
+      {/* 1. Score-trend graph */}
       <PracticeTrend points={practice.trend} subjects={trendSubjects} preferredSubjectId={activeSubjectId} />
+
+      {/* 2. Chapter & Topic Accuracy */}
+      <Suspense fallback={<ChapterAccuracySkeleton />}>
+        <AsyncChapterAccuracySection activeSubjectId={activeSubjectId} />
+      </Suspense>
+
+      {/* 3. Remaining numeric content: Study Indicators, Summary Stats Grid, Component Breakdown */}
+      <Suspense fallback={<StudyIndicatorsSkeleton activeSubjectName={activeSubject?.name} />}>
+        <AsyncStudyIndicators
+          userId={user.id}
+          targetEnrollments={targetEnrollments}
+          papers={papers}
+          practiceSessions={practice.sessions}
+          activeSubjectName={activeSubject?.name}
+        />
+      </Suspense>
 
       {/* Full-Paper Metrics Summary Grid */}
       <div className="past-papers-stats-grid">
@@ -243,13 +130,6 @@ export default async function StatsPage(props: {
           </div>
         ))}
       </div>
-
-      {/* Chapter Accuracy / Weak Topics Breakdown */}
-      {activeSubjectId && (
-        <section aria-labelledby="chapter-accuracy-title">
-          <LazyChapterAccuracyChart data={chapterAccuracy} />
-        </section>
-      )}
 
       {/* Component Breakdown */}
       {componentStats.length > 0 && (

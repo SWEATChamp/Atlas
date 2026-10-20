@@ -42,7 +42,7 @@ export interface LogsWorkspaceProps {
   currentPage?: number
   pageSize?: number
   subjects?: PracticeFormSubjectOption[]
-  cataloguePromise?: Promise<PracticeFormSubjectOption[] | null>
+  cataloguePromise?: Promise<PracticeFormSubjectOption[] | null> | PromiseLike<PracticeFormSubjectOption[] | null>
   userSubjects?: { id: string; name: string }[]
   preferredSubjectId: string | null
   timeZone: string
@@ -107,7 +107,9 @@ export function LogsWorkspace({
     const currentRequestId = ++activeRequestIdRef.current
     let active = true
 
-    cataloguePromise
+    new Promise<PracticeFormSubjectOption[] | null>((resolve, reject) => {
+      cataloguePromise.then(resolve, reject)
+    })
       .then(res => {
         // Ignore if component unmounted or request superseded
         if (!active || currentRequestId !== activeRequestIdRef.current) return

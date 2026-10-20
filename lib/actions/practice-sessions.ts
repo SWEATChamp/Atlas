@@ -117,6 +117,12 @@ const routeContext = cache(async (supabase: Awaited<ReturnType<typeof getAuthent
   }
 })
 
+export async function getPracticeRouteContext(subjectId: string): Promise<PracticeRouteContext | null> {
+  const { supabase, user } = await getAuthenticatedContext()
+  if (!user) return null
+  return routeContext(supabase, user.id, subjectId)
+}
+
 function decorate(row: SessionWithItems, context: PracticeRouteContext): PracticeSessionRead {
   const { practice_session_items: children, ...session } = row
   return withPracticeEligibility({ ...session, items: children.map(({ practice_session_chapters: links, ...item }) => ({

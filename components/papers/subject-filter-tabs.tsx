@@ -29,9 +29,11 @@ export function SubjectFilterTabs({
         paddingBottom: 'var(--space-2)',
       }}
     >
+      {/* Use App Router default prefetch={null} to prefetch only down to loading.js on viewport entry, avoiding full dynamic server component burst requests across all subjects */}
       <Link
         href={basePath}
         scroll={false}
+        prefetch={null}
         aria-current={activeId === null ? 'page' : undefined}
         className={`btn ${activeId === null ? 'btn-primary' : 'btn-ghost'}`}
         style={{
@@ -57,6 +59,7 @@ export function SubjectFilterTabs({
             key={s.id}
             href={`${basePath}?subject=${encodeURIComponent(s.id)}`}
             scroll={false}
+            prefetch={null}
             aria-current={isActive ? 'page' : undefined}
             className={`btn ${isActive ? 'btn-primary' : 'btn-ghost'}`}
             style={{

@@ -7,8 +7,9 @@ const navigation = vi.hoisted(() => ({ pendingHref: '' }))
 // Model only Next's per-Link pending context; actual navigation remains Next Link.
 const Pending = createContext(false)
 vi.mock('next/link', () => ({
-  default: ({ href, children, scroll, ...props }: AnchorHTMLAttributes<HTMLAnchorElement> & { children: ReactNode; scroll?: boolean }) => {
+  default: ({ href, children, scroll, prefetch, ...props }: AnchorHTMLAttributes<HTMLAnchorElement> & { children: ReactNode; scroll?: boolean; prefetch?: boolean | null }) => {
     void scroll
+    void prefetch
     return <Pending.Provider value={navigation.pendingHref === href}><a href={href} {...props}>{children}</a></Pending.Provider>
   },
   useLinkStatus: () => ({ pending: useContext(Pending) }),

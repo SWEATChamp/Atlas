@@ -1075,4 +1075,61 @@ describe('Logs page and workspace layout', () => {
       expect(updateSessionMock).toHaveBeenCalledTimes(1)
     })
   })
+
+  it('safely consumes streamed RSC thenables returning undefined without throwing Cannot read properties of undefined (reading catch)', async () => {
+    let fulfillStreamed!: (val: PracticeFormSubjectOption[]) => void
+    const streamedThenable: PromiseLike<PracticeFormSubjectOption[]> = {
+      then(onFulfill) {
+        fulfillStreamed = (val: PracticeFormSubjectOption[]) => onFulfill?.(val)
+        // Simulated React RSC Flight streamed thenable does NOT return a chainable promise
+        return undefined as unknown as PromiseLike<never>
+      },
+    }
+
+    render(
+      <LogsWorkspace
+        sessions={[sampleSession]}
+        subjects={subjects}
+        cataloguePromise={streamedThenable}
+        preferredSubjectId={null}
+        timeZone="UTC"
+      />
+    )
+
+    // Verify it doesn't throw and loads properly when fulfilled
+    await act(async () => {
+      fulfillStreamed(subjects)
+    })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Question practice' }))
+    expect(screen.getByRole('button', { name: '+ Log Questions' })).toBeTruthy()
+  })
+
+  it('safely handles rejections from streamed RSC thenables returning undefined', async () => {
+    let rejectStreamed!: (err: unknown) => void
+    const streamedThenable: PromiseLike<PracticeFormSubjectOption[]> = {
+      then(_onFulfill, onReject) {
+        rejectStreamed = (err: unknown) => onReject?.(err)
+        return undefined as unknown as PromiseLike<never>
+      },
+    }
+
+    render(
+      <LogsWorkspace
+        sessions={[sampleSession]}
+        subjects={subjects}
+        cataloguePromise={streamedThenable}
+        preferredSubjectId={null}
+        timeZone="UTC"
+      />
+    )
+
+    await act(async () => {
+      rejectStreamed(new Error('Network error'))
+    })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Question practice' }))
+    expect(screen.getByRole('alert').textContent).toContain('Could not load practice subjects. Please refresh to retry.')
+    expect(screen.getByRole('button', { name: '+ Log Questions' })).toHaveProperty('disabled', true)
+  })
 })
