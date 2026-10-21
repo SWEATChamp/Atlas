@@ -12,7 +12,7 @@ export interface ReleaseInfo {
 export const CURRENT_RELEASE: ReleaseInfo = {
   version: '1.3.0',
   title: 'Question Practice, Stats & Logs',
-  releaseDate: 'Pending Deployment',
+  releaseDate: '2026-10-21',
   changes: [
     'Separate full-paper and standalone question-practice logging with distinct history tracking.',
     'Required multi-chapter mapping per question with optional exam provenance (year, series, paper, variant).',
