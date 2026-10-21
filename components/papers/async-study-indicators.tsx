@@ -20,29 +20,7 @@ export interface RawEnrollment {
   } | null
 }
 
-export function StudyIndicatorsSkeleton({ activeSubjectName }: { activeSubjectName?: string | null }) {
-  return (
-    <section aria-labelledby="study-indicators-title" style={{ display: 'grid', gap: 'var(--space-4)' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-        <h2 id="study-indicators-title" className="text-heading-3" style={{ margin: 0 }}>
-          Study Indicators {activeSubjectName ? `· ${activeSubjectName}` : ''}
-        </h2>
-        <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-          Practice-informed performance &amp; readiness
-        </span>
-      </div>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
-          gap: 'var(--space-4)',
-        }}
-      >
-        <div className="skeleton" role="status" aria-label="Loading study indicators" style={{ height: '180px', borderRadius: 'var(--radius-lg)' }} />
-      </div>
-    </section>
-  )
-}
+export { StudyIndicatorsSkeleton } from './study-indicators'
 
 export async function AsyncStudyIndicators({
   userId,

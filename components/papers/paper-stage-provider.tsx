@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useRef, useTransition } from 'react'
 import type { PaperWithSubject } from '@/types'
 import { assignPaperStage } from '@/lib/actions/papers'
+import { invalidateSessionCache } from '@/lib/session-cache'
 import {
   applyOptimisticPaperStage,
   applyConfirmedPaperStage,
@@ -78,6 +79,8 @@ export function PaperStageProvider({
             )
           )
         } else {
+          const targetPaper = state.papers.find((p) => p.id === paperId) || state.untaggedPapers.find((p) => p.id === paperId)
+          invalidateSessionCache(targetPaper?.subject_id)
           setState((prev) => applyConfirmedPaperStage(prev, paperId, stage))
         }
       } catch (err: unknown) {

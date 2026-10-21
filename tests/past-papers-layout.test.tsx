@@ -1,5 +1,5 @@
 import React, { type ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import PastPapersPage from '@/app/(app)/past-papers/page'
 import LogsPage from '@/app/(app)/logs/page'
@@ -90,13 +90,14 @@ const sampleSession: PracticeSessionRead = {
   route_status: 'current',
 }
 
-const { catalogueMock, historyMock, papersForSubject, mockRedirect, createSessionMock, updateSessionMock } = vi.hoisted(() => ({
+const { catalogueMock, historyMock, papersForSubject, mockRedirect, createSessionMock, updateSessionMock, getLogsSubjectDataMock } = vi.hoisted(() => ({
   catalogueMock: vi.fn(),
   historyMock: vi.fn(),
   papersForSubject: vi.fn(),
   mockRedirect: vi.fn(),
   createSessionMock: vi.fn(),
   updateSessionMock: vi.fn(),
+  getLogsSubjectDataMock: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/authenticated', () => ({
@@ -129,6 +130,7 @@ vi.mock('@/lib/actions/practice-sessions', () => ({
   deletePracticeSession: vi.fn(),
   createPracticeSession: createSessionMock,
   updatePracticeSession: updateSessionMock,
+  getLogsSubjectData: getLogsSubjectDataMock,
 }))
 
 vi.mock('@/components/papers/paper-stage-provider', () => ({
@@ -151,6 +153,19 @@ vi.mock('next/navigation', () => ({
   redirect: mockRedirect,
   RedirectType: { replace: 'replace', push: 'push' },
 }))
+
+beforeEach(() => {
+  getLogsSubjectDataMock.mockImplementation(async (targetSubId: string | null, targetPage: number, pageSize: number) => ({
+    subjectId: targetSubId,
+    page: targetPage,
+    pageSize,
+    sessions: [sampleSession],
+    totalSessions: 1,
+    papers: [],
+    untaggedPapers: [],
+    timestamp: Date.now(),
+  }))
+})
 
 afterEach(() => {
   cleanup()
@@ -980,6 +995,7 @@ describe('Logs page and workspace layout', () => {
 
     await waitFor(() => {
       expect(createSessionMock).toHaveBeenCalledTimes(1)
+      expect(getLogsSubjectDataMock).toHaveBeenCalled()
     })
   })
 
@@ -1073,6 +1089,7 @@ describe('Logs page and workspace layout', () => {
 
     await waitFor(() => {
       expect(updateSessionMock).toHaveBeenCalledTimes(1)
+      expect(getLogsSubjectDataMock).toHaveBeenCalled()
     })
   })
 

@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { BookOpen, Layers, Award } from 'lucide-react'
 import { Dialog } from '@/components/ui/dialog'
 import { configureSubjectRoute } from '@/lib/actions/route'
+import { invalidateSessionCache } from '@/lib/session-cache'
 import PaperSelectionPanel, {
   getSubjectCombinations,
   isElectiveSubject,
@@ -110,6 +111,7 @@ export default function RouteSetupSheet({
       if (res.error) {
         setError(res.error)
       } else {
+        invalidateSessionCache(enrollment.subject_id)
         onClose()
       }
     })

@@ -220,3 +220,17 @@ export function ChapterAccuracyChart({ data }: { data: ChapterAccuracy[] }) {
     </div>
   )
 }
+
+export function ChapterAccuracySkeleton() {
+  return (
+    <section aria-labelledby="chapter-accuracy-title" className="card" style={{ padding: 'var(--space-5)', display: 'grid', gap: 'var(--space-4)' }}>
+      <div>
+        <h2 id="chapter-accuracy-title" className="text-heading-3" style={{ margin: 0 }}>Chapter &amp; Topic Accuracy</h2>
+        <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+          Accuracy breakdown across syllabus chapters based on past papers and question practice
+        </p>
+      </div>
+      <div className="skeleton" role="status" aria-label="Loading chapter accuracy" style={{ height: '260px', borderRadius: 'var(--radius-md)' }} />
+    </section>
+  )
+}

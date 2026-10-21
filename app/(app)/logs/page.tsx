@@ -2,8 +2,7 @@ import type { Metadata } from 'next'
 import { getAuthenticatedContext, getCurrentProfile } from '@/lib/supabase/authenticated'
 import { getAllPapersWithSubjects, getPapersForSubject, getUntaggedPapers } from '@/lib/actions/papers'
 import { getPracticeFormCatalogue, getPracticeHistory } from '@/lib/actions/practice-sessions'
-import { PaperStageProvider, PaperStageTaggerSlot, PaperAttemptsListSlot } from '@/components/papers/paper-stage-provider'
-import { SubjectFilterTabs } from '@/components/papers/subject-filter-tabs'
+import { PaperStageTaggerSlot, PaperAttemptsListSlot } from '@/components/papers/paper-stage-provider'
 import { LogsWorkspace } from '@/components/papers/logs-workspace'
 import type { PracticeFormSubjectOption, PracticeHistoryPage } from '@/types/practice-sessions'
 
@@ -78,59 +77,47 @@ export default async function LogsPage(props: {
   const timeZone = profile?.timezone ?? 'UTC'
 
   return (
-    <PaperStageProvider
-      initialPapers={papers}
-      initialUntaggedPapers={untaggedPapers}
-      timeZone={timeZone}
-      key={activeSubjectId ?? 'all'}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-          <div>
-            <h1 className="text-heading-1" style={{ margin: 0 }}>
-              Practice Logs
-            </h1>
-            <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-              Record paper attempts and question practice sessions
-            </p>
-          </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div>
+          <h1 className="text-heading-1" style={{ margin: 0 }}>
+            Practice Logs
+          </h1>
+          <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+            Record paper attempts and question practice sessions
+          </p>
         </div>
-
-        {/* Subject filter tabs */}
-        <SubjectFilterTabs
-          subjects={subjects}
-          activeId={activeSubjectId}
-          basePath="/logs"
-          ariaLabel="Filter logs by subject"
-        />
-
-        <LogsWorkspace
-          sessions={history.sessions}
-          totalSessions={history.total}
-          currentPage={pageParam}
-          pageSize={pageSize}
-          cataloguePromise={cataloguePromise}
-          userSubjects={subjects}
-          preferredSubjectId={activeSubjectId}
-          timeZone={timeZone}
-          historyError={historyError}
-        >
-          <PaperStageTaggerSlot />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-            <h3 className="text-heading-3" style={{ margin: '0 0 var(--space-4) 0' }}>
-              Full-paper history
-            </h3>
-            <PaperAttemptsListSlot
-              emptyMessage={
-                activeSubjectId
-                  ? 'No papers logged for this subject yet.'
-                  : 'No papers logged yet. Select Log Paper to record your first attempt.'
-              }
-            />
-          </div>
-        </LogsWorkspace>
       </div>
-    </PaperStageProvider>
+
+      <LogsWorkspace
+        userId={user.id}
+        sessions={history.sessions}
+        totalSessions={history.total}
+        currentPage={pageParam}
+        pageSize={pageSize}
+        cataloguePromise={cataloguePromise}
+        userSubjects={subjects}
+        preferredSubjectId={activeSubjectId}
+        timeZone={timeZone}
+        historyError={historyError}
+        initialPapers={papers}
+        initialUntaggedPapers={untaggedPapers}
+      >
+        <PaperStageTaggerSlot />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <h3 className="text-heading-3" style={{ margin: '0 0 var(--space-4) 0' }}>
+            Full-paper history
+          </h3>
+          <PaperAttemptsListSlot
+            emptyMessage={
+              activeSubjectId
+                ? 'No papers logged for this subject yet.'
+                : 'No papers logged yet. Select Log Paper to record your first attempt.'
+            }
+          />
+        </div>
+      </LogsWorkspace>
+    </div>
   )
 }

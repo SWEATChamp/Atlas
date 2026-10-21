@@ -7,12 +7,28 @@ import { dateInTimeZone } from '@/lib/date'
 import { toCreateRpcArgs, toUpdateRpcArgs } from '@/lib/practice-payload'
 import { attemptTrend, combinedChapterEvidence, withPracticeEligibility } from '@/lib/practice-analytics'
 import type { PaperEvidence, PaperQuestionEvidence } from '@/lib/practice-analytics'
+import {
+  basePaperNumber,
+  bestFullPaper,
+  comparableComponentAnalytics,
+  computePredictedExamMark,
+  fullPaperCount,
+  markWeightedPaperAverage,
+  rankComponentEvidence,
+} from '@/lib/practice-analytics'
 import { getAuthenticatedContext } from '@/lib/supabase/authenticated'
 import {
   dateWithinUserToday, PracticeCreateSchema, PracticeDeleteSchema,
   PracticeHistoryQuerySchema, PracticeSessionRowSchema, PracticeUpdateSchema,
 } from '@/lib/validations/practice-sessions'
 import type { AttemptTrendPoint, ChapterEvidence, PracticeFormSubjectOption, PracticeHistoryPage, PracticeRouteContext, PracticeSessionRead } from '@/types/practice-sessions'
+import { getAllPapersWithSubjects, getPapersForSubject, getUntaggedPapers } from '@/lib/actions/papers'
+import type { ChapterAccuracy } from '@/types'
+import type { PaperStage } from '@/types/database'
+import type { StatsSubjectData, StatsOverviewData, LogsSubjectData, SummaryStatItem, ComponentStatItem } from '@/lib/session-cache'
+import type { TrendSubject } from '@/lib/practice-trend'
+import type { IndicatorItem } from '@/components/papers/study-indicators'
+import type { RawEnrollment } from '@/components/papers/async-study-indicators'
 
 type MutationResult = { error?: string; sessionId?: string; deleted?: boolean }
 type SessionWithItems = z.infer<typeof PracticeSessionRowSchema>
@@ -262,4 +278,232 @@ export async function getCombinedChapterEvidenceForSubject(subjectId: string): P
     }
   }
   return combinedChapterEvidence(questions, sessions)
+}
+
+/**
+ * Loads high-level practice overview stats (trend, summary metrics, component ranking)
+ * without waiting for heavy chapter breakdowns or readiness RPC computations.
+ *
+ * Runs user subject enrollments, full papers, and practice overview queries in parallel.
+ * Avoids executing compute_readiness_score and paper_question_attempts queries during initial SSR.
+ */
+export async function getStatsOverviewData(subjectId?: string | null): Promise<StatsOverviewData> {
+  const { supabase, user } = await getAuthenticatedContext()
+  if (!user) throw new Error('Not authenticated')
+
+  const activeSubjectId = subjectId || null
+
+  const papersPromise = activeSubjectId ? getPapersForSubject(activeSubjectId) : getAllPapersWithSubjects()
+  const [userSubjectsData, papers, practice] = await Promise.all([
+    supabase
+      .from('user_subjects')
+      .select('id, subject_id, current_stage, study_route, is_archived, subjects(id, name, code, color_hex)')
+      .eq('user_id', user.id)
+      .eq('is_archived', false),
+    papersPromise,
+    getPracticeOverview(activeSubjectId ?? undefined),
+  ])
+
+  const enrollments = (userSubjectsData.data || []) as unknown as RawEnrollment[]
+  const subjects = enrollments
+    .map(e => e.subjects)
+    .filter((s): s is { id: string; name: string; color_hex: string; code?: string | null } => Boolean(s))
+    .map(s => ({ id: s.id, name: s.name, color_hex: s.color_hex ?? '#3b82f6', code: s.code }))
+
+  const activeSubject = subjects.find(s => s.id === activeSubjectId)
+
+  const avgScore = markWeightedPaperAverage(papers)
+  const best = bestFullPaper(papers)
+  const componentReferences = [...new Map(papers.filter(paper => paper.paper_number !== null).map(paper => [
+    `${paper.subject_id}:${paper.stage}:${basePaperNumber(paper.paper_number)}`, paper,
+  ])).values()]
+  const componentStats: ComponentStatItem[] = rankComponentEvidence(componentReferences.map(reference => ({
+    label: `${reference.subjects.name} · ${reference.stage?.toUpperCase() ?? 'Untagged'} · Paper ${basePaperNumber(reference.paper_number)}`,
+    ...comparableComponentAnalytics(papers, reference),
+  })))
+
+  const summaryStats: SummaryStatItem[] = [
+    { label: 'Papers logged', value: fullPaperCount(papers) },
+    { label: 'Full-paper average', value: avgScore != null ? `${avgScore.toFixed(1)}%` : '—' },
+    { label: 'Best full paper', value: best ? `${Number(best.accuracy_pct).toFixed(1)}%` : '—' },
+  ]
+
+  const trendSubjects: TrendSubject[] = [
+    ...new Map(
+      [
+        ...subjects,
+        ...papers.map(p => ({ id: p.subject_id, name: p.subjects.name, color_hex: '#3b82f6' })),
+      ].map(s => [s.id, s])
+    ).values(),
+  ]
+
+  return {
+    subjectId: activeSubjectId,
+    trend: practice.trend,
+    trendSubjects,
+    summaryStats,
+    componentStats,
+    activeSubjectName: activeSubject?.name ?? null,
+    timestamp: Date.now(),
+  }
+}
+
+export async function getStatsChapterAccuracy(subjectId?: string | null): Promise<ChapterAccuracy[]> {
+  const activeSubjectId = subjectId || null
+  if (!activeSubjectId) return []
+
+  const { user } = await getAuthenticatedContext()
+  if (!user) throw new Error('Not authenticated')
+
+  const [chapterEvidence, activeContext] = await Promise.all([
+    getCombinedChapterEvidenceForSubject(activeSubjectId),
+    getPracticeRouteContext(activeSubjectId),
+  ])
+
+  const chapterTitles = new Map<string, { title: string; component: string | null }>(
+    (activeContext?.chapters ?? []).map(ch => [ch.id, { title: ch.title ?? 'Chapter', component: ch.component }])
+  )
+
+  return chapterEvidence.map(row => ({
+    chapter_id: row.chapterId,
+    title: chapterTitles.get(row.chapterId)?.title ?? 'Chapter',
+    component: chapterTitles.get(row.chapterId)?.component ?? null,
+    total_obtained: row.raw,
+    total_available: row.max,
+    accuracy_pct: row.accuracyPct,
+    attempt_count: row.attempts,
+  }))
+}
+
+export async function getStatsStudyIndicators(subjectId?: string | null): Promise<IndicatorItem[]> {
+  const { supabase, user } = await getAuthenticatedContext()
+  if (!user) throw new Error('Not authenticated')
+
+  const activeSubjectId = subjectId || null
+
+  const papersPromise = activeSubjectId ? getPapersForSubject(activeSubjectId) : getAllPapersWithSubjects()
+  const [userSubjectsData, papers, practice] = await Promise.all([
+    supabase
+      .from('user_subjects')
+      .select('id, subject_id, current_stage, study_route, is_archived, subjects(id, name, code, color_hex)')
+      .eq('user_id', user.id)
+      .eq('is_archived', false),
+    papersPromise,
+    getPracticeOverview(activeSubjectId ?? undefined),
+  ])
+
+  const enrollments = (userSubjectsData.data || []) as unknown as RawEnrollment[]
+  const activeEnrollment = enrollments.find(e => e.subject_id === activeSubjectId)
+  const targetEnrollments = activeEnrollment ? [activeEnrollment] : enrollments
+
+  const indicatorItems: IndicatorItem[] = (
+    await Promise.all(
+      targetEnrollments.map(async enrollment => {
+        if (enrollment.study_route === 'unconfirmed') return []
+        const sId = enrollment.subject_id
+        const sName = enrollment.subjects?.name ?? 'Subject'
+        const sCode = enrollment.subjects?.code ?? undefined
+        const route = enrollment.study_route
+
+        const context = await getPracticeRouteContext(sId)
+        if (!context) return []
+
+        const stages: PaperStage[] = route === 'as_only' ? ['as'] : ['as', 'a2']
+
+        const itemsForEnrollment = await Promise.all(
+          stages.map(async stage => {
+            const isCurrent =
+              enrollment.current_stage === 'full'
+                ? true
+                : enrollment.current_stage === stage
+            const isLockedA2 = stage === 'a2' && enrollment.current_stage === 'as'
+
+            const predicted = computePredictedExamMark(sId, stage, papers, practice.sessions, context)
+
+            const hasRecordedHistory =
+              practice.sessions.some(s => s.subject_id === sId && s.stage === stage) ||
+              papers.some(p => p.subject_id === sId && p.stage === stage)
+
+            let readinessScore: number | null = null
+            if (!isLockedA2) {
+              const rpcRes = await supabase.rpc('compute_readiness_score', {
+                p_user_id: user.id,
+                p_subject_id: sId,
+                p_stage: stage,
+              })
+              readinessScore = typeof rpcRes.data === 'number' ? rpcRes.data : null
+            }
+
+            return {
+              subjectId: sId,
+              subjectName: sName,
+              subjectCode: sCode,
+              stage,
+              isCurrentStage: isCurrent,
+              isLockedA2,
+              predicted,
+              readinessScore,
+              hasRecordedHistory,
+            }
+          })
+        )
+
+        return itemsForEnrollment
+      })
+    )
+  ).flat()
+
+  return indicatorItems
+}
+
+export async function getStatsSubjectData(subjectId: string | null): Promise<StatsSubjectData> {
+  const [overview, chapterAccuracy, studyIndicators] = await Promise.all([
+    getStatsOverviewData(subjectId),
+    getStatsChapterAccuracy(subjectId),
+    getStatsStudyIndicators(subjectId),
+  ])
+
+  return {
+    ...overview,
+    chapterAccuracy,
+    studyIndicators,
+  }
+}
+export async function getLogsSubjectData(
+  subjectId: string | null,
+  page: number = 1,
+  pageSize: number = 50
+): Promise<LogsSubjectData> {
+  const { user } = await getAuthenticatedContext()
+  if (!user) throw new Error('Not authenticated')
+
+  const activeSubjectId = subjectId || null
+  const pageParam = Math.max(1, page)
+  const offset = (pageParam - 1) * pageSize
+
+  const papersPromise = activeSubjectId ? getPapersForSubject(activeSubjectId) : getAllPapersWithSubjects()
+  const untaggedPapersPromise = activeSubjectId
+    ? getUntaggedPapers()
+    : papersPromise.then(rows => rows.filter(paper => !paper.stage))
+
+  const [papers, untaggedPapers, history] = await Promise.all([
+    papersPromise,
+    untaggedPapersPromise,
+    getPracticeHistory({
+      ...(activeSubjectId ? { subjectId: activeSubjectId } : {}),
+      offset,
+      limit: pageSize,
+    }),
+  ])
+
+  return {
+    subjectId: activeSubjectId,
+    page: pageParam,
+    pageSize,
+    sessions: history.sessions,
+    totalSessions: history.total,
+    papers,
+    untaggedPapers,
+    timestamp: Date.now(),
+  }
 }

@@ -6,6 +6,7 @@ import { Plus, Trash2, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import { Dialog } from '@/components/ui/dialog'
 import { createClient } from '@/lib/supabase/client'
 import { logPaper, updatePaper, LogPaperInput, QuestionInput } from '@/lib/actions/papers'
+import { invalidateSessionCache } from '@/lib/session-cache'
 import { dateInTimeZone } from '@/lib/date'
 
 // ── CAIE paper number → component name(s) ─────────────────────────────────
@@ -526,6 +527,7 @@ export function LogPaperModal({
       : await logPaper(input)
     setLoading(false)
     if (error) { setSubmitError(error); return }
+    invalidateSessionCache(subjectId)
     setStep(3)
     setTimeout(() => onSuccess?.(), 1500)
   }

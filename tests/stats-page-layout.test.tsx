@@ -1,15 +1,13 @@
-import React, { Suspense } from 'react'
+import React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import StatsPage from '@/app/(app)/stats/page'
+import { StatsWorkspace } from '@/components/papers/stats-workspace'
 import { ChapterAccuracyChart } from '@/components/papers/chapter-accuracy-chart'
-import { SubjectFilterTabs } from '@/components/papers/subject-filter-tabs'
-import { PracticeTrend } from '@/components/papers/practice-workspace'
-import { ChapterAccuracySkeleton } from '@/components/papers/async-chapter-accuracy'
-import { StudyIndicatorsSkeleton } from '@/components/papers/async-study-indicators'
 import type { RawEnrollment } from '@/components/papers/async-study-indicators'
 import type { ChapterAccuracy, PaperWithSubject } from '@/types'
 import type { PracticeRouteContext } from '@/types/practice-sessions'
+import { clearSessionCache } from '@/lib/session-cache'
 
 const subjectId = '00000000-0000-4000-a000-000000000001'
 const chapterId1 = '00000000-0000-4000-a000-000000000011'
@@ -72,6 +70,10 @@ const {
   mockGetPracticeOverview,
   mockGetCombinedEvidence,
   mockGetPracticeRouteContext,
+  mockGetStatsSubjectData,
+  mockGetStatsOverviewData,
+  mockGetStatsChapterAccuracy,
+  mockGetStatsStudyIndicators,
   mockRpc,
 } = vi.hoisted(() => ({
   mockGetAllPapers: vi.fn(),
@@ -79,6 +81,10 @@ const {
   mockGetPracticeOverview: vi.fn(),
   mockGetCombinedEvidence: vi.fn(),
   mockGetPracticeRouteContext: vi.fn(),
+  mockGetStatsSubjectData: vi.fn(),
+  mockGetStatsOverviewData: vi.fn(),
+  mockGetStatsChapterAccuracy: vi.fn(),
+  mockGetStatsStudyIndicators: vi.fn(),
   mockRpc: vi.fn(),
 }))
 
@@ -134,6 +140,17 @@ vi.mock('@/lib/actions/practice-sessions', () => ({
   getPracticeOverview: mockGetPracticeOverview,
   getCombinedChapterEvidenceForSubject: mockGetCombinedEvidence,
   getPracticeRouteContext: mockGetPracticeRouteContext,
+  getStatsSubjectData: mockGetStatsSubjectData,
+  getStatsOverviewData: mockGetStatsOverviewData,
+  getStatsChapterAccuracy: mockGetStatsChapterAccuracy,
+  getStatsStudyIndicators: mockGetStatsStudyIndicators,
+}))
+
+vi.mock('@/lib/stats-client', () => ({
+  fetchStatsOverview: mockGetStatsOverviewData,
+  fetchStatsChapterAccuracy: mockGetStatsChapterAccuracy,
+  fetchStatsStudyIndicators: mockGetStatsStudyIndicators,
+  fetchStatsSubjectData: mockGetStatsSubjectData,
 }))
 
 // Mock dynamic chart wrapper for integration tests
@@ -195,8 +212,180 @@ vi.mock('@/components/papers/async-study-indicators', async (importOriginal) => 
 })
 
 beforeEach(() => {
+  clearSessionCache()
   mockRpc.mockResolvedValue({ data: 75.0 })
   mockGetPracticeRouteContext.mockResolvedValue(mockRouteContext)
+  mockGetStatsSubjectData.mockImplementation(async (sId: string | null) => ({
+    subjectId: sId,
+    trend: [
+      {
+        id: 'trend-fast',
+        source: 'full_paper',
+        subjectId: sId ?? subjectId,
+        stage: 'as',
+        attemptDate: '2026-10-15',
+        createdAt: '2026-10-15T10:00:00Z',
+        subjectPaperId: null,
+        paperNumber: 1,
+        raw: 40,
+        max: 50,
+        accuracyPct: 80,
+        eligibleRaw: 40,
+        eligibleMax: 50,
+        eligibleForCurrentRoute: true,
+        itemCount: 0,
+      },
+    ],
+    trendSubjects: [{ id: subjectId, name: 'Mathematics', code: '9709' }],
+    chapterAccuracy: sId ? [
+      {
+        chapter_id: chapterId1,
+        title: 'Algebra',
+        component: 'Pure 1',
+        total_obtained: 8,
+        total_available: 10,
+        accuracy_pct: 80,
+        attempt_count: 1,
+      },
+    ] : [],
+    studyIndicators: [
+      {
+        subjectId,
+        subjectName: 'Mathematics',
+        stage: 'as',
+        isCurrentStage: true,
+        isLockedA2: false,
+        predicted: {
+          predictedPercentage: 80,
+          currentStage: 'as',
+          components: [],
+          evidenceCount: 1,
+          isInsufficientEvidence: false,
+        },
+        readinessScore: 75,
+        hasRecordedHistory: true,
+      },
+    ],
+    summaryStats: [
+      { label: 'Papers logged', value: 2 },
+      { label: 'Full-paper average', value: '85.0%' },
+      { label: 'Best full paper', value: '90.0%' },
+    ],
+    componentStats: [
+      {
+        label: 'Mathematics · AS · Paper 1',
+        count: 2,
+        markWeightedAccuracyPct: 85,
+        averageRaw: 42.5,
+        averageMax: 50,
+        ranking: null,
+      },
+    ],
+    activeSubjectName: sId ? 'Mathematics' : null,
+    timestamp: Date.now(),
+  }))
+  mockGetStatsChapterAccuracy.mockImplementation(async (sId: string | null) => (
+    sId ? [
+      {
+        chapter_id: chapterId1,
+        title: 'Algebra',
+        component: 'Pure 1',
+        total_obtained: 8,
+        total_available: 10,
+        accuracy_pct: 80,
+        attempt_count: 1,
+      },
+    ] : []
+  ))
+  mockGetStatsStudyIndicators.mockImplementation(async (sId: string | null) => ([
+    {
+      subjectId: sId ?? subjectId,
+      subjectName: 'Mathematics',
+      stage: 'as',
+      isCurrentStage: true,
+      isLockedA2: false,
+      predicted: {
+        predictedPercentage: 80,
+        currentStage: 'as',
+        components: [],
+        evidenceCount: 1,
+        isInsufficientEvidence: false,
+      },
+      readinessScore: 75,
+      hasRecordedHistory: true,
+    },
+  ]))
+  mockGetStatsOverviewData.mockImplementation(async (sId: string | null) => ({
+    subjectId: sId,
+    trend: [
+      {
+        id: 'trend-fast',
+        source: 'full_paper',
+        subjectId: sId ?? subjectId,
+        stage: 'as',
+        attemptDate: '2026-10-15',
+        createdAt: '2026-10-15T10:00:00Z',
+        subjectPaperId: null,
+        paperNumber: 1,
+        raw: 40,
+        max: 50,
+        accuracyPct: 80,
+        eligibleRaw: 40,
+        eligibleMax: 50,
+        eligibleForCurrentRoute: true,
+        itemCount: 0,
+      },
+    ],
+    trendSubjects: [{ id: subjectId, name: 'Mathematics', code: '9709' }],
+    summaryStats: [
+      { label: 'Papers logged', value: 2 },
+      { label: 'Full-paper average', value: '85.0%' },
+      { label: 'Best full paper', value: '90.0%' },
+    ],
+    componentStats: [
+      {
+        label: 'Mathematics · AS · Paper 1',
+        count: 2,
+        markWeightedAccuracyPct: 85,
+        averageRaw: 42.5,
+        averageMax: 50,
+        ranking: null,
+      },
+    ],
+    activeSubjectName: sId ? 'Mathematics' : null,
+    timestamp: Date.now(),
+  }))
+  mockGetStatsChapterAccuracy.mockImplementation(async (sId: string | null) => (
+    sId ? [
+      {
+        chapter_id: chapterId1,
+        title: 'Algebra',
+        component: 'Pure 1',
+        total_obtained: 8,
+        total_available: 10,
+        accuracy_pct: 80,
+        attempt_count: 1,
+      },
+    ] : []
+  ))
+  mockGetStatsStudyIndicators.mockImplementation(async (sId: string | null) => ([
+    {
+      subjectId: sId ?? subjectId,
+      subjectName: 'Mathematics',
+      stage: 'as',
+      isCurrentStage: true,
+      isLockedA2: false,
+      predicted: {
+        predictedPercentage: 80,
+        currentStage: 'as',
+        components: [],
+        evidenceCount: 1,
+        isInsufficientEvidence: false,
+      },
+      readinessScore: 75,
+      hasRecordedHistory: true,
+    },
+  ]))
   if (typeof window !== 'undefined') {
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
       matches: false,
@@ -498,8 +687,8 @@ describe('StatsPage layout ordering and streaming proof', () => {
     // 4. Chapter & Topic Accuracy heading
     expect(screen.getByRole('heading', { level: 2, name: 'Chapter & Topic Accuracy' })).toBeTruthy()
 
-    // 5. Resolved study indicators
-    expect(screen.getByTestId('resolved-study-indicators')).toBeTruthy()
+    // 5. Study indicators heading
+    expect(screen.getByRole('heading', { level: 2, name: /^Study Indicators/ })).toBeTruthy()
 
     // 6. Summary stats grid
     expect(container.querySelector('.past-papers-stats-grid')).toBeTruthy()
@@ -511,17 +700,17 @@ describe('StatsPage layout ordering and streaming proof', () => {
     // Verify exact DOM ordering
     const scoreTrendHeading = screen.getByRole('heading', { level: 2, name: 'Score trend' })
     const chapterHeading = screen.getByRole('heading', { level: 2, name: 'Chapter & Topic Accuracy' })
-    const studyIndicators = screen.getByTestId('resolved-study-indicators')
+    const studyIndicatorsHeading = screen.getByRole('heading', { level: 2, name: /^Study Indicators/ })
     const summaryGrid = container.querySelector('.past-papers-stats-grid')!
     const componentHeading = screen.getByRole('heading', { level: 2, name: 'Component Performance' })
 
     expect(scoreTrendHeading.compareDocumentPosition(chapterHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(chapterHeading.compareDocumentPosition(studyIndicators) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(studyIndicators.compareDocumentPosition(summaryGrid) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(chapterHeading.compareDocumentPosition(studyIndicatorsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(studyIndicatorsHeading.compareDocumentPosition(summaryGrid) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(summaryGrid.compareDocumentPosition(componentHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('structurally verifies Suspense boundaries and proves StatsPage does not await slow RPCs or chapter evidence', async () => {
+  it('structurally verifies delegation and proves StatsPage does not await slow RPCs or chapter evidence', async () => {
     mockGetPapersForSubject.mockResolvedValue([
       {
         id: 'paper-fast',
@@ -573,38 +762,11 @@ describe('StatsPage layout ordering and streaming proof', () => {
     expect(mockRpc).not.toHaveBeenCalled()
     expect(mockGetCombinedEvidence).not.toHaveBeenCalled()
 
-    // 2. Structurally inspect the root JSX element and its children
-    expect(pageJsx?.type).toBe('div')
-    interface TestElementProps {
-      points?: { id: string }[]
-      fallback?: React.ReactElement
-      children?: React.ReactElement<{ activeSubjectId?: string; userId?: string }>
-      className?: string
-    }
-    const children = React.Children.toArray(pageJsx?.props.children) as React.ReactElement<TestElementProps>[]
-
-    // Filter tabs are rendered at top level
-    expect(children[1].type).toBe(SubjectFilterTabs)
-
-    // Score Trend is rendered as an immediate top-level child (outside Suspense)
-    expect(children[2].type).toBe(PracticeTrend)
-    expect(children[2].props.points).toHaveLength(1)
-    expect(children[2].props.points?.[0]?.id).toBe('trend-fast')
-
-    // Chapter Accuracy is wrapped in Suspense with ChapterAccuracySkeleton fallback
-    const chapterSuspense = children[3]
-    expect(chapterSuspense.type).toBe(Suspense)
-    expect(chapterSuspense.props.fallback?.type).toBe(ChapterAccuracySkeleton)
-    expect(chapterSuspense.props.children?.props.activeSubjectId).toBe(subjectId)
-
-    // Study Indicators is wrapped in Suspense with StudyIndicatorsSkeleton fallback
-    const indicatorsSuspense = children[4]
-    expect(indicatorsSuspense.type).toBe(Suspense)
-    expect(indicatorsSuspense.props.fallback?.type).toBe(StudyIndicatorsSkeleton)
-    expect(indicatorsSuspense.props.children?.props.userId).toBe('user-1')
-
-    // Summary Stats Grid is rendered as an immediate top-level child (outside Suspense)
-    const summaryGrid = children[5]
-    expect(summaryGrid.props.className).toBe('past-papers-stats-grid')
+    // 2. Structurally inspect delegation to StatsWorkspace client island
+    expect(pageJsx?.type).toBe(StatsWorkspace)
+    expect(pageJsx?.props.userId).toBe('user-1')
+    expect(pageJsx?.props.initialSubjectId).toBe(subjectId)
+    expect(pageJsx?.props.subjects).toHaveLength(1)
+    expect(pageJsx?.props.initialData.subjectId).toBe(subjectId)
   })
 })
