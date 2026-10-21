@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.0] - Unreleased (Preview Accepted, Production Pending)
+## [1.3.0] - 2026-10-21
 
 ### Added
 - **Question Practice & Paper Logging (Milestone 4)**:
@@ -13,15 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Required multi-chapter mapping (1–200 valid chapters) for question practice with support for single or grouped topical, past-year, or mixed items.
   - Optional question provenance (year, series, paper, variant, question number, duration, notes).
   - Dedicated Stats workspace (`/stats`) with subject-level analytics, score trends, and chapter accuracy breakdowns.
-  - Dedicated Logs workspace (`/logs`) with separate full-paper and question practice attempt streams, modal workflows, and URL-driven pagination (`page` query parameter).
-  - Navigation redesign: Updated topbar and sidebar navigation to feature Subjects, Stats, and Logs; `/past-papers` now cleanly redirects (`RedirectType.replace`, HTTP 307) to `/logs`.
+  - Dedicated Logs workspace (`/logs`) with separate full-paper and question practice attempt streams, modal workflows, and URL-driven pagination (`page` query parameter) for question-practice history.
+  - Navigation redesign: Updated topbar and sidebar navigation to feature Subjects, Stats, and Logs; the `/past-papers` listing now cleanly redirects (`RedirectType.replace`, HTTP 307) to `/logs`, while existing paper-detail pages remain accessible.
   - Dual performance indicators on `/stats`: Predicted Exam Mark (mark-weighted average strictly per subject/stage with factual evidence volumes, explicitly non-official estimate) and Canonical Readiness Score (35% notes, 40% papers/practice, 25% confidence, with locked A2 readiness isolated as null).
   - Authenticated Stats API endpoint (`GET /api/stats`): Serves chapter accuracy breakdowns and subject indicators with `Cache-Control: private, no-store, max-age=0`.
-  - Bounded in-memory client session caching with user-isolation safeguards, request sequence counters, and mutation-driven cache invalidation to provide smooth repeated subject switching.
-  - Database Migrations 031 (`20261014000031_practice_sessions_foundation.sql`), 032 (`20261016000032_practice_mapping_validation.sql`), and 033 (`20261017000033_a2_practice_logging_and_indicators.sql`) creating separate practice sessions schema, strict `SELECT` only table grants for authenticated clients, RPC contracts, chapter validation, and A2 logging support (applied in Preview project `eiyrzzcmljhrucazgxpm` and applied to Production Singapore Supabase `uvprmojmscndtwgkvjbi` on 2026-10-21 under Gate 3, containing the approved 000–029 baseline plus 031–033 with no Migration 030; PR #32 application deployment pending).
+  - Bounded in-memory client session caching with user-isolation safeguards, request sequence counters, and mutation-driven cache invalidation to improve subject-switching responsiveness across repeated tab visits.
+  - Database Migrations 031 (`20261014000031_practice_sessions_foundation.sql`), 032 (`20261016000032_practice_mapping_validation.sql`), and 033 (`20261017000033_a2_practice_logging_and_indicators.sql`) creating separate practice sessions schema, strict `SELECT` only table grants for authenticated clients, RPC contracts, chapter validation, and A2 logging support (applied in Preview project `eiyrzzcmljhrucazgxpm` and applied to Production Singapore Supabase `uvprmojmscndtwgkvjbi` on 2026-10-21 under Gate 3; PR #32 merged at `d277d40` and deployed to Production on 2026-10-21).
 
 ### Fixed
-- Corrected subject switching latency on Stats and Logs via optimistic active-tab selection, parallelized server-side reads, and client session caching.
+- Improved subject switching responsiveness on Stats and Logs via optimistic active-tab selection, parallelized server-side reads, and client session caching.
 - Resolved race conditions on rapid tab switching using monotonic request counters and active subject validation.
 - Fixed loading skeleton persistence bug where overview prop reconciliation superseded pending requests without restarting lower sections.
 - Repaired session cache ownership initialization so cache is properly scoped to the authenticated user on fresh component mounts.
