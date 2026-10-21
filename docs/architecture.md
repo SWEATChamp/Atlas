@@ -209,3 +209,34 @@ Study route is configured per enrolled subject:
 ## Data Refresh
 
 The current application uses Server Action revalidation and router refreshes after mutations. Supabase Realtime subscriptions are not currently implemented.
+
+## Milestone 4: Practice Logging, Stats & Session Caching Architecture (v1.3.0 Prepared)
+
+### 1. Data Model & Atomic RPC Write Contracts
+- **Practice Schema Isolation**: Standalone question practice is modeled as `practice_sessions` (parent session metadata, date, duration, stage, optional session-level provenance), `practice_session_items` (1–200 scored questions, marks obtained/available, optional question-level provenance), and `practice_session_chapters` (normalized chapter mappings). Full-paper identities in `past_papers` remain completely unchanged.
+- **Strict Least-Privilege Grants**: Migration 031 enables RLS on all practice tables and grants `authenticated` clients table-level `SELECT` ONLY (`auth.uid() = user_id`). Direct table writes (`INSERT, UPDATE, DELETE`) are denied to `authenticated`. `service_role` has `GRANT ALL` on practice tables.
+- **Atomic Mutation RPCs**: `log_practice_session_atomic`, `update_practice_session_atomic`, and `delete_practice_session` perform parent, item, and chapter writes within a single PostgreSQL transaction. Granted `EXECUTE` to `authenticated` and `service_role`.
+- **Private Helper Lockdown**: Internal helpers (`m4_stage_open`, `m4_chapter_eligible`, `m4_resolve_provenance`, `resolve_practice_payload`, `m4_write_items`, `m4_logging_stage_open`, `m4_logging_chapter_eligible`) have all execution privileges revoked (`REVOKE ALL FROM PUBLIC, anon, authenticated, service_role`).
+- **Validation Guardrails (Migration 032 & 033)**: Direct RPC writes require 1–200 valid chapter UUIDs per item (`resolve_practice_payload`). Helper `m4_logging_stage_open` allows confirmed AS learners to log A2 practice history while isolating AS readiness calculations.
+
+### 2. Workspaces & Navigation Structure
+- **Decoupled Workspaces**: Navigation separates `/dashboard`, `/subjects`, `/stats`, and `/logs`. The legacy `/past-papers` route performs a server-side redirect (`RedirectType.replace`, HTTP 307) to `/logs`, preserving all query parameters.
+- **Logs Workspace (`/logs`)**: Manages full-paper and question-practice attempt streams, separate creation/edit modal workflows, and URL-driven pagination (`?page=N`) with page-scoped evidence disclosure.
+- **Stats Workspace (`/stats`)**: Displays analytical charts, score trends across practice modes, chapter accuracy breakdowns, and dual study indicators.
+
+### 3. Dual Study Indicators & Readiness Function Replacement
+- **Predicted Exam Mark**: Calculated strictly per subject/stage as the mark-weighted average of practice performance (`total_marks_obtained / total_marks_available`). Labeled explicitly as a non-official estimate and accompanied by sample size and total marks.
+- **Readiness Replacement**: Migrations 031 and 032 replace `compute_readiness_score(UUID, UUID, TEXT)` and `compute_readiness_score(UUID, UUID)` (consumed by Dashboard and Subjects) to compute mark-weighted combined assessment accuracy: `(full_paper_raw + question_raw) / (full_paper_max + question_max)`, while preserving the 35% notes / 40% practice / 25% confidence weights. Locked A2 readiness is isolated as null until the stage is unlocked.
+
+### 4. Authenticated Stats Endpoint (`GET /api/stats`)
+- **Route Handler (`app/api/stats/route.ts`)**: Serves statistics data without loading modal catalogues or pagination data.
+- **Server Verification**: Calls `getAuthenticatedContext()`. Returns 401 Unauthorized for unauthenticated requests.
+- **Cache-Control**: `Cache-Control: private, no-store, max-age=0` ensures private student performance metrics are never stored in shared intermediate, edge, or proxy caches.
+- **Section Querying**: Supports querying specific sections (`section=overview`, `section=chapters`, `section=indicators`, or `section=all`) to enable streaming or targeted re-fetching.
+
+### 5. Client Session Caching & Race Mitigation
+- **Bounded In-Memory Cache (`lib/session-cache.ts` & `lib/stats-client.ts`)**: Caches fetched statistics, indicators, and logs in an in-memory `Map` structure with FIFO eviction at `MAX_CACHE_ENTRIES = 20` and a 5-minute TTL (`CACHE_TTL_MS = 300_000`). Does not use `sessionStorage`.
+- **Actual Cache Keys**: Keys are strictly `subjectId ?? 'all'` for stats and `${subjectId ?? 'all'}:${page}` for logs (no stage exists in cache keys).
+- **Account Isolation**: Tracks active `userId` via `setSessionUserId`. A change in authenticated user immediately wipes all in-memory caches. Cache writes and reads verify that `ownerUserId` matches `currentSessionUserId`.
+- **Monotonic Request Sequencing**: Uses monotonically incrementing request counters and abort controllers. Stale responses from superseding tab switches are discarded.
+- **Mutation Invalidation**: All practice mutations (create, update, delete) trigger cache eviction for affected subjects and aggregate stats, ensuring immediate consistency across subsequent views.

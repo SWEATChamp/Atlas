@@ -10,12 +10,14 @@ export interface ReleaseInfo {
  * releaseDate is finalized only after the release passes production smoke testing.
  */
 export const CURRENT_RELEASE: ReleaseInfo = {
-  version: '1.2.1',
-  title: 'Bug Fix: Subject Route Display',
-  releaseDate: '2026-09-30',
+  version: '1.3.0',
+  title: 'Question Practice, Stats & Logs',
+  releaseDate: 'Pending Deployment',
   changes: [
-    'Selected Mathematics papers now map to the correct Subject Route chapter groups.',
-    'Statistics 1 remains available during staged AS study, while Pure 3 and Mechanics stay locked until A2.',
-    'Selected papers now appear before unselected components, with AS papers listed ahead of A2 papers.',
+    'Separate full-paper and standalone question-practice logging with distinct history tracking.',
+    'Required multi-chapter mapping per question with optional exam provenance (year, series, paper, variant).',
+    'Dedicated Stats and Logs workspaces featuring subject-specific performance analytics, score trends, and pagination.',
+    'Separate practice-informed predicted exam mark estimates (explicitly non-official) and syllabus readiness indicators.',
+    'Smoother repeated subject switching and warm tab revisits powered by client-session caching.',
   ],
 }

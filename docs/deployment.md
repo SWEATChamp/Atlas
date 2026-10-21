@@ -16,6 +16,7 @@ Atlas uses Vercel for the Next.js application and Supabase for authentication an
 - Phase 2.13 / v1.2.0 (Accessible UI Foundation & Subject Controls Guide) was deployed to Vercel production and verified on 2026-09-02 at merge commit `abed20ba325e99113813a8860be7f4a22c1fc39c` (with release-closeout merge commit `a4ea17993e0f9250eb1c50a41d930a8c4f5a4d2c`, annotated tag object `1c4524fcd1f747a7e00674d7c0aa8551f2180d94`, and published [GitHub Release](https://github.com/SWEATChamp/Atlas/releases/tag/v1.2.0)). It establishes an accessible `Dialog` primitive, dark design tokens, two-step Subject controls guide, responsive layouts (320px–1280px), touch targets (≥44×44px through 768px), and returning-user v1.2.0 notifications.
 - Milestone 3 Publication Discovery was merged to `main` via PR #16 at merge commit `07120d189a4416604945ef76382a2cae3dd412da` and deployed to Vercel production (`dpl_GmxutRfLHEHPnqArivPBowNtJL4i`) on 2026-09-12. Stage 1 Discovery-Only Cron Route was merged via PR #18 at merge commit `ce2eaec8de41371113aee090fcc84525f7bdaca2` and deployed to production (`dpl_2t1Kbt6hJMMxiPgPz38cAWF459pz`) on 2026-09-18. Discovery observability was merged via PR #20 (`531bfeeda7b369943e5564266479954096f4f0c4`, `dpl_HBAwskuwxGMgzWYP6oNkv1FPteAK`). Milestone 3 Production cron activation was merged via PR #30 at merge commit `043213064f12f218934426f087c7041154b164e9` and deployed to Vercel production (`dpl_5x3V5hGMkf8vbRwYgtyMjqsiVhg4`) on 2026-10-01; `vercel.json` schedules `/api/cron/grade-threshold-discovery` at `0 7 * * *` (UTC); first authorized production manual run on 2026-10-01 returned HTTP 200 with outcome `no_change` across five unchanged subjects; the discovery route is designed and structurally tested to avoid Supabase and mutating modules with no elevated Supabase server credential configured; and `/api/cron/grade-thresholds` remains unscheduled and dormant.
 - Migration 029 least-privilege grant remediation was applied and hosted-verified on 2026-09-30, merged through PR #25 at `d89e9a2441d5792959d8f786701ff46788da5a6e`, and deployed to Vercel Production as `dpl_6sSfNEtgKQyfVpPGaShxk2YXWMen` (Ready in `sin1`).
+- Milestone 4 / v1.3.0 Release Boundary: PR #32 on branch `codex/milestone-4-practice-logging` introduces question practice logging, dedicated Stats and Logs workspaces, `/api/stats`, and bounded in-memory client session caching. Migrations 031, 032, and 033 were applied to isolated Preview project `eiyrzzcmljhrucazgxpm` and subsequently applied to Production Singapore Supabase (`uvprmojmscndtwgkvjbi`) on 2026-10-21 under authorized Gate 3 execution. Postflight verification confirmed the 33-migration ledger (33 migrations, 030 absent, 0 pending), table/RLS/grant rules, and canonical readiness definitions. Public-client HTTP probes (role `anon`) confirmed PostgREST schema cache recognition and anonymous permission denial for the practice tables; owner-scoped authenticated reads, non-executing public RPC discovery (due to platform-restricted root OpenAPI endpoint), and mutating RPC behavior remain NOT VERIFIED (deferred to Gate 5 authenticated smoke testing). v1.3.0 release metadata is prepared locally but not yet committed. Application deployment (Gate 4) and authenticated Production smoke testing (Gate 5) remain pending separate explicit approvals. Preview acceptance is not Production acceptance.
 - Do not rerun Migrations 024–026. Any further production correction must use a reviewed forward-only migration.
 
 ## Migration 024 Release Order
@@ -444,6 +445,245 @@ The performance and dashboard-polish release after Migration 026 does not change
 - **Monitoring & Emergency Disable Procedure**:
   - Operational monitoring remains an ongoing operational duty following weekly operator polling during the one-hour Hobby retention window (~07:30 UTC), with two-stage checks on official Cambridge results days.
   - Emergency disable: Vercel Dashboard (**Project Settings → Cron Jobs → Disable Cron Jobs**) or forward-fix removal of `vercel.json`.
+
+## 9. Milestone 4 / v1.3.0 Practice Logging & Production Database Readiness Gate
+
+Milestone 4 introduces separate atomic question-practice logging alongside full papers, dedicated Stats and Logs workspaces, `/api/stats`, and bounded in-memory client session caching. This section governs the database readiness gate and release sequence for releasing v1.3.0 to Production.
+
+### Database Target Distinctions
+- **Preview Project (`eiyrzzcmljhrucazgxpm`)**: Isolated testing environment. Applied migration coverage comprises the approved 000–029 baseline plus Migrations 031, 032, and 033 (33 migration files total; Migration 030 does not exist). Active Vercel Preview deployment accepted.
+- **Production Project (`uvprmojmscndtwgkvjbi`)**: Production environment in Singapore (`sin1`). Successfully applied Migrations 031, 032, and 033 on 2026-10-21 under authorized Gate 3 execution. Ledger synchronized at 33 migrations (000–029 plus 031–033; no migration 030; 0 pending). Postflight table/RLS/grant checks passed; public-client HTTP probes (role `anon`) confirmed PostgREST practice table recognition and anonymous permission denial; owner-scoped authenticated reads, non-executing public RPC discovery (platform-restricted root OpenAPI endpoint), and mutating RPC behavior remain NOT VERIFIED (deferred to Gate 5 authenticated smoke testing). Application deployment (Gate 4) and authenticated Production smoke testing (Gate 5) pending. Preview acceptance is not Production acceptance.
+
+### Migrations Introduced Relative to `origin/main` & Exact Grants
+PR [#32](https://github.com/SWEATChamp/Atlas/pull/32) introduces three sequential migrations relative to `origin/main`:
+1. `supabase/migrations/20261014000031_practice_sessions_foundation.sql`:
+   - Tables: `practice_sessions`, `practice_session_items`, `practice_session_chapters`.
+   - Security & Grants: RLS enabled on all three tables (`auth.uid() = user_id`). Table-level `SELECT` ONLY is granted to `authenticated`. Direct table writes (`INSERT, UPDATE, DELETE`) are revoked and denied to `authenticated`. `service_role` has `GRANT ALL` on practice tables.
+   - Procedures: `log_practice_session_atomic`, `update_practice_session_atomic`, `delete_practice_session` granted `EXECUTE` to `authenticated` and `service_role`.
+   - Private helpers: `m4_stage_open`, `m4_chapter_eligible`, `m4_resolve_provenance`, `m4_write_items`, `resolve_practice_payload` have all execution privileges revoked (`REVOKE ALL ... FROM PUBLIC, anon, authenticated, service_role`).
+   - Preflight assertion: Asserts absence of existing `practice_*` tables/functions and verifies Migration 029 grant baseline (`authenticated` has no `INSERT` on `subject_paper_selections` or `UPDATE` on `user_subjects`).
+   - Function replacements: Replaces existing `compute_readiness_score(UUID, UUID, TEXT)` and `compute_readiness_score(UUID, UUID)` functions (consumed by Dashboard and Subjects) to incorporate mark-weighted combined assessment accuracy across full papers and eligible question-practice items.
+2. `supabase/migrations/20261016000032_practice_mapping_validation.sql`:
+   - Enforces mandatory 1–200 valid chapter mappings on new/replacement writes in `resolve_practice_payload` (`P0007` on missing/null/non-array, `P0003` on empty/oversized array, `P0006` on invalid/incompatible chapters).
+   - Introduces private helper `m4_logging_chapter_eligible` (execution revoked from all roles), supporting catalogue-compatible off-route paper questions as history.
+   - Function replacements: Replaces `compute_readiness_score(UUID, UUID, TEXT)` again to enforce `m4_assessment_chapter_eligible`, preventing source-free off-route chapter mappings from contributing to current-route readiness.
+   - Requires Migration 031 baseline; preserves legacy unmapped history and existing readiness calculation weights (35% notes, 40% practice/papers, 25% confidence).
+3. `supabase/migrations/20261017000033_a2_practice_logging_and_indicators.sql`:
+   - Helper `m4_logging_stage_open`: Decouples practice logging access from assessment readiness, allowing confirmed AS learners (`study_route != 'unconfirmed'`) to record valid A2 question practice (stored with `stage = 'a2'`) as history while strictly isolating AS readiness calculations.
+   - Updates private `m4_logging_chapter_eligible` across source-free, selected-paper, and catalogue-compatible off-route paper branches (execution revoked from all roles).
+   - Replaces `resolve_practice_payload` with updated logging rules.
+   - Preflight assertion: Requires `m4_logging_chapter_eligible` from Migration 032.
+   - Preserves canonical 032 `compute_readiness_score` byte-for-byte.
+
+### Compatibility Analysis & Readiness Semantics
+- **Replaces Live Behavior**: Migrations 031 and 032 are not purely additive; they replace the live `compute_readiness_score` functions actively queried by the production v1.2.1 Dashboard and Subjects views.
+- **Readiness Semantics & Calculation Divergence**:
+  - Migration 024 computed past-paper assessment accuracy as the unweighted arithmetic mean of individual paper percentages: `AVG(pp.accuracy_pct)`.
+  - Migrations 031 and 032 compute mark-weighted combined assessment accuracy across eligible assessment events: `(full_paper_raw + question_raw) / (full_paper_max + question_max)`.
+  - **Numerical Results Are Not Guaranteed Identical**: Even for students who have only full papers and zero question practice, scores can change immediately upon migration application.
+  - **Concrete Calculation Example**: Consider a student with two otherwise eligible papers: Paper A scored 10/10 (100%) and Paper B scored 0/90 (0%).
+    - Under Migration 024: `(100% + 0%) / 2 = 50%` paper accuracy.
+    - Under Migrations 031–032: `(10 + 0) / (10 + 90) = 10 / 100 = 10%` mark-weighted accuracy.
+    - With the 40% readiness weight for assessment accuracy and constant notes/confidence, the student's overall readiness score shifts from `0.40 * 50% = 20%` down to `0.40 * 10% = 4%`—an overall readiness divergence of 16 percentage points.
+- **Eligibility Filtering Divergence**: Migration 024 filtered papers loosely by `subject_id` and `stage`. Migrations 031–032 enforce strict route and stage alignment via `m4_stage_open(us, pp.stage)` and require the paper component to be actively selected in `subject_paper_selections` for that stage (`sel.stage = pp.stage`). Off-route, unselected, or unmapped papers that previously entered the unweighted average are excluded from current-route readiness.
+- **Immediate Runtime Impact**: This recalculation takes effect immediately in the database upon migration application, altering live v1.2.1 Dashboard and Subjects readiness values before the v1.3.0 application is deployed.
+- **Schema-First Ordering Rationale**: The v1.3.0 application requires the new tables and RPCs to render `/logs` and submit question practice. Applying database migrations prior to application deployment is necessary to prevent runtime 500 errors.
+- **Rollback Limitations**: Reverting the application deployment in Vercel to v1.2.1 does NOT undo database migrations or restore earlier function definitions. Restoring a logical database backup would overwrite live data and discard any records created after the backup was generated.
+
+### Compatibility-Verification Checklist
+Prior to and following migration application, verify these compatibility criteria:
+- [ ] **Unchanged Call Signatures**: Verify `compute_readiness_score(UUID, UUID, TEXT)` and `compute_readiness_score(UUID, UUID)` accept identical argument types and return `numeric` (with two-decimal rounding enforced inside the function body via `ROUND(..., 2)` rather than via catalog-enforced modifiers).
+- [ ] **Expected Weighting Changes**: Verify that mark-weighting differences (`sum(raw)/sum(max)` vs `AVG(accuracy_pct)`) are understood and documented as an intended accuracy correction.
+- [ ] **Selected-Route Evidence**: Verify that only papers matching active `subject_paper_selections` on the student's confirmed route contribute to readiness.
+- [ ] **Off-Route History Preservation**: Verify that off-route papers remain intact in history tables while excluded from route readiness.
+- [ ] **AS/A2 Stage Isolation**: Verify that A2 paper/question attempts are strictly isolated from AS readiness calculations when `stage = 'as'`.
+- [ ] **Old-Application Callers**: Verify that existing callers in `app/(app)/dashboard/page.tsx` and `app/(app)/subjects/page.tsx` (via `get_user_dashboard_stats` and direct RPCs) continue executing without signature or type errors.
+
+### Production Backup Procedure (Preparation Only)
+- **Target Pinning**: A future approved operation will pin the Production target (`uvprmojmscndtwgkvjbi`) using an isolated CLI context (e.g. dedicated execution directory or percent-encoded connection string in a secure environment variable), without altering this worktree's project link (`.temp/project-ref`) or exposing credentials in command logs.
+- **CLI Syntax & Coverage**:
+  - The default `supabase db dump` command exports DDL/schema only; it omits data records and custom roles, and excludes managed schemas (`auth`, `storage`, `vault`, etc.).
+  - Application Data: Requires `supabase db dump --db-url "$PROD_DB_URL" --data-only --use-copy --schema public --file "$BACKUP_DIR/data_public.sql"`.
+  - Schema DDL: Requires `supabase db dump --db-url "$PROD_DB_URL" --file "$BACKUP_DIR/schema.sql"`.
+  - Roles: Requires `supabase db dump --db-url "$PROD_DB_URL" --role-only --file "$BACKUP_DIR/roles.sql"`.
+  - Storage objects distinction: File objects stored in Supabase Storage buckets (S3) are NOT database records and are NOT captured by `supabase db dump`.
+  - Storage & integrity: Backups must be placed outside the Git workspace in protected local storage (`~/.atlas/backups/uvprmojmscndtwgkvjbi_YYYYMMDDTHHMMSSZ/`), with restrictive permissions (`chmod 600`), explicit timestamp, target identity (`uvprmojmscndtwgkvjbi`), and sha256 checksums (`shasum -a 256 * > checksums.sha256`).
+  - Recovery limitations: A logical dump is not a point-in-time recovery (PITR) mechanism, has not been restore-tested, and cannot guarantee zero-loss recovery if live mutations occur during the dump.
+
+### Migration Rehearsal, Dry-Run & Application
+- **Production Rehearsal Prohibition**: Do NOT execute transactional DDL with `BEGIN ... ROLLBACK` on Production. Transactional DDL acquires `AccessExclusiveLock` on catalogs and relations, which blocks live queries and risks lock timeouts or application degradation even if rolled back.
+- **CLI Dry-Run Definition**: `supabase db push --dry-run` merely queries the remote `supabase_migrations.schema_migrations` table and prints the list of pending migration files. It does NOT apply them, validate SQL syntax, or test execution/lock safety.
+- **Rehearsal Environment**: DDL execution rehearsal belongs exclusively in a separately approved disposable database (e.g. isolated disposable PostgreSQL 17.11 container).
+- **Production Migration Application**: Production application must use the standard migration-managed workflow (`supabase db push`) to maintain migration history integrity.
+- **Prohibited Actions**: No raw SQL execution against Production, no manual insertions into `schema_migrations`, no `supabase db reset`, and no `--include-all`.
+- **Pending Migration Verification**: The pending list from `supabase db push --dry-run` must match EXACTLY the three reviewed files:
+  1. `20261014000031_practice_sessions_foundation.sql`
+  2. `20261016000032_practice_mapping_validation.sql`
+  3. `20261017000033_a2_practice_logging_and_indicators.sql`
+  Any drift, unexpected prior migration, or discrepancy must immediately halt the procedure.
+
+### Read-Only Preflight Verification Queries & Pass Criteria
+Before applying migrations to Production (`uvprmojmscndtwgkvjbi`), execute these read-only SQL queries via a separate authorized session. No modifications, backups, or CLI dry-runs are authorized during this preflight gate.
+
+```sql
+-- 1. Full migration ledger verification against the exact 30 baseline migrations
+WITH expected(version) AS (
+  VALUES
+    ('20260704000000'), ('20260704000001'), ('20260704000002'), ('20260704000003'),
+    ('20260704000004'), ('20260704000005'), ('20260704000006'), ('20260704000007'),
+    ('20260704000008'), ('20260704000009'), ('20260704000010'), ('20260704000011'),
+    ('20260704000012'), ('20260705000013'), ('20260801000014'), ('20260801000015'),
+    ('20260804000016'), ('20260824000017'), ('20260824000018'), ('20260824000019'),
+    ('20260824000020'), ('20260826000021'), ('20260826000022'), ('20260826000023'),
+    ('20260826000024'), ('20260827000025'), ('20260827000026'), ('20260903000027'),
+    ('20260923000028'), ('20260926000029')
+),
+actual AS (
+  SELECT version, name FROM supabase_migrations.schema_migrations
+)
+SELECT
+  (SELECT count(*) FROM actual) AS actual_count,
+  (SELECT count(*) FROM expected) AS expected_count,
+  (SELECT count(DISTINCT version) FROM actual) AS distinct_actual_count,
+  (SELECT max(version) FROM actual) AS max_version,
+  (SELECT array_agg(version ORDER BY version) FROM (
+    SELECT version FROM actual EXCEPT SELECT version FROM expected
+  ) unexpected) AS unexpected_versions,
+  (SELECT array_agg(version ORDER BY version) FROM (
+    SELECT version FROM expected EXCEPT SELECT version FROM actual
+  ) missing) AS missing_versions;
+-- Pass criteria: actual_count = 30, expected_count = 30, distinct_actual_count = 30,
+-- max_version = '20260926000029', unexpected_versions IS NULL, missing_versions IS NULL.
+-- Stop condition: Any missing, unexpected, duplicate, or conflicting history halts release immediately.
+-- Do not attempt automated history repair.
+
+-- 1b. Inspect latest migration metadata name separately
+SELECT version, name
+FROM supabase_migrations.schema_migrations
+ORDER BY version DESC
+LIMIT 5;
+-- Expected latest version: '20260926000029' (name: 'least_privilege_grant_remediation' where populated).
+
+-- 2. Verify no conflicting practice relations exist
+SELECT n.nspname, c.relname, c.relkind
+FROM pg_catalog.pg_class c
+JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public'
+  AND c.relname IN ('practice_sessions', 'practice_session_items', 'practice_session_chapters');
+-- Pass criteria: 0 rows returned. Stop if any relation exists.
+
+-- 3. Verify no conflicting practice functions exist (cross-checked against Migrations 031–033)
+SELECT n.nspname, p.proname, pg_catalog.pg_get_function_identity_arguments(p.oid) AS arguments
+FROM pg_catalog.pg_proc p
+JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+  AND p.proname IN (
+    'resolve_practice_payload', 'log_practice_session_atomic',
+    'update_practice_session_atomic', 'delete_practice_session',
+    'm4_stage_open', 'm4_chapter_eligible', 'm4_resolve_provenance',
+    'm4_write_items', 'm4_logging_chapter_eligible',
+    'm4_assessment_chapter_eligible', 'm4_logging_stage_open'
+  );
+-- Pass criteria: 0 rows returned. Stop if any function exists.
+
+-- 4. Targeted check: Verify Migration 029 baseline privilege assertions for Migration 031 guard
+SELECT
+  has_table_privilege('authenticated', 'public.subject_paper_selections', 'INSERT') AS has_insert_selections,
+  has_table_privilege('authenticated', 'public.user_subjects', 'UPDATE') AS has_update_user_subjects;
+-- Pass criteria: has_insert_selections = FALSE, has_update_user_subjects = FALSE.
+-- Note: This is a targeted check of the specific conditions enforced by Migration 031's DO-block
+-- preflight assertion, not exhaustive proof of the entire database security posture.
+
+-- 5. Read-only metadata baseline: Existing compute_readiness_score function overloads
+SELECT
+  p.proname,
+  pg_catalog.pg_get_function_identity_arguments(p.oid) AS identity_arguments,
+  pg_catalog.pg_get_function_result(p.oid) AS return_type,
+  p.prosecdef AS is_security_definer,
+  p.provolatile AS volatility,
+  pg_catalog.has_function_privilege('authenticated', p.oid, 'EXECUTE') AS auth_can_execute,
+  pg_catalog.has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_can_execute,
+  pg_catalog.pg_get_functiondef(p.oid) AS function_definition
+FROM pg_catalog.pg_proc p
+JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+  AND p.proname = 'compute_readiness_score';
+-- Pass criteria:
+-- 1. Exactly 2 overloads found:
+--    - 3-arg: user_id UUID, subject_id UUID, stage TEXT
+--    - 2-arg: user_id UUID, subject_id UUID DEFAULT NULL
+-- 2. return_type = 'numeric' for both overloads (PostgreSQL function signatures discard precision
+--    and scale modifiers in pg_proc catalogs, returning base type 'numeric'; two-decimal precision is
+--    enforced internally via ROUND(..., 2) inside the function body rather than catalog typmod).
+-- 3. is_security_definer = TRUE for both overloads.
+-- 4. volatility = 's' (STABLE) for both overloads.
+-- 5. auth_can_execute = TRUE, anon_can_execute = FALSE for both overloads.
+-- 6. function_definition matches Migration 024 baseline logic (see comparison procedure below).
+-- Note: Reads catalog metadata only; strictly avoids querying student records or secret tables.
+```
+
+#### Baseline Comparison & Drift Detection for `compute_readiness_score`
+
+Preflight Query 5 retrieves the reconstructed SQL definition (`pg_get_functiondef`) of both live `compute_readiness_score` overloads. Prior to approving migration application, compare the output against the authoritative baseline committed in `origin/main` at `supabase/migrations/20260826000024_mvp_syllabus_content.sql` (Migration 024):
+
+1. **Authoritative Baseline Definitions**:
+   - **3-argument overload** (`compute_readiness_score(UUID, UUID, TEXT)`): Defined in Migration 024, lines 1636–1876.
+     - Security: `SECURITY DEFINER`, `STABLE`, `SET search_path = public, pg_catalog`.
+     - Guard: Caller must be `auth.uid() = p_user_id` or `service_role` (raises `42501` otherwise).
+     - Validation: Stage must be in `('as', 'a2', 'all')` (raises `P0002` otherwise).
+     - Filtering: Denominator counts accessible chapters (`is_active = TRUE`, `study_route != 'unconfirmed'`). Notes require `notes_status = 'complete'`. Confidence averages `confidence_level / 5.0`.
+     - Assessment formula: Past paper accuracy is computed as unweighted average `AVG(pp.accuracy_pct) / 100.0`. Overall readiness: `ROUND(((v_notes_pct * 0.35) + (v_paper_accuracy * 0.40) + (v_confidence_pct * 0.25)) * 100, 2)`.
+     - Permissions: Revoked from `PUBLIC` and `anon`; granted to `authenticated` and `service_role`.
+   - **2-argument overload** (`compute_readiness_score(UUID, UUID DEFAULT NULL)`): Defined in Migration 024, lines 1878–1892.
+     - Security: `SECURITY DEFINER`, `STABLE`, `SET search_path = public, pg_catalog`, `LANGUAGE sql`.
+     - Delegation body: `SELECT public.compute_readiness_score(p_user_id, p_subject_id, 'all');`.
+     - Permissions: Revoked from `PUBLIC` and `anon`; granted to `authenticated` and `service_role`.
+
+2. **Distinguishing Catalog Formatting from Semantic Implementation Drift**:
+   - **Acceptable catalog formatting differences** produced by `pg_get_functiondef`:
+     - Discarded typmod modifiers: The catalog header displays `RETURNS numeric` rather than `RETURNS numeric(5,2)`.
+     - Keyword casing (e.g. `CREATE OR REPLACE FUNCTION` vs lowercase `create or replace function`).
+     - Explicit default parameter typing (e.g. `DEFAULT NULL::uuid` vs `DEFAULT NULL`).
+     - Normalized whitespace, indentation, and parenthesization generated by the PostgreSQL deparser.
+     - Search path formatting (e.g. `SET search_path TO 'public', 'pg_catalog'`).
+   - **Unacceptable semantic drift requiring IMMEDIATE STOP**:
+     - Any alteration to caller authorization checks (e.g. missing `auth.uid()` or `service_role` verification).
+     - Any alteration to supported stages or stage validation logic.
+     - Any difference in chapter accessibility criteria, denominator computation, or table join conditions.
+     - Any difference in component weights (notes 35%, past papers 40%, confidence 25%) or readiness formula.
+     - For the 2-arg wrapper: Any delegation target other than `compute_readiness_score(p_user_id, p_subject_id, 'all')`.
+     - Any grant of execution to `PUBLIC` or `anon`.
+
+3. **Immediate Stop Condition**:
+   - If `function_definition` exhibits any semantic deviation from Migration 024, halt preflight immediately.
+   - Do NOT proceed to Gate 2 (Backup & Dry-run) or Gate 3 (Migration Push).
+   - Document the observed function definition and diff in the preflight report for engineer review.
+
+### Strictly Distinct Approval Gates & Rollout Sequence
+1. **Gate 1: Read-Only Production Preflight** — **COMPLETED (2026-10-21)**:
+   - Scope: Executed read-only verification queries against Production (`uvprmojmscndtwgkvjbi`). Confirmed migration history ended at 029 (30 migrations), 0 conflicting practice objects existed, Migration 029 grant baseline held, and live `compute_readiness_score` function definitions matched the authoritative Migration 024 baseline.
+2. **Gate 2: Production Backup & Non-Applying CLI Dry-Run** — **COMPLETED (2026-10-21)**:
+   - Scope: Generated schema, data, and role backups to protected local storage outside Git (`~/.atlas-backups/prod-v1.3.0-20261021073400Z`, dir `0700`, files `0600`), verified SHA-256 checksums (`SHA256SUMS`), and ran `supabase db push --dry-run` verifying pending list matched exactly 031, 032, and 033.
+   - Recovery limitations documented: sequential exports, managed platform schemas (`auth`, `storage`, etc.) and S3 bucket files excluded, circular FK constraints on `grade_threshold_publications`, not restore-tested, and no coverage guarantee for writes after export.
+3. **Gate 3: Production Migration Application & Postflight** — **COMPLETED (2026-10-21)**:
+   - Scope: Applied Migrations 031, 032, and 033 via `supabase db push` against Production (07:50:05Z–07:50:31Z UTC, exit code 0).
+   - Postflight verification results: 33-migration ledger verified (030 absent, 0 pending); practice tables, constraints, indexes, and RLS verified; authenticated owner-read permissions verified in catalog (direct writes denied); RPC execution privileges on public RPCs verified; private helper access revoked from all roles; canonical post-032 readiness definitions verified. PostgREST schema cache recognition and anonymous permission denial confirmed via public-client HTTP probes (role `anon`); owner-scoped authenticated reads, non-executing public RPC discovery (platform-restricted root OpenAPI endpoint), and mutating RPC behavior remain NOT VERIFIED and are deferred to Gate 5 authenticated smoke testing.
+4. **Gate 4: Merge PR #32 & Automatic Application Deployment** — **PENDING EXPLICIT APPROVAL**:
+   - Scope: Obtain explicit approval to merge PR #32. Merge PR #32 to `main`, triggering Vercel production deployment in Singapore (`sin1`). Verify deployment is `READY`.
+   - Stop Condition: Stop if build fails or deployment fails.
+5. **Gate 5: Production Smoke Testing** — **PENDING**:
+   - Scope: Authenticated production smoke testing: verify signed-in owner reads (`user_id = auth.uid()`), public RPC smoke execution (`log_practice_session_atomic`, etc., under separate explicit approval if mutating), `/stats`, `/logs`, log questions modal, `/api/stats`, and redirect from `/past-papers`.
+   - Stop Condition: Stop and evaluate hotfix options if errors occur.
+6. **Gate 6: Release Closeout, Tagging & Publication** — **PENDING**:
+   - Scope: Finalize `releaseDate` in `lib/version.ts`, create annotated Git tag `v1.3.0`, and publish GitHub Release.
+
+*Strict Boundary Rule*: Approval for an earlier gate must not authorize a later gate. PR #32 merge approval remains separate and on hold pending Gate 4 authorization. Preview acceptance is not Production acceptance.
+
+### Authenticated Read Endpoint (`GET /api/stats`)
+- **Authentication**: Requires authenticated session (`getAuthenticatedContext()`); returns HTTP 401 Unauthorized for unauthenticated requests.
+- **Cache-Control**: `Cache-Control: private, no-store, max-age=0`. Prevents shared intermediate or proxy caching of private student performance metrics while permitting transient client in-memory caching.
+- **Parameters**: `subjectId` (optional UUID; omitted or empty string queries aggregate statistics across all enrolled subjects), `section` (`'all' | 'overview' | 'chapters' | 'indicators'`).
+- **Client Session Caching**: Bounded in-memory client cache (`Map<string, ...>`), maximum 20 entries per map (FIFO eviction), 5-minute TTL (`CACHE_TTL_MS = 300_000`), account isolation via `setSessionUserId` (immediate cache wipe on user mismatch), keys `subjectId ?? 'all'` for stats and `${subjectId ?? 'all'}:${page}` for logs (no stage in keys). Not `sessionStorage`.
 
 ## General Production Configuration
 

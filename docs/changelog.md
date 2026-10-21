@@ -5,18 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.0] - Unreleased (Preview Accepted, Production Pending)
 
 ### Added
-- **Milestone 4 Preview baseline (not released to Production)**: Added Migration 031's separate atomic question-practice schema and owner-scoped application APIs; an accessible Log Questions workflow for individual or grouped topical, past-year, and mixed items; explicit per-item provenance, edit/delete confirmation, separate history, and a three-mode attempt trend with mark-weighted lifetime/current-route evidence. Full-paper counts, averages, best/latest/component analytics, prediction inputs, threshold inputs, and achievements remain practice-independent. Baseline `848d139` and all 31 migrations are available in isolated Preview project `eiyrzzcmljhrucazgxpm`; acceptance testing and Production release remain pending.
+- **Question Practice & Paper Logging (Milestone 4)**:
+  - Separate full-paper and standalone question-practice logging with distinct history tracking and attempt trends.
+  - Required multi-chapter mapping (1–200 valid chapters) for question practice with support for single or grouped topical, past-year, or mixed items.
+  - Optional question provenance (year, series, paper, variant, question number, duration, notes).
+  - Dedicated Stats workspace (`/stats`) with subject-level analytics, score trends, and chapter accuracy breakdowns.
+  - Dedicated Logs workspace (`/logs`) with separate full-paper and question practice attempt streams, modal workflows, and URL-driven pagination (`page` query parameter).
+  - Navigation redesign: Updated topbar and sidebar navigation to feature Subjects, Stats, and Logs; `/past-papers` now cleanly redirects (`RedirectType.replace`, HTTP 307) to `/logs`.
+  - Dual performance indicators on `/stats`: Predicted Exam Mark (mark-weighted average strictly per subject/stage with factual evidence volumes, explicitly non-official estimate) and Canonical Readiness Score (35% notes, 40% papers/practice, 25% confidence, with locked A2 readiness isolated as null).
+  - Authenticated Stats API endpoint (`GET /api/stats`): Serves chapter accuracy breakdowns and subject indicators with `Cache-Control: private, no-store, max-age=0`.
+  - Bounded in-memory client session caching with user-isolation safeguards, request sequence counters, and mutation-driven cache invalidation to provide smooth repeated subject switching.
+  - Database Migrations 031 (`20261014000031_practice_sessions_foundation.sql`), 032 (`20261016000032_practice_mapping_validation.sql`), and 033 (`20261017000033_a2_practice_logging_and_indicators.sql`) creating separate practice sessions schema, strict `SELECT` only table grants for authenticated clients, RPC contracts, chapter validation, and A2 logging support (applied in Preview project `eiyrzzcmljhrucazgxpm` and applied to Production Singapore Supabase `uvprmojmscndtwgkvjbi` on 2026-10-21 under Gate 3, containing the approved 000–029 baseline plus 031–033 with no Migration 030; PR #32 application deployment pending).
+
+### Fixed
+- Corrected subject switching latency on Stats and Logs via optimistic active-tab selection, parallelized server-side reads, and client session caching.
+- Resolved race conditions on rapid tab switching using monotonic request counters and active subject validation.
+- Fixed loading skeleton persistence bug where overview prop reconciliation superseded pending requests without restarting lower sections.
+- Repaired session cache ownership initialization so cache is properly scoped to the authenticated user on fresh component mounts.
+- Corrected route remapping and stage preservation edge cases during practice logging.
+
+### Deferred
+- Minor cosmetic tweaks on Stats and Logs (non-blocking visual refinements) are deferred to patch release v1.3.1.
+
+## [Operational] - 2026-10-01
+
+### Added
 - **Milestone 3 Production Cron Activation (PR #30)**:
   - Activated daily Cambridge grade-threshold discovery schedule on Vercel (`0 7 * * *` UTC) targeting `/api/cron/grade-threshold-discovery`.
   - Added `tests/vercel-cron-config.test.ts` to enforce the single discovery cron configuration and assert that mutating route `/api/cron/grade-thresholds` remains unscheduled and dormant.
   - Executed and verified first authorized Production invocation via Vercel native cron Run control (`dpl_5x3V5hGMkf8vbRwYgtyMjqsiVhg4` on `sin1`, CLI trigger initiated at 06:23:19.351Z, serverless runtime log event recorded at 06:23:19.625Z UTC / `1790835799625`), emitting exactly one sanitized `grade_threshold_discovery_executed` structured runtime log with healthy outcome `no_change` across all 5 MVP subjects (HTTP 200, 4612ms). The discovery route is designed and structurally tested to avoid Supabase and mutating modules, and no elevated Supabase server credential is configured for the discovery job (the function log was not a database audit).
 
+## [1.2.1] - 2026-09-30
+
 ### Fixed
-- **Milestone 4 feedback patch (locally committed; not pushed or deployed)**: Application question-practice create/replacement now requires at least one eligible chapter per question and supports multiple selections. Earlier unmapped history remains readable and retains its readiness eligibility; replacement edits require chapter selections. The local logging selector supports explicit catalogue-stage-valid off-route questions as history, while current-route readiness excludes them. Migration 031 is unchanged: direct RPC calls still permit empty mappings and reject some route-dependent off-route chapter mappings until a separately approved forward migration. Eligible current-route question practice already contributes to readiness; this patch does not change that formula.
-- **Milestone 4 forward validation correction (locally committed; not pushed, applied or deployed)**: Migration 032 requires 1–200 distinct valid chapter mappings on new/replacement RPC writes and allows catalogue-compatible off-route paper questions as history. A separate assessment-only predicate and matching application calculation prevent source-free Statistics 2 mappings from entering readiness on a Mechanics + Statistics 1 Maths route. Historical rows and unmapped eligibility, full-paper queries, notes/confidence denominator, stage locks, ownership, RLS and 35/40/25 weighting remain preserved. Disposable PostgreSQL 17.11 verification passed unchanged 031 baseline 201/201, upgrade 9/9, updated foundation 201/201, and 032 contract 90/90 assertions.
+- **Bug Fix: Subject Route Display**:
+  - Selected Mathematics papers now map to the correct Subject Route chapter groups.
+  - Statistics 1 remains available during staged AS study, while Pure 3 and Mechanics stay locked until A2.
+  - Selected papers now appear before unselected components, with AS papers listed ahead of A2 papers.
 - **Least-Privilege Database Grants (Migration 029, PR #25)**:
   - Removed effective `TRUNCATE`, `TRIGGER`, `REFERENCES`, and PostgreSQL 17+ `MAINTAIN` privileges from `PUBLIC`, `anon`, and `authenticated` across public relations.
   - Removed all anonymous and `PUBLIC` writes, reduced authenticated table-level writes to the six approved operation pairs, and retained only the approved `user_subjects` column updates.
