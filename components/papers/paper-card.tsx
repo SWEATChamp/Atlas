@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Trash2, Pencil, Clock, Calendar, X } from 'lucide-react'
 import type { PaperWithSubject } from '@/types'
 import { deletePaper } from '@/lib/actions/papers'
+import { invalidateSessionCache } from '@/lib/session-cache'
 import { formatDateOnly } from '@/lib/date'
 import { LazyLogPaperModal } from './lazy-log-paper-modal'
 
@@ -40,6 +41,7 @@ export function PaperCard({
     }
     setIsDeleting(true)
     await deletePaper(paper.id)
+    invalidateSessionCache(paper.subject_id)
   }
 
   const date = formatDateOnly(paper.attempted_at, {

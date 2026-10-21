@@ -387,3 +387,52 @@ Authored in `supabase/migrations/20260926000029_least_privilege_grant_remediatio
 - Critical row counts were unchanged, and migration-history, relation-security, function-security, and row-count comparison files were empty.
 - PostgREST schema cache reload completed successfully after the grant changes.
 - Detailed threat model, grant matrices, deferred anonymous-read scope, and assertion inventory are maintained in `docs/security-audit-legacy-grants.md`.
+
+---
+
+## Milestone 4 Practice Foundation (Migration 031) — Isolated Preview Baseline
+
+`supabase/migrations/20261014000031_practice_sessions_foundation.sql` follows the approved 000–029 baseline. Preview project `eiyrzzcmljhrucazgxpm` contains the approved 000–029 baseline plus Migrations 031, 032, and 033 (33 total migration files in `supabase/migrations`; Migration 030 does not exist) on branch `codex/milestone-4-practice-logging` (PR #32). On 2026-10-21, Migrations 031, 032, and 033 were applied to Production project `uvprmojmscndtwgkvjbi` under authorized Gate 3 execution. Postflight verification confirmed the 33-migration ledger (030 absent, 0 pending), table/RLS/grant rules, and canonical readiness definitions. Public-client HTTP probes (role `anon`) confirmed PostgREST practice table recognition and anonymous permission denial; owner-scoped authenticated reads (`role authenticated` with user JWT) were NOT VERIFIED by those probes. Non-executing public RPC discovery remains NOT VERIFIED due to the platform-restricted root OpenAPI endpoint, and mutating RPC behavior was not tested under the read-only scope. Signed-in owner reads and RPC smoke testing remain outstanding release checks for Gate 5. PR #32 application deployment (Gate 4) and authenticated smoke testing (Gate 5) remain pending separate explicit approvals. Preview acceptance is not Production acceptance.
+
+- `practice_sessions` stores one dated AS/A2 subject session with generated mark-weighted accuracy and optional provenance; `practice_session_items` stores 1–200 ordered scored questions; `practice_session_chapters` maps each item to distinct chapters. Full-paper identity and rows in `past_papers` are unchanged.
+- `log_practice_session_atomic` validates and writes the parent, every item, and chapter mappings in one transaction. `update_practice_session_atomic` validates before replacing the whole item set. `delete_practice_session` deletes only an owned session. Authenticated clients have owner-scoped `SELECT` only; direct table writes (`INSERT, UPDATE, DELETE`) are denied, and all mutations must use authenticated, ownership-checked RPCs. `service_role` retains `GRANT ALL` on practice tables.
+- Provenance is explicit per item: `inherit` uses a nonempty session bundle, `override` uses its own nonempty complete bundle, and `none` permits only a source label. Missing paper/year/series/variant/question numbers are not inferred. Stage, paper identity, chapter access, score bounds, and the user's local date are checked in the database.
+- Applied Migration 031 allows zero or more distinct chapter mappings per item. Forward Migration `20261016000032_practice_mapping_validation.sql` replaces the shared payload validator to require 1–200 distinct valid chapter UUIDs on every new or full-replacement write. Older unmapped rows are not backfilled, scanned, deleted or invalidated: they remain readable with unchanged readiness eligibility; resaving them requires explicit valid mappings.
+- Migration 032 adds private `m4_logging_chapter_eligible` for active same-subject, catalogue-stage-compatible chapter mappings on explicit off-route paper sources. Enrollment locks and selected-paper stage assignments remain enforced. Source-free topical logging keeps the existing chapter helper. A separate private `m4_assessment_chapter_eligible` tightens only mapped practice evidence: known catalogue chapters need a selected component at their recorded stage (or the existing component-name fallback). Thus Statistics 2 remains history-only on a Mechanics + Statistics 1 route even when its paper source is omitted. Legacy unmapped items and chapters without catalogue mappings retain existing behavior.
+- Function Replacement & Readiness Semantics: Migrations 031 and 032 replace `compute_readiness_score(UUID, UUID, TEXT)` and `compute_readiness_score(UUID, UUID)` (consumed by Dashboard and Subjects) to compute mark-weighted combined assessment accuracy: `(full_paper_raw + question_raw) / (full_paper_max + question_max)`, while preserving the 35% notes / 40% practice / 25% confidence weights. This is an active replacement of live function behavior, not a purely additive change. While RPC signatures remain backward-compatible, numerical results are not guaranteed to remain identical even for students with only full papers:
+  - Migration 024 computed past-paper accuracy as the unweighted arithmetic mean of paper percentages (`AVG(pp.accuracy_pct)`), whereas Migrations 031–032 compute mark-weighted assessment accuracy (`sum(raw) / sum(max)`). For example, two eligible papers scored 10/10 (100%) and 0/90 (0%) produce 50% under the former unweighted average but 10% under mark weighting; with 40% weighting and constant notes/confidence, overall readiness shifts by 16 percentage points.
+  - Eligibility filtering also tightens: Migrations 031–032 require components to match active route selections at that stage (`m4_stage_open` and `sel.stage = pp.stage`), excluding unselected or off-route papers that previously entered the unweighted average.
+  - This recalculation takes effect immediately upon database migration application for live v1.2.1 users before the v1.3.0 application is deployed. Rolling back the application deployment in Vercel does not restore previous database function definitions.
+- Migration 032 has been compiled and tested in disposable network-disabled PostgreSQL 17.11 (unchanged 031 baseline 201/201 assertions, true 031→032 historical-data upgrade 9/9, updated foundation 201/201, and current 032 contract 90/90) and applied to isolated Preview project `eiyrzzcmljhrucazgxpm`. Upgrade tests normalize only the renamed practice predicate and compare the remaining readiness/helper/CRUD definitions byte-for-byte; real 031-RPC unmapped history and readiness are preserved. Migrations 031–033 were successfully applied to Production `uvprmojmscndtwgkvjbi` on 2026-10-21 under Gate 3. See `supabase/tests/README.md` for baseline fixtures and current-suite execution.
+- Readiness adds eligible question-item marks to full-paper parent totals once each, using actual recorded stage and the student's **current** route. Off-route or inaccessible items remain in lifetime history but do not contribute current-route marks. Full-paper child questions contribute only to chapter analytics, not readiness totals.
+- Rollback & Recovery Limitations: Reverting the application deployment in Vercel to v1.2.1 does not roll back database schema or restore previous function definitions. Restoring a logical database backup would overwrite live data and discard any records created after the backup was generated. Any post-deployment database fixes must be forward-only.
+
+---
+
+## Milestone 4 A2 Practice Logging & Study Indicators (Migration 033) — Preview Baseline
+
+Authored in `supabase/migrations/20261017000033_a2_practice_logging_and_indicators.sql`. Rollback-only database tests are defined in `supabase/tests/database/a2_practice_logging.test.sql` (24 assertions), `supabase/tests/database/as_a2_readiness.test.sql` (27 assertions), and `supabase/tests/fixtures/practice_032_to_033_upgrade.fixture` (14 assertions). Status: **Committed and pushed in PR #32; verified in disposable PostgreSQL and Preview; applied to Production project `uvprmojmscndtwgkvjbi` on 2026-10-21 under Gate 3 and postflight-verified. Application deployment (Gate 4) and Production smoke testing (Gate 5) pending**.
+
+### Schema & Function Updates
+
+1. **`m4_logging_stage_open(public.user_subjects, TEXT)`**:
+   - Private helper decoupling practice logging stage access from assessment readiness.
+   - Permits confirmed, non-archived AS learners (`study_route != 'unconfirmed'`) to record valid practice sessions in both `'as'` and `'a2'` stages.
+   - A2 practice logged while in AS stage is preserved as preparation history, but strictly isolated from AS readiness calculations until A2 is unlocked.
+
+2. **`m4_logging_chapter_eligible(public.user_subjects, TEXT, UUID, UUID)`**:
+   - Refines logging chapter eligibility across all three provenance branches:
+     - **Branch 1 (Source-free)**: Matching-stage or shared chapters, plus existing selected route-dependent chapters. Strictly denies science practical cross-stage exemptions without an effective paper source.
+     - **Branch 2 (Selected paper on route)**: Enforces both chapter-stage compatibility and paper compatibility, allowing science practical cross-stage exemptions (e.g. 9702/9701 Paper 5 AS chapters in A2).
+     - **Branch 3 (Off-route paper)**: Enforces paper stage-behavior (`fixed_as`, `fixed_a2`, or `default_stage`), chapter-stage compatibility, and paper compatibility.
+   - Denies direct client and service execution (`REVOKE ALL FROM PUBLIC, anon, authenticated, service_role`).
+
+3. **`resolve_practice_payload`**:
+   - Replaced enrollment check with `m4_logging_stage_open(v_us, p_stage)`, allowing early A2 question practice while enforcing 1–200 valid chapter mappings per item via `m4_logging_chapter_eligible`.
+
+4. **Canonical 032 Readiness Preserved**:
+   - Canonical Migration 032 `compute_readiness_score` is preserved byte-for-byte without alteration. Migration 032 readiness already filters practice items via `m4_stage_open(us, ps.stage)` and `m4_assessment_chapter_eligible(us, ps.stage, ...)`, naturally isolating early A2 preparation practice while in AS stage and automatically incorporating it into A2 readiness upon transition.
+
+5. **Permissions & Least Privilege**:
+   - No unnecessary table or helper grants are added. Specifically, elevated-privilege helpers `get_user_local_date(UUID)` and `get_user_timezone(UUID)` are not granted to `authenticated` because they lack caller-ownership checks (`WHERE user_id = auth.uid()`).
+   - Private helpers `m4_logging_stage_open`, `m4_logging_chapter_eligible`, and `resolve_practice_payload` have all direct execution privileges revoked from `PUBLIC`, `anon`, `authenticated`, and `service_role`.

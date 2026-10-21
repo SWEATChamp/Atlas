@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Unlock, AlertTriangle, ChevronRight } from 'lucide-react'
 import { Dialog } from '@/components/ui/dialog'
 import { transitionToA2 } from '@/lib/actions/route'
+import { invalidateSessionCache } from '@/lib/session-cache'
 import {
   getFixedSubjectCombinations,
   getCompatibleA2StagedCombinations,
@@ -123,6 +124,7 @@ export default function A2TransitionModal({
       if (res.error) {
         setError(res.error)
       } else {
+        invalidateSessionCache(enrollment.subject_id)
         onClose()
       }
     })
@@ -177,6 +179,7 @@ export default function A2TransitionModal({
       if (res.error) {
         setError(res.error)
       } else {
+        invalidateSessionCache(enrollment.subject_id)
         onClose()
       }
     })

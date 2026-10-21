@@ -67,6 +67,8 @@ export async function configureSubjectRoute(
   revalidatePath('/dashboard')
   revalidatePath('/subjects')
   revalidatePath('/past-papers')
+  revalidatePath('/logs')
+  revalidatePath('/stats')
   return { success: true }
 }
 
@@ -122,6 +124,8 @@ export async function transitionToA2(
   revalidatePath('/dashboard')
   revalidatePath('/subjects')
   revalidatePath('/past-papers')
+  revalidatePath('/logs')
+  revalidatePath('/stats')
   return { success: true }
 }
 

@@ -26,7 +26,7 @@
 | Phase 2.13 / v1.2.0 Accessible UI Foundation & Subject Controls Guide | Deployed and production-verified on 2026-09-02 (merge commit `abed20b`, closeout `a4ea179`); annotated tag `v1.2.0` and GitHub Release published |
 | Security Hardening / Migration 029 Least-Privilege Grants | Applied and hosted-verified on 2026-09-30; 23/23 rollback-only pgTAP assertions passed; PR #25 merged at `d89e9a2`; Production deployment `dpl_6sSfNEtgKQyfVpPGaShxk2YXWMen` verified Ready in `sin1` |
 | Milestone 3: Official Grade-Threshold Foundation | Complete baseline; Migration 027 and June 2026 publications present in Singapore; publication discovery merged (PR #16, PR #18, PR #20); PR #30 activated daily discovery schedule (`0 7 * * *` UTC) on Vercel deployment `dpl_5x3V5hGMkf8vbRwYgtyMjqsiVhg4`; first authorized production run verified with sanitized structured log and outcome `no_change`; mutating endpoint remains dormant |
-| Milestone 4: Paper & Question-Practice Logging and Analytics | Planned; product rules documented, implementation not started |
+| Milestone 4: Paper & Question-Practice Logging and Analytics | Migrations 031–033 applied to Production database (`uvprmojmscndtwgkvjbi`) on 2026-10-21 (33 migrations in ledger, no 030, 0 pending); PostgREST table recognition and anonymous denial confirmed (owner reads and RPC discovery NOT VERIFIED); PR #32 Vercel Preview accepted; local v1.3.0 release metadata prepared (uncommitted); Production application merge/deployment (Gate 4) and authenticated smoke testing (Gate 5) pending |
 | Milestone 5: Target-Grade Marks Planner | Planned; product rules documented, depends on Milestone 3 official thresholds and Milestone 4 practice logging |
 | Release-candidate checks | 201 database tests and 134 unit tests pass; type check, lint, production build, and whitespace checks pass |
 | Google Docs integration | Not started |
@@ -194,19 +194,39 @@
 - [x] Return “Threshold unavailable” for missing, ambiguous, unsupported, or unverified data rather than guessing.
 - [x] Add database constraints, indexes, RLS, import-audit records, idempotency tests, and revision-history tests.
 
-### Milestone 4: Paper & Question-Practice Logging and Analytics (Planned)
+### Milestone 4: Paper & Question-Practice Logging and Analytics (Production Migrations Applied; Application Merge/Deployment Pending)
 
-- [ ] Preserve the existing full-paper logger with required paper, variant, series, year, stage, date, and total marks.
-- [ ] Add a separate **Log questions** workflow for one question or grouped past-year, topical, or mixed/custom question practice.
-- [ ] Require subject, AS/A2 stage, date, marks obtained, and marks available for question practice while keeping paper, variant, series, year, source label, question number, duration, notes, and chapter mappings optional when genuinely unknown.
-- [ ] Implement a separate post-Migration-027 practice schema for sessions, scored question items, and normalized chapter mappings; do not weaken the identity requirements of `past_papers`.
-- [ ] Save each practice session and all of its items and chapter mappings through an ownership-checked, stage-aware atomic operation.
-- [ ] Include full papers and question practice in readiness using mark-weighted combined assessment accuracy, without double-counting full-paper question breakdowns.
-- [ ] Include mapped standalone questions in chapter accuracy and weak-topic evidence.
-- [ ] Extend accuracy trends with All practice, Full papers, and Question practice views, visually distinct points, mark-weighted averages, and evidence volume.
-- [ ] Keep paper counts, full-paper averages, best-paper scores, and paper-related achievements isolated from standalone question practice.
-- [ ] Leave question-practice XP and streak effects unchanged until separately designed and approved.
-- [ ] Add database, calculation, RLS, atomicity, optional-provenance, aggregation, no-double-count, and evidence-isolation tests.
+The Milestone 4 feature implementation and database Migrations 031, 032, and 033 are committed and pushed on branch `codex/milestone-4-practice-logging` (PR #32) up to commit `bff2f94`. The Vercel Preview deployment was rebuilt, re-verified, and accepted. Preview project `eiyrzzcmljhrucazgxpm` contains the approved 000–029 baseline plus Migrations 031, 032, and 033 (33 migration files total; Migration 030 does not exist). On 2026-10-21, Migrations 031, 032, and 033 were applied to Production project `uvprmojmscndtwgkvjbi` under Gate 3 (33 migrations in ledger, no 030, 0 pending). Postflight checks verified practice tables, constraints, indexes, RLS, authenticated owner-read grants, and canonical readiness definitions. Public-client HTTP probes (role `anon`) confirmed PostgREST table recognition and anonymous permission denial (`42501`); owner-scoped authenticated reads, non-executing public RPC discovery (due to platform-restricted root OpenAPI endpoint), and mutating RPC behavior remain NOT VERIFIED and are deferred to Gate 5 authenticated smoke testing. Local v1.3.0 release metadata and documentation are prepared (uncommitted). PR #32 application merge and Vercel Production deployment (Gate 4) and authenticated smoke testing (Gate 5) remain pending separate explicit approvals. Minor cosmetic tweaks are deferred to v1.3.1.
+
+- [x] Preserve the existing full-paper logger with required paper, variant, series, year, stage, date, and total marks.
+- [x] Add a separate **Log questions** workflow for one question or grouped past-year, topical, or mixed/custom question practice.
+- [x] Require subject, AS/A2 stage, date, marks obtained, marks available, and at least one eligible chapter per question in application create/replacement; support multi-selection while paper, variant, series, year, source label, question number, duration, and notes remain optional.
+- [x] Preserve older unmapped practice history and its existing readiness eligibility; replacement edits must select eligible chapters.
+- [x] Prepare and test forward Migration 032 enforcing 1–200 valid mappings in shared direct create/update RPC validation (pushed in PR #32, applied in Preview `eiyrzzcmljhrucazgxpm`).
+- [x] Distinguish explicit, catalogue-stage-valid off-route question logging from current-route readiness: off-route questions remain history-only, including Statistics 2 on a Mechanics + Statistics 1 Mathematics route.
+- [x] Include logging-only off-route historical chapter acceptance in Migration 032. A separate assessment predicate also excludes source-free mapped Statistics 2 from an off-route Maths readiness score; full-paper filters, existing chapter helpers, notes/confidence safeguards and weighting remain unchanged.
+- [x] Implement Migration 031's separate practice sessions, scored items, and normalized chapter mappings without weakening `past_papers` identity.
+- [x] Save each practice session and all of its items and chapter mappings through an ownership-checked, stage-aware atomic operation.
+- [x] Include full papers and eligible question items in readiness using mark-weighted combined assessment accuracy, without double-counting full-paper question breakdowns.
+- [x] Include eligible mapped standalone questions in chapter accuracy and weak-topic evidence.
+- [x] Extend accuracy trends with All practice, Full papers, and Question practice views, visually distinct points, mark-weighted averages, and evidence volume.
+- [x] Keep paper counts, full-paper averages, best-paper scores, and paper-related achievements isolated from standalone question practice.
+- [x] Leave question-practice XP and streak effects unchanged until separately designed and approved.
+- [x] Add database, calculation, RLS, atomicity, optional-provenance, aggregation, no-double-count, and evidence-isolation tests.
+- [x] Decouple navigation into Dashboard, Subjects, Stats, and Logs; configure `/past-papers` to redirect (`RedirectType.replace`, HTTP 307) to `/logs` while preserving all query parameters (including repeated keys), and update `/past-papers/[paperId]` back-links to `/logs`.
+- [x] Separate Stats and Logs data loading: `/stats` loads analytical graphs and indicators without awaiting practice catalogues; `/logs` loads modals and paginated attempt history with parallel independent failure handling.
+- [x] Fix UI usability defects: convert `SubjectNavigationStatus` to zero-whitespace absolute badge preventing mobile overflow; eliminate `LogPaperModal` false route flashes, preserve valid paper selections across option reloads, and distinguish route loading vs error states with retry.
+- [x] Implement dual study indicators on `/stats`: Predicted Exam Mark (mark-weighted average strictly per subject/stage with factual evidence volumes and explicit non-official Estimate label, without unapproved High/Moderate/Limited thresholds) and Canonical Readiness Score (35% notes, 40% papers/practice, 25% confidence, with locked A2 readiness isolated as null).
+- [x] Add URL-driven pagination on `/logs` with `page` query parameter and page-scoped evidence disclosure instead of mislabeling page subsets as lifetime totals; keep analytical summary metrics on `/stats`.
+- [x] Implement untouched, explicit, and saved provenance lifecycle in `LogQuestionsModal`: untouched defaults adapt to shared source changes, explicit none/override choices and saved provenance are never overwritten, explicit inherit with empty shared source blocks saving with actionable validation, and valid chapter selections are preserved when sources change.
+- [x] Author Migration 033 (`20261017000033_a2_practice_logging_and_indicators.sql`) decoupling practice logging access from assessment readiness eligibility (`m4_logging_stage_open` and `m4_logging_chapter_eligible`), allowing confirmed staged AS learners to record valid A2 question practice (stored with `stage='a2'`) as history while strictly isolating AS readiness until A2 unlock.
+- [x] Preserve canonical 032 readiness byte-for-byte; isolate early A2 practice from AS readiness; revoke direct execution on private helpers `m4_logging_stage_open`, `m4_logging_chapter_eligible`, and `resolve_practice_payload` without granting unauthenticated access to helper functions.
+- [x] Audit revalidation matrix across chapter progress, paper attempts, practice sessions, route configuration, subject management, and timezone updates to ensure immediate freshness on `/stats` and `/logs`.
+- [x] Eliminate subject-switch latency on Stats and Logs via optimistic active-tab selection, parallelized server-side reads (`GET /api/stats`), and safe client session caching (`lib/session-cache.ts` and `lib/stats-client.ts`).
+- [x] Prepare v1.3.0 release metadata and documentation; local verification passes all unit, integration, type, lint, build, and whitespace checks.
+- [x] Production database readiness and migration application: execute read-only preflight checks (Gate 1), logical backup and dry-run (Gate 2), and migration application (Migrations 031–033) on Production project `uvprmojmscndtwgkvjbi` (Gate 3) under explicit approval (33 migrations in ledger, no 030, 0 pending; PostgREST table recognition and anonymous denial verified; owner-scoped reads and RPC discovery NOT VERIFIED).
+- [ ] Merge PR #32 to `main`, trigger Vercel Production deployment (Gate 4), and complete authenticated production smoke tests (Gate 5; owner-scoped reads and RPC smoke testing).
+- [ ] Deferred to v1.3.1: Minor cosmetic refinements on Stats and Logs pages.
 
 ### Milestone 5: Target-Grade Marks Planner (Planned)
 

@@ -1,14 +1,42 @@
 import Link from 'next/link'
+import { SubjectNavigationStatus } from './subject-navigation-status'
 
 export interface SubjectFilterTabsProps {
   subjects: { id: string; name: string; color_hex: string }[]
   activeId: string | null
+  basePath?: string
+  ariaLabel?: string
+  onSelect?: (subjectId: string | null) => void
 }
 
-export function SubjectFilterTabs({ subjects, activeId }: SubjectFilterTabsProps) {
+export function SubjectFilterTabs({
+  subjects,
+  activeId,
+  basePath = '/past-papers',
+  ariaLabel = 'Filter by subject',
+  onSelect,
+}: SubjectFilterTabsProps) {
+  function handleLinkClick(
+    event: React.MouseEvent<HTMLAnchorElement>,
+    targetSubjectId: string | null
+  ) {
+    if (
+      onSelect &&
+      !event.defaultPrevented &&
+      event.button === 0 &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.shiftKey &&
+      !event.altKey
+    ) {
+      event.preventDefault()
+      onSelect(targetSubjectId)
+    }
+  }
+
   return (
     <nav
-      aria-label="Filter past papers by subject"
+      aria-label={ariaLabel}
       style={{
         display: 'flex',
         overflowX: 'auto',
@@ -21,12 +49,16 @@ export function SubjectFilterTabs({ subjects, activeId }: SubjectFilterTabsProps
         paddingBottom: 'var(--space-2)',
       }}
     >
+      {/* Use App Router default prefetch={null} to prefetch only down to loading.js on viewport entry, avoiding full dynamic server component burst requests across all subjects */}
       <Link
-        href="/past-papers"
+        href={basePath}
         scroll={false}
+        prefetch={null}
         aria-current={activeId === null ? 'page' : undefined}
         className={`btn ${activeId === null ? 'btn-primary' : 'btn-ghost'}`}
+        onClick={(e) => handleLinkClick(e, null)}
         style={{
+          position: 'relative',
           background: activeId === null ? 'var(--accent-strong)' : undefined,
           color: activeId === null ? '#fff' : 'var(--text-secondary)',
           textDecoration: 'none',
@@ -38,6 +70,7 @@ export function SubjectFilterTabs({ subjects, activeId }: SubjectFilterTabsProps
         }}
       >
         All
+        <SubjectNavigationStatus name="all subjects" />
       </Link>
 
       {subjects.map((s) => {
@@ -45,11 +78,14 @@ export function SubjectFilterTabs({ subjects, activeId }: SubjectFilterTabsProps
         return (
           <Link
             key={s.id}
-            href={`/past-papers?subject=${encodeURIComponent(s.id)}`}
+            href={`${basePath}?subject=${encodeURIComponent(s.id)}`}
             scroll={false}
+            prefetch={null}
             aria-current={isActive ? 'page' : undefined}
             className={`btn ${isActive ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={(e) => handleLinkClick(e, s.id)}
             style={{
+              position: 'relative',
               background: isActive ? 'var(--accent-strong)' : undefined,
               color: isActive ? '#fff' : 'var(--text-secondary)',
               textDecoration: 'none',
@@ -61,6 +97,7 @@ export function SubjectFilterTabs({ subjects, activeId }: SubjectFilterTabsProps
             }}
           >
             {s.name}
+            <SubjectNavigationStatus name={s.name} />
           </Link>
         )
       })}

@@ -172,7 +172,7 @@ The development sequencing across Milestones 3–5 reflects strict data and evid
 
 ## Milestone 4 — Paper & Question-Practice Logging and Analytics
 
-**Status:** Planned
+**Status:** The Milestone 4 feature implementation and database Migrations 031, 032, and 033 are committed and pushed on branch `codex/milestone-4-practice-logging` (PR #32) and applied to isolated Preview project `eiyrzzcmljhrucazgxpm` (which contains the approved 000–029 baseline plus Migrations 031, 032, and 033; Migration 030 does not exist). The rebuilt Vercel Preview was accepted by the user, and v1.3.0 release metadata is prepared locally (uncommitted). Production database project `uvprmojmscndtwgkvjbi` successfully applied Migrations 031, 032, and 033 on 2026-10-21 under authorized Gate 3 execution with postflight verification (33 migrations in ledger, no 030, 0 pending; RLS/grants verified; PostgREST table recognition and anonymous denial confirmed; owner reads and RPC discovery NOT VERIFIED). PR #32 merge and Vercel Production deployment (Gate 4) and authenticated smoke testing (Gate 5) remain pending separate explicit approvals. Preview acceptance is not Production acceptance.
 
 **Objective:** Allow individual and grouped question practice alongside full-paper attempts to strengthen readiness, chapter accuracy, and weak-topic analytics, while preserving strict paper identity and isolating question practice from future predicted-grade and official threshold comparisons.
 
@@ -181,10 +181,12 @@ The development sequencing across Milestones 3–5 reflects strict data and evid
 Preserve two explicit logging paths:
 
 - **Log full paper:** retain the existing requirement for subject, AS/A2 stage, paper, variant, examination series, year, attempt date, and total marks. These records establish the verified baseline for readiness, paper accuracy analytics, and future predicted grades and threshold comparisons.
-- **Log questions:** allow one question or a grouped practice session containing multiple past-year, topical, or mixed/custom questions. Require subject, AS/A2 stage, attempt date, marks obtained, and marks available; allow paper, variant, series, year, source label, question number, duration, notes, and chapter mappings to be recorded when known without requiring them for topical practice.
+- **Log questions:** allow one question or a grouped practice session containing multiple past-year, topical, or mixed/custom questions. Require subject, AS/A2 stage, attempt date, marks obtained, marks available, and at least one eligible chapter per question in application create and replacement-edit flows; allow multiple chapters per question. Paper, variant, series, year, source label, question number, duration, and notes remain optional for topical practice.
 - Store standalone question practice separately from `past_papers`; do not make the existing full-paper year, series, paper, or variant identity nullable to accommodate it.
 - Model grouped practice as a parent practice session (`practice_sessions`) with one or more scored question items (`practice_session_items`) and normalized question-to-chapter mappings (`practice_session_chapters`).
 - Write a practice session, its question items, and its chapter mappings atomically with ownership, active-enrollment, score-boundary, and AS/A2-stage validation.
+- The compulsory-chapter rule does not rewrite older unmapped records: they remain readable and retain their existing readiness eligibility, but a replacement edit must supply eligible chapter mappings. Hosted Migration 031 permitted empty mappings through direct RPC calls; forward Migration 032 adds database enforcement and is applied in Preview project `eiyrzzcmljhrucazgxpm`. Forward Migration 032 was applied to Production on 2026-10-21 under Gate 3, with PR #32 application release and smoke testing pending.
+- Explicit off-route paper practice may be recorded as history when its subject, recorded AS/A2 stage, and active catalogue chapter mappings are valid. It does not contribute to current-route readiness or chapter evidence: for example, Statistics 2 practice is history-only for a Mathematics Mechanics + Statistics 1 route even when its paper source is omitted. Source-free topical logging keeps existing chapter rules; a separate assessment predicate requires known catalogue chapter components to be selected at the recorded stage. Migration 032 adds matching logging-only RPC validation and requires 1–200 valid chapter mappings per question on create/replacement. Historical rows and legacy unmapped eligibility remain unchanged; only mapped practice assessment is tightened. It is pushed in PR #32, applied in Preview, and applied to Production on 2026-10-21 under Gate 3 (with PR #32 merge and Vercel application deployment pending).
 
 For paper performance and attempt analytics:
 
@@ -204,6 +206,15 @@ For readiness and accuracy analytics:
 - Keep “Papers logged,” full-paper best score, and full-paper average distinct from question-session counts and question-practice accuracy.
 - Do not award paper-count, paper-grade, or best-paper achievements from standalone question practice.
 - Do not change XP or streak behaviour for question practice in the first release unless those effects are separately designed and approved.
+- Decouple primary navigation into Dashboard, Subjects, Stats, and Logs; configure `/past-papers` to redirect (HTTP 307 via `RedirectType.replace`) to `/logs` preserving all query parameters (including repeated keys), and update `/past-papers/[paperId]` back-links to `/logs`.
+- Separate Stats and Logs data workspaces: `/stats` serves graphs, component rankings, and dual indicators without awaiting practice catalogues; `/logs` serves logging modals and paginated attempt history with parallel independent failure handling.
+- Surface dual study indicators on `/stats`:
+  - **Predicted Exam Mark:** Mark-weighted assessment percentage strictly per subject and stage, accompanied by factual evidence volume disclosure (`X/Y eligible marks · N full paper(s), M question(s)`) and an explicit non-official `Estimate` label without invented High/Moderate/Limited categorization.
+  - **Readiness Score:** Canonical syllabus readiness evaluating 35% notes completion, 40% paper and practice accuracy, and 25% confidence level, with locked A2 readiness isolated as null.
+- Support Early A2 Question Practice: Confirmed staged AS learners can record valid A2 question practice (stored directly with `stage='a2'`) as preparation history. Early A2 practice is excluded from active AS readiness, excluded from overall readiness while in AS, and activates automatically for A2 readiness upon A2 unlock. Canonical 032 readiness is preserved byte-for-byte without alteration.
+- Add URL-driven pagination on `/logs` with `page` query parameter and page-scoped evidence disclosure instead of mislabeling page subsets as lifetime totals; keep analytical summary metrics on `/stats`.
+- Resolve UI usability defects: convert `SubjectNavigationStatus` to a zero-whitespace absolute badge preventing mobile overflow; eliminate `LogPaperModal` false route flashes, preserve valid paper selections across option reloads, and distinguish route loading versus error states with retry.
+- Implement untouched, explicit, and saved provenance lifecycle in `LogQuestionsModal`: untouched defaults adapt to shared source changes, explicit none/override choices and saved provenance are never overwritten, explicit inherit with empty shared source blocks saving with actionable validation, and valid chapter selections are preserved when sources change.
 
 **Practice evidence and isolation rules:**
 
@@ -218,6 +229,7 @@ For readiness and accuracy analytics:
 - **Accuracy check:** Hand-calculated fixtures match application output for all five subjects and study routes.
 - **Question-session check:** Individual and grouped question sessions reproduce hand-calculated mark totals and session accuracy.
 - **Optional-source check:** Topical practice can be recorded without invented year, series, paper, or variant data, while supplied past-year provenance is preserved.
+- **Chapter-selection check:** Application create/replacement rejects any question with no chapter, accepts multiple distinct eligible chapters, and preserves historical unmapped evidence without inventing mappings.
 - **Readiness-inclusion check:** Standalone question marks contribute to the correct stage's readiness and chapter accuracy.
 - **No-double-count check:** Full-paper totals and their child question breakdown are never counted twice in combined accuracy.
 - **Atomicity and ownership check:** Partial question groups cannot persist, and users cannot read or mutate another user's practice sessions or items.

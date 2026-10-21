@@ -7,6 +7,30 @@ import {
   STORAGE_KEY_LAST_SEEN_RELEASE,
 } from '@/lib/release-state'
 
+const store = new Map<string, string>()
+const mockLocalStorage: Storage = {
+  getItem: (key: string) => store.get(key) ?? null,
+  setItem: (key: string, value: string) => {
+    store.set(key, String(value))
+  },
+  removeItem: (key: string) => {
+    store.delete(key)
+  },
+  clear: () => {
+    store.clear()
+  },
+  key: (index: number) => Array.from(store.keys())[index] ?? null,
+  get length() {
+    return store.size
+  },
+}
+
+Object.defineProperty(window, 'localStorage', {
+  value: mockLocalStorage,
+  configurable: true,
+  writable: true,
+})
+
 describe('Release Notification State', () => {
   beforeEach(() => {
     resetInMemoryReleaseState()
@@ -20,6 +44,7 @@ describe('Release Notification State', () => {
 
   it('hides notification when current version matches dismissed version', () => {
     expect(shouldShowReleaseNotification('1.2.1', '1.2.1')).toBe(false)
+    expect(shouldShowReleaseNotification('1.3.0', '1.3.0')).toBe(false)
   })
 
   it('shows notification when current version is newer than dismissed version', () => {
@@ -27,12 +52,13 @@ describe('Release Notification State', () => {
     expect(shouldShowReleaseNotification('1.2.1', '1.1.0')).toBe(true)
     expect(shouldShowReleaseNotification('1.2.1', '1.1.1')).toBe(true)
     expect(shouldShowReleaseNotification('1.2.1', '1.2.0')).toBe(true)
-    expect(shouldShowReleaseNotification('2.0.0', '1.2.1')).toBe(true)
+    expect(shouldShowReleaseNotification('1.3.0', '1.2.1')).toBe(true)
+    expect(shouldShowReleaseNotification('2.0.0', '1.3.0')).toBe(true)
   })
 
-  it('evaluates release-state lifecycle for users upgrading from 1.2.0 to 1.2.1, returning true initially and false after recording dismissal', () => {
+  it('evaluates release-state lifecycle for users upgrading from 1.2.1 to 1.3.0, returning true initially and false after recording dismissal', () => {
     const mockStorageData: Record<string, string> = {
-      [STORAGE_KEY_LAST_SEEN_RELEASE]: '1.2.0',
+      [STORAGE_KEY_LAST_SEEN_RELEASE]: '1.2.1',
     }
     const mockStorage = {
       getItem: (key: string) => mockStorageData[key] ?? null,
@@ -41,19 +67,19 @@ describe('Release Notification State', () => {
       },
     } as Storage
 
-    // Initial check: returning user with 1.2.0 stored
+    // Initial check: returning user with 1.2.1 stored
     const priorVersion = getDismissedReleaseVersion(mockStorage)
-    expect(priorVersion).toBe('1.2.0')
-    expect(shouldShowReleaseNotification('1.2.1', priorVersion)).toBe(true)
+    expect(priorVersion).toBe('1.2.1')
+    expect(shouldShowReleaseNotification('1.3.0', priorVersion)).toBe(true)
 
     // User dismisses modal
-    setDismissedReleaseVersion('1.2.1', mockStorage)
-    expect(mockStorageData[STORAGE_KEY_LAST_SEEN_RELEASE]).toBe('1.2.1')
+    setDismissedReleaseVersion('1.3.0', mockStorage)
+    expect(mockStorageData[STORAGE_KEY_LAST_SEEN_RELEASE]).toBe('1.3.0')
 
-    // Subsequent check: user now has 1.2.1 stored
+    // Subsequent check: user now has 1.3.0 stored
     const updatedVersion = getDismissedReleaseVersion(mockStorage)
-    expect(updatedVersion).toBe('1.2.1')
-    expect(shouldShowReleaseNotification('1.2.1', updatedVersion)).toBe(false)
+    expect(updatedVersion).toBe('1.3.0')
+    expect(shouldShowReleaseNotification('1.3.0', updatedVersion)).toBe(false)
   })
 
   it('handles empty or missing current version gracefully', () => {

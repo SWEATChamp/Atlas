@@ -10,6 +10,7 @@ import UsernameStep from './steps/username-step'
 import SubjectsStep from './steps/subjects-step'
 import ExamDatesStep from './steps/exam-dates-step'
 import RouteStep from './steps/route-step'
+import styles from './onboarding.module.css'
 
 const STEPS = [
   { id: 1, label: 'Choose a username' },
@@ -58,12 +59,13 @@ function StepIndicator({ current }: { current: number }) {
           </motion.div>
           {i < STEPS.length - 1 && (
             <motion.div
+              className={styles.stepConnector}
               animate={{
                 background: step.id < current
                   ? 'var(--accent-primary)'
                   : 'var(--border-subtle)',
               }}
-              style={{ width: 48, height: 2, borderRadius: 2 }}
+              style={{ height: 2, borderRadius: 2 }}
             />
           )}
         </div>
@@ -116,6 +118,7 @@ function OnboardingContent() {
       }}
     >
       <motion.div
+        className={styles.card}
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
@@ -126,7 +129,6 @@ function OnboardingContent() {
           background: 'var(--bg-card)',
           border: '1px solid var(--border-subtle)',
           boxShadow: 'var(--shadow-md)',
-          padding: '40px 40px',
           transition: 'max-width 300ms ease',
           position: 'relative',
         }}

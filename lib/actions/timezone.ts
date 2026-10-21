@@ -34,5 +34,7 @@ export async function syncTimezone(
   revalidatePath('/dashboard')
   revalidatePath('/subjects')
   revalidatePath('/past-papers')
+  revalidatePath('/logs')
+  revalidatePath('/stats')
   return { changed: true }
 }

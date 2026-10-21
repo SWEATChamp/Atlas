@@ -2,7 +2,7 @@
 
 ## Supabase RPC (Remote Procedure Calls)
 Atlas leverages PostgreSQL functions via Supabase RPC to securely handle complex operations without bloated client-side code.
-> **Status**: Migrations 024–028 and their matching application changes are active in production. Hosted migration history in Singapore (`uvprmojmscndtwgkvjbi`) is synchronized through Migration 028 (merged via PR #22, commit `5d49dd3a3856b052c1fbd8919ba0048c27710034`).
+> **Status**: Production applied Migrations 031, 032, and 033 on 2026-10-21 under Gate 3 (33 migrations in ledger, no Migration 030, 0 pending; PostgREST table recognition and anonymous denial verified; owner-scoped reads and RPC discovery NOT VERIFIED). Preview project `eiyrzzcmljhrucazgxpm` contains the matching 000–029 baseline plus Migrations 031, 032, and 033. PR #32 features are accepted in Preview; v1.3.0 release metadata is prepared locally (uncommitted). Application merge/deployment (Gate 4) and authenticated Production smoke testing (Gate 5) remain pending separate explicit approvals.
 
 - `set_onboarding_subjects(p_user_id UUID, p_subject_ids UUID[])`: Atomically enrolls 1–5 available MVP subjects for onboarding users (`onboarding_completed = FALSE`).
 - `configure_subject_route(p_user_id UUID, p_user_subject_id UUID, p_route study_route_enum, p_paper_selections JSONB DEFAULT '[]'::JSONB)`: Configures a subject's study route, validates and persists paper components with `subject_paper_id`, preserves `current_stage = 'a2'` and unlock metadata for already-staged A2 students, and synchronizes accessible `user_chapters`.
@@ -11,7 +11,7 @@ Atlas leverages PostgreSQL functions via Supabase RPC to securely handle complex
 - `undo_mission_completion(mission_id, user_id)`: Reverses mission XP and attempt-linked achievements within 10 minutes on the same local date.
 - `generate_daily_missions(user_id)`: Generates up to 3 realistic, varied daily missions balancing categories, capping per-subject load at 2, and populating `subject_paper_id` for past-paper attempts.
 - `replace_mission(mission_id, user_id, reason)`: Atomically skips a pending mission and generates an accessible alternative candidate while enforcing variety rules.
-- `compute_readiness_score(p_user_id UUID, p_subject_id UUID, p_stage TEXT)`: Returns the stage-aware aggregated readiness percentage (35% Notes, 40% Papers, 25% Confidence), strictly filtering `is_active = TRUE` chapters.
+- `compute_readiness_score(p_user_id UUID, p_subject_id UUID, p_stage TEXT)`: Returns the stage-aware aggregated readiness percentage, strictly filtering `is_active = TRUE` chapters. In Migration 031, the weights remain 35% Notes, 40% combined mark-weighted full-paper and eligible question-item accuracy, and 25% Confidence.
 - `compute_readiness_score(p_user_id UUID, p_subject_id UUID DEFAULT NULL)`: Backward-compatibility overload.
 - `get_user_dashboard_stats(user_id)`: Aggregates profile, effective current streak, user-local subject exam countdowns, readiness, and missions (including `estimated_minutes` and `subject_paper_id`) in a single request to prevent N+1 queries. Migration 025 restores `subject_readiness[].days_until` and expires a displayed streak when its last activity predates yesterday.
 - `add_subject_enrollment(p_user_id UUID, p_subject_id UUID)`: Adds an available global MVP subject or restores the same archived enrollment. Enforces the five-active-subject limit and preserves existing route, progress, papers, and history.
@@ -21,8 +21,27 @@ Atlas leverages PostgreSQL functions via Supabase RPC to securely handle complex
 
 Daily RPCs use `profiles.timezone`; invalid or missing values fall back to UTC.
 
+### Milestone 4 practice API (Preview Accepted; Production Pending)
+
+- Authenticated clients are granted `SELECT` only on `practice_sessions`, `practice_session_items`, and `practice_session_chapters`. Direct table writes (`INSERT`, `UPDATE`, `DELETE`) are denied; all mutations execute exclusively via authenticated, ownership-checked RPCs.
+- `log_practice_session_atomic(p_user_id UUID, p_subject_id UUID, p_stage TEXT, p_title TEXT, p_session_date DATE, p_duration_mins SMALLINT, p_session_provenance JSONB DEFAULT '{}', p_items JSONB DEFAULT '[]', p_notes TEXT DEFAULT NULL)` returns the new session. Its full parent/item/chapter write is atomic.
+- `update_practice_session_atomic(p_user_id UUID, p_session_id UUID, p_title TEXT, p_session_date DATE, p_duration_mins SMALLINT, p_session_provenance JSONB DEFAULT '{}', p_items JSONB DEFAULT '[]', p_notes TEXT DEFAULT NULL)` returns the updated session after full item replacement. Subject and actual stage are immutable.
+- `delete_practice_session(p_user_id UUID, p_session_id UUID)` returns whether an owned session was deleted.
+- The server-only `lib/actions/practice-sessions.ts` authenticates and validates create/update/delete, owner-scopes reads, exposes subject/all history, detail, form catalogue, trends, and combined chapter evidence, and revalidates dashboard, past-papers, and affected subject paths after successful mutations. Client UI does not write practice tables directly.
+- Application create and replacement-update validation requires each item's `chapterIds` to contain 1–200 distinct chapter UUIDs. Migration 032 enforces the same requirement in the shared direct-RPC validator: missing/null/non-array `chapter_ids` fail with `P0007`, empty/oversized arrays with `P0003`, and duplicate, malformed or incompatible chapter IDs with `P0006`. An invalid replacement preserves the entire prior parent/item/chapter graph. Existing unmapped history remains readable with its earlier readiness rules; replacement edits must supply valid mappings.
+- Migration 032's private logging-only helper matches the local chapter selector: explicit off-route papers accept active same-subject, catalogue-stage-compatible chapters while preserving enrollment unlocks and selected-paper stage assignments. Such questions remain history-only. Source-free topical practice keeps existing logging rules, but its mapped catalogue chapters must be assessed by a selected component at the recorded stage to contribute to readiness/chapter evidence. This closes the earlier source-free Statistics 2 readiness gap; component-name and no-catalogue-mapping fallbacks remain supported. Only the practice-assessment predicate changes: full-paper filters, notes/confidence denominator and 35/40/25 weights are preserved. Migrations 031, 032, and 033 are committed and pushed in PR #32, applied to Preview project `eiyrzzcmljhrucazgxpm`, and applied to Production `uvprmojmscndtwgkvjbi` on 2026-10-21 under Gate 3; PR #32 application deployment to Production is pending.
+- Paper history/counts, mark-weighted full-paper average, best/latest, comparable component analytics, prediction inputs, and official-threshold comparison inputs use only `past_papers`. Question practice remains a separate input to readiness, chapter analytics, and the explicitly combined trend.
+- Client session caching utilizes bounded in-memory caching (`Map<string, ...>`), with FIFO capacity eviction at 20 entries, 5-minute TTL, and account isolation via `setSessionUserId`. Keys are `subjectId ?? 'all'` for stats and `${subjectId ?? 'all'}:${page}` for logs (no stage in keys). Direct web storage like `sessionStorage` is not used.
+
 ## Next.js Route Handlers
-Custom endpoints for authentication and integrations:
+Custom endpoints for authentication, statistics, and integrations:
+- **`GET /api/stats`**: Authenticated statistics read endpoint.
+  - Requires authenticated Supabase session (`getAuthenticatedContext()`); returns HTTP 401 Unauthorized for unauthenticated requests.
+  - Query parameters:
+    - `subjectId`: Optional string UUID. If omitted or empty, returns aggregate statistics across all enrolled subjects.
+    - `section`: Optional string `'all' | 'overview' | 'chapters' | 'indicators'` (defaults to `'all'`).
+  - Cache Control: Emits `Cache-Control: private, no-store, max-age=0` on all responses, ensuring private student performance metrics are never cached by shared intermediary or edge caches, while permitting transient in-memory client session caching.
+  - Returns section-specific JSON payload containing chapter accuracy breakdowns, study indicators (Predicted Exam Mark and Canonical Readiness Score), or aggregate metrics.
 - **`GET /api/auth/callback`**: Handles the Supabase OAuth callback and establishes the session.
 - **`GET /api/docs/connect`**: Initiates Google Docs OAuth permission grant.
 - **`GET /api/docs/callback`**: Captures and stores encrypted Google Docs tokens.

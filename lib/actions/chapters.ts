@@ -40,6 +40,8 @@ export async function updateChapterStatus(
   if (chapter) {
     revalidatePath(`/subjects/${chapter.subject_id}`)
     revalidatePath('/subjects')
+    revalidatePath('/stats')
+    revalidatePath('/dashboard')
   }
 
   return {}
@@ -79,6 +81,9 @@ export async function updateChapterConfidence(
 
   if (chapter) {
     revalidatePath(`/subjects/${chapter.subject_id}`)
+    revalidatePath('/subjects')
+    revalidatePath('/stats')
+    revalidatePath('/dashboard')
   }
 
   return {}

@@ -36,6 +36,10 @@ export function Dialog({
 }: DialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   const previousActiveElementRef = useRef<HTMLElement | null>(null)
+  const closeRef = useRef(onClose)
+  // Changing form state often recreates the caller's close callback. Keep the
+  // current callback without restarting the open-dialog focus/scroll lifecycle.
+  useEffect(() => { closeRef.current = onClose }, [onClose])
 
   // Capture active element when dialog opens, and restore focus on ANY closure or unmount path
   useEffect(() => {
@@ -68,8 +72,8 @@ export function Dialog({
   }, [])
 
   const handleClose = useCallback(() => {
-    onClose()
-  }, [onClose])
+    closeRef.current()
+  }, [])
 
   // Focus trap, Escape key, and body scroll locking
   useEffect(() => {

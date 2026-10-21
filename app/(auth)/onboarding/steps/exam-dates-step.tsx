@@ -6,6 +6,7 @@ import { Loader2, CalendarCheck2 } from 'lucide-react'
 import { setExamDates, completeOnboarding } from '@/lib/actions/onboarding'
 import { createClient } from '@/lib/supabase/client'
 import type { UserSubjectWithSubject } from '@/types'
+import styles from '../onboarding.module.css'
 
 // ─── CAIE Exam Sessions ───────────────────────────────────────────────────────
 // Representative dates used for countdown / mission engine scheduling.
@@ -34,23 +35,26 @@ function SessionPicker({
   value,
   onChange,
   color,
+  subjectName,
 }: {
   value: string
   onChange: (date: string) => void
   color: string
+  subjectName: string
 }) {
   return (
-    <div style={{ display: 'flex', gap: 6 }}>
+    <div className={styles.sessionChoices} role="group" aria-label={`${subjectName} exam session`}>
       {EXAM_SESSIONS.map((s) => {
         const selected = value === s.date
         return (
           <motion.button
             key={s.date}
             type="button"
+            className={styles.sessionChoice}
+            aria-pressed={selected}
             onClick={() => onChange(s.date)}
             whileTap={{ scale: 0.94 }}
             style={{
-              flex: 1,
               padding: '10px 8px',
               borderRadius: 'var(--radius-md)',
               border: `1.5px solid ${selected ? color : 'var(--border-subtle)'}`,
@@ -64,7 +68,6 @@ function SessionPicker({
               textAlign: 'center',
               transition: 'all 150ms ease',
               position: 'relative',
-              whiteSpace: 'nowrap',
             }}
           >
             {s.label}
@@ -97,13 +100,15 @@ function GradePicker({
   value,
   onChange,
   color,
+  subjectName,
 }: {
   value: string
   onChange: (g: Grade) => void
   color: string
+  subjectName: string
 }) {
   return (
-    <div style={{ display: 'flex', gap: 6 }}>
+    <div className={styles.gradeChoices} role="group" aria-label={`${subjectName} target grade`}>
       {GRADES.map((g) => {
         const selected = value === g
         return (
@@ -111,10 +116,10 @@ function GradePicker({
             key={g}
             type="button"
             className="touch-target-btn"
+            aria-pressed={selected}
             onClick={() => onChange(g)}
             whileTap={{ scale: 0.9 }}
             style={{
-              flex: 1,
               height: 44,
               minHeight: 44,
               borderRadius: 'var(--radius-md)',
@@ -297,6 +302,7 @@ export default function ExamDatesStep({
                   value={entry.examDate}
                   onChange={(date) => update(us.subject_id, 'examDate', date as Session)}
                   color={subject.color_hex}
+                  subjectName={subject.name}
                 />
               </div>
 
@@ -309,6 +315,7 @@ export default function ExamDatesStep({
                   value={entry.targetGrade}
                   onChange={(g) => update(us.subject_id, 'targetGrade', g)}
                   color={subject.color_hex}
+                  subjectName={subject.name}
                 />
               </div>
             </motion.div>

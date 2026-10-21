@@ -5,7 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.0] - Unreleased (Preview Accepted, Production Pending)
+
+### Added
+- **Question Practice & Paper Logging (Milestone 4)**:
+  - Separate full-paper and standalone question-practice logging with distinct history tracking and attempt trends.
+  - Required multi-chapter mapping (1–200 valid chapters) for question practice with support for single or grouped topical, past-year, or mixed items.
+  - Optional question provenance (year, series, paper, variant, question number, duration, notes).
+  - Dedicated Stats workspace (`/stats`) with subject-level analytics, score trends, and chapter accuracy breakdowns.
+  - Dedicated Logs workspace (`/logs`) with separate full-paper and question practice attempt streams, modal workflows, and URL-driven pagination (`page` query parameter).
+  - Navigation redesign: Updated topbar and sidebar navigation to feature Subjects, Stats, and Logs; `/past-papers` now cleanly redirects (`RedirectType.replace`, HTTP 307) to `/logs`.
+  - Dual performance indicators on `/stats`: Predicted Exam Mark (mark-weighted average strictly per subject/stage with factual evidence volumes, explicitly non-official estimate) and Canonical Readiness Score (35% notes, 40% papers/practice, 25% confidence, with locked A2 readiness isolated as null).
+  - Authenticated Stats API endpoint (`GET /api/stats`): Serves chapter accuracy breakdowns and subject indicators with `Cache-Control: private, no-store, max-age=0`.
+  - Bounded in-memory client session caching with user-isolation safeguards, request sequence counters, and mutation-driven cache invalidation to provide smooth repeated subject switching.
+  - Database Migrations 031 (`20261014000031_practice_sessions_foundation.sql`), 032 (`20261016000032_practice_mapping_validation.sql`), and 033 (`20261017000033_a2_practice_logging_and_indicators.sql`) creating separate practice sessions schema, strict `SELECT` only table grants for authenticated clients, RPC contracts, chapter validation, and A2 logging support (applied in Preview project `eiyrzzcmljhrucazgxpm` and applied to Production Singapore Supabase `uvprmojmscndtwgkvjbi` on 2026-10-21 under Gate 3, containing the approved 000–029 baseline plus 031–033 with no Migration 030; PR #32 application deployment pending).
+
+### Fixed
+- Corrected subject switching latency on Stats and Logs via optimistic active-tab selection, parallelized server-side reads, and client session caching.
+- Resolved race conditions on rapid tab switching using monotonic request counters and active subject validation.
+- Fixed loading skeleton persistence bug where overview prop reconciliation superseded pending requests without restarting lower sections.
+- Repaired session cache ownership initialization so cache is properly scoped to the authenticated user on fresh component mounts.
+- Corrected route remapping and stage preservation edge cases during practice logging.
+
+### Deferred
+- Minor cosmetic tweaks on Stats and Logs (non-blocking visual refinements) are deferred to patch release v1.3.1.
+
+## [Operational] - 2026-10-01
 
 ### Added
 - **Milestone 3 Production Cron Activation (PR #30)**:
@@ -13,7 +38,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `tests/vercel-cron-config.test.ts` to enforce the single discovery cron configuration and assert that mutating route `/api/cron/grade-thresholds` remains unscheduled and dormant.
   - Executed and verified first authorized Production invocation via Vercel native cron Run control (`dpl_5x3V5hGMkf8vbRwYgtyMjqsiVhg4` on `sin1`, CLI trigger initiated at 06:23:19.351Z, serverless runtime log event recorded at 06:23:19.625Z UTC / `1790835799625`), emitting exactly one sanitized `grade_threshold_discovery_executed` structured runtime log with healthy outcome `no_change` across all 5 MVP subjects (HTTP 200, 4612ms). The discovery route is designed and structurally tested to avoid Supabase and mutating modules, and no elevated Supabase server credential is configured for the discovery job (the function log was not a database audit).
 
+## [1.2.1] - 2026-09-30
+
 ### Fixed
+- **Bug Fix: Subject Route Display**:
+  - Selected Mathematics papers now map to the correct Subject Route chapter groups.
+  - Statistics 1 remains available during staged AS study, while Pure 3 and Mechanics stay locked until A2.
+  - Selected papers now appear before unselected components, with AS papers listed ahead of A2 papers.
 - **Least-Privilege Database Grants (Migration 029, PR #25)**:
   - Removed effective `TRUNCATE`, `TRIGGER`, `REFERENCES`, and PostgreSQL 17+ `MAINTAIN` privileges from `PUBLIC`, `anon`, and `authenticated` across public relations.
   - Removed all anonymous and `PUBLIC` writes, reduced authenticated table-level writes to the six approved operation pairs, and retained only the approved `user_subjects` column updates.

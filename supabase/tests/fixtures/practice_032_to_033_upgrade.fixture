@@ -1,0 +1,225 @@
+-- Non-.sql upgrade fixture executed explicitly against a disposable database.
+-- Outside supabase/tests/database/*.test.sql to prevent unintended test discovery.
+-- Tests historical 032 baseline rejection, applies 033 in-flight transactionally via \ir,
+-- verifies schema invariance, asserts pre-upgrade row & eligibility preservation,
+-- asserts early-A2 creation and unlock activation, and rolls back completely.
+
+BEGIN;
+CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
+SET LOCAL search_path = public, extensions, pg_catalog;
+SET LOCAL TIME ZONE 'UTC';
+SELECT plan(14);
+
+CREATE TEMP TABLE m4_ctx (key TEXT PRIMARY KEY, id UUID, value JSONB);
+GRANT SELECT, INSERT, UPDATE ON m4_ctx TO authenticated, anon;
+
+CREATE FUNCTION pg_temp.ref(p_key TEXT) RETURNS UUID LANGUAGE sql AS $$
+  SELECT id FROM pg_temp.m4_ctx WHERE key = p_key;
+$$;
+
+CREATE FUNCTION pg_temp.login(p_key TEXT) RETURNS TEXT LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM set_config('request.jwt.claims',
+    jsonb_build_object('sub', pg_temp.ref(p_key), 'role', 'authenticated')::TEXT, true);
+  RETURN set_config('request.jwt.claim.sub', pg_temp.ref(p_key)::TEXT, true);
+END;
+$$;
+
+CREATE FUNCTION pg_temp.new_user(p_key TEXT, p_code TEXT, p_route public.study_route_enum, p_combo TEXT DEFAULT NULL, p_stage TEXT DEFAULT 'as')
+RETURNS VOID LANGUAGE plpgsql AS $$
+DECLARE v_uid UUID := gen_random_uuid(); v_sid UUID; v_us UUID; v_selections JSONB;
+BEGIN
+  INSERT INTO auth.users(id, email, raw_user_meta_data)
+    VALUES (v_uid, v_uid::TEXT || '@m4.test', jsonb_build_object('full_name', p_key));
+  UPDATE public.profiles SET timezone = 'UTC' WHERE id = v_uid;
+  SELECT id INTO STRICT v_sid FROM public.subjects WHERE code = p_code;
+  IF p_route = 'unconfirmed' THEN
+    INSERT INTO public.user_subjects(user_id, subject_id, study_route, current_stage) VALUES (v_uid, v_sid, 'unconfirmed', NULL) RETURNING id INTO v_us;
+  ELSE
+    INSERT INTO public.user_subjects(user_id, subject_id, study_route, current_stage) VALUES (v_uid, v_sid, p_route, p_stage::public.subject_stage_enum) RETURNING id INTO v_us;
+  END IF;
+  INSERT INTO pg_temp.m4_ctx(key, id) VALUES (p_key, v_uid), (p_key || '.enrollment', v_us);
+  PERFORM pg_temp.login(p_key);
+  IF p_route <> 'unconfirmed' THEN
+    SELECT jsonb_agg(jsonb_build_object('paper_number', sp.paper_number, 'component_name', sp.name, 'stage', rp.stage)
+      ORDER BY sp.paper_number) INTO v_selections
+    FROM public.subject_valid_routes vr JOIN public.subject_route_papers rp ON rp.route_id = vr.id
+    JOIN public.subject_papers sp ON sp.id = rp.subject_paper_id
+    WHERE vr.subject_id = v_sid AND vr.route = p_route AND (p_combo IS NULL OR vr.combination_key = p_combo);
+    PERFORM public.configure_subject_route(v_uid, v_us, p_route, COALESCE(v_selections, '[]'));
+  END IF;
+END;
+$$;
+
+CREATE FUNCTION pg_temp.items(p_raw INTEGER DEFAULT 10, p_max INTEGER DEFAULT 10,
+  p_mode TEXT DEFAULT 'none', p_prov JSONB DEFAULT NULL, p_chapters JSONB DEFAULT '[]')
+RETURNS JSONB LANGUAGE sql AS $$
+  SELECT jsonb_build_array(jsonb_build_object('item_order', 1, 'marks_obtained', p_raw, 'marks_available', p_max,
+    'provenance_mode', p_mode, 'chapter_ids', p_chapters) ||
+    CASE WHEN p_prov IS NULL THEN '{}'::JSONB ELSE jsonb_build_object('provenance', p_prov) END);
+$$;
+
+CREATE FUNCTION pg_temp.log(p_user TEXT, p_code TEXT DEFAULT '9709', p_stage TEXT DEFAULT 'as',
+  p_prov JSONB DEFAULT '{}', p_items JSONB DEFAULT pg_temp.items())
+RETURNS public.practice_sessions LANGUAGE sql AS $$
+  SELECT public.log_practice_session_atomic(pg_temp.ref(p_user), (SELECT id FROM public.subjects WHERE code = p_code),
+    p_stage, 'Upgrade Test Session', CURRENT_DATE, 30::SMALLINT, p_prov, p_items);
+$$;
+
+CREATE FUNCTION pg_temp.ready(p_user TEXT, p_code TEXT DEFAULT '9709', p_stage TEXT DEFAULT 'all')
+RETURNS NUMERIC LANGUAGE sql AS $$
+  SELECT public.compute_readiness_score(pg_temp.ref(p_user), (SELECT id FROM public.subjects WHERE code = p_code), p_stage);
+$$;
+
+-- Setup test subjects & users under 032 schema
+SELECT pg_temp.new_user('locked_as', '9709', 'staged', 'mech_stats', 'as');
+SELECT pg_temp.new_user('physics_as', '9702', 'staged', 'standard', 'as');
+
+-- Resolve reference chapter IDs
+INSERT INTO pg_temp.m4_ctx(key, id)
+  SELECT '9709.ch.pure1', id FROM public.chapters WHERE subject_id = (SELECT id FROM public.subjects WHERE code = '9709') AND component = 'Pure 1' AND number = 1 LIMIT 1;
+INSERT INTO pg_temp.m4_ctx(key, id)
+  SELECT '9709.ch.pure3', id FROM public.chapters WHERE subject_id = (SELECT id FROM public.subjects WHERE code = '9709') AND stage::TEXT = 'a2' LIMIT 1;
+INSERT INTO pg_temp.m4_ctx(key, id)
+  SELECT '9702.ch.as', id FROM public.chapters WHERE subject_id = (SELECT id FROM public.subjects WHERE code = '9702') AND stage::TEXT = 'as' LIMIT 1;
+INSERT INTO pg_temp.m4_ctx(key, id)
+  SELECT '9702.ch.a2', id FROM public.chapters WHERE subject_id = (SELECT id FROM public.subjects WHERE code = '9702') AND stage::TEXT = 'a2' LIMIT 1;
+
+-- Create pre-upgrade 032 practice records
+SELECT pg_temp.login('locked_as');
+INSERT INTO pg_temp.m4_ctx(key, id)
+  SELECT 'pre_upgrade.session', (pg_temp.log('locked_as', '9709', 'as', '{"paper_number": 1}', pg_temp.items(40, 50, 'inherit', NULL, jsonb_build_array(pg_temp.ref('9709.ch.pure1'))))).id;
+
+CREATE TEMP TABLE pre_upgrade_snapshot AS
+  SELECT s.id, s.user_id, s.subject_id, s.stage, s.total_score_raw, s.total_score_max,
+         i.id AS item_id, i.marks_obtained, i.marks_available, i.provenance_mode, i.subject_paper_id,
+         pg_temp.ready('locked_as', '9709', 'as') AS ready_as
+  FROM public.practice_sessions s
+  JOIN public.practice_session_items i ON i.session_id = s.id
+  WHERE s.id = pg_temp.ref('pre_upgrade.session');
+
+-- 1. Assert 032 baseline rejection: AS learner logging A2 practice throws P0005
+SELECT throws_ok(
+  $$SELECT pg_temp.log('locked_as', '9709', 'a2', '{"paper_number": 3}', pg_temp.items(10, 10, 'inherit', NULL, jsonb_build_array(pg_temp.ref('9709.ch.pure3'))))$$,
+  'P0005',
+  NULL,
+  '032 baseline rejects early A2 practice logging by staged AS learner'
+);
+
+-- Capture pre-upgrade function definitions to prove invariance
+RESET ROLE;
+INSERT INTO m4_ctx(key, value)
+  SELECT 'before.functions', jsonb_agg(jsonb_build_object('name', proname, 'definition', pg_get_functiondef(oid)) ORDER BY proname)
+  FROM pg_proc WHERE pronamespace = 'public'::regnamespace AND proname IN
+  ('compute_readiness_score', 'm4_chapter_eligible', 'm4_assessment_chapter_eligible', 'm4_stage_open', 'm4_resolve_provenance', 'm4_write_items',
+   'log_practice_session_atomic', 'update_practice_session_atomic', 'delete_practice_session');
+
+-- Apply Migration 033 in-flight transactionally via psql relative include
+\ir ../../migrations/20261017000033_a2_practice_logging_and_indicators.sql
+
+-- 2. Verify schema invariance: compute_readiness_score, assessment helpers, and CRUD byte-identical
+SELECT is(
+  (SELECT jsonb_agg(jsonb_build_object('name', proname, 'definition', pg_get_functiondef(oid)) ORDER BY proname)
+   FROM pg_proc WHERE pronamespace = 'public'::regnamespace AND proname IN
+   ('compute_readiness_score', 'm4_chapter_eligible', 'm4_assessment_chapter_eligible', 'm4_stage_open', 'm4_resolve_provenance', 'm4_write_items',
+    'log_practice_session_atomic', 'update_practice_session_atomic', 'delete_practice_session')),
+  (SELECT value FROM m4_ctx WHERE key = 'before.functions'),
+  '033 upgrade preserves compute_readiness_score, assessment helpers, and CRUD byte-for-byte'
+);
+
+-- 3. Verify pre-upgrade 032 session row preserved across 033 upgrade
+SELECT is(
+  (SELECT count(*) FROM public.practice_sessions WHERE id = pg_temp.ref('pre_upgrade.session')),
+  1::BIGINT,
+  'pre-upgrade 032 practice session preserved across 033 upgrade'
+);
+
+-- 4. Verify pre-upgrade session scores and stage preserved across upgrade
+SELECT is(
+  (SELECT (total_score_raw, total_score_max, stage)::TEXT FROM public.practice_sessions WHERE id = pg_temp.ref('pre_upgrade.session')),
+  (SELECT (total_score_raw, total_score_max, stage)::TEXT FROM pre_upgrade_snapshot LIMIT 1),
+  'pre-upgrade session scores and stage preserved across upgrade'
+);
+
+-- 5. Verify pre-upgrade item marks and provenance preserved across upgrade
+SELECT is(
+  (SELECT (marks_obtained, marks_available, provenance_mode, subject_paper_id)::TEXT FROM public.practice_session_items WHERE session_id = pg_temp.ref('pre_upgrade.session')),
+  (SELECT (marks_obtained, marks_available, provenance_mode, subject_paper_id)::TEXT FROM pre_upgrade_snapshot LIMIT 1),
+  'pre-upgrade item marks and provenance preserved across upgrade'
+);
+
+-- 6. Verify pre-upgrade AS readiness score preserved across 033 upgrade
+SELECT is(
+  pg_temp.ready('locked_as', '9709', 'as'),
+  (SELECT ready_as FROM pre_upgrade_snapshot LIMIT 1),
+  'pre-upgrade AS readiness score preserved across 033 upgrade'
+);
+
+-- 7. Under 033: Valid early A2 by staged AS learner succeeds
+SELECT pg_temp.login('locked_as');
+SELECT lives_ok(
+  $$INSERT INTO pg_temp.m4_ctx(key, id)
+    SELECT 'early_a2.session', (pg_temp.log('locked_as', '9709', 'a2', '{"paper_number": 3}', pg_temp.items(10, 10, 'inherit', NULL, jsonb_build_array(pg_temp.ref('9709.ch.pure3'))))).id$$,
+  '033 permits early A2 practice logging by staged AS learner'
+);
+
+-- 8. Early practice is stored directly with stage = 'a2'
+SELECT is(
+  (SELECT stage::TEXT FROM public.practice_sessions WHERE id = pg_temp.ref('early_a2.session')),
+  'a2',
+  'early practice is stored with stage=a2'
+);
+
+-- 9. AS Readiness remains unchanged after early A2 practice
+SELECT is(
+  pg_temp.ready('locked_as', '9709', 'as'),
+  (SELECT ready_as FROM pre_upgrade_snapshot LIMIT 1),
+  'early A2 practice excluded from AS readiness'
+);
+
+-- 10. Locked A2 readiness returns 0.00 while in AS
+SELECT is(
+  pg_temp.ready('locked_as', '9709', 'a2'),
+  0.00::NUMERIC,
+  'locked A2 readiness returns 0.00 for AS learner'
+);
+
+-- 11. Case 1: Source-free Science A2 + AS-only chapter rejected (P0006)
+SELECT pg_temp.login('physics_as');
+SELECT throws_ok(
+  $$SELECT pg_temp.log('physics_as', '9702', 'a2', '{}', pg_temp.items(10, 10, 'none', NULL, jsonb_build_array(pg_temp.ref('9702.ch.as'))))$$,
+  'P0006',
+  NULL,
+  'source-free science A2 rejects AS-only chapter'
+);
+
+-- 12. Case 2: Effective Science P5 A2 + AS-foundation chapter succeeds
+SELECT lives_ok(
+  $$SELECT pg_temp.log('physics_as', '9702', 'a2', '{"paper_number": 5}', pg_temp.items(10, 10, 'inherit', NULL, jsonb_build_array(pg_temp.ref('9702.ch.as'))))$$,
+  'effective science P5 A2 allows AS foundation chapter'
+);
+
+-- 13. Case 3: Wrong-stage mapped chapter rejected (P0006)
+SELECT throws_ok(
+  $$SELECT pg_temp.log('physics_as', '9702', 'as', '{"paper_number": 1}', pg_temp.items(10, 10, 'inherit', NULL, jsonb_build_array(pg_temp.ref('9702.ch.a2'))))$$,
+  'P0006',
+  NULL,
+  'wrong-stage mapped chapter rejected'
+);
+
+-- 14. Upgrading to A2 activates early A2 practice for readiness
+RESET ROLE;
+UPDATE public.user_subjects
+  SET current_stage = 'a2', a2_unlocked_at = now(), a2_unlock_method = 'manual'
+  WHERE id = pg_temp.ref('locked_as.enrollment');
+SELECT pg_temp.login('locked_as');
+SELECT cmp_ok(
+  pg_temp.ready('locked_as', '9709', 'a2'),
+  '>',
+  0.00::NUMERIC,
+  'early A2 evidence automatically contributes to readiness upon A2 unlock'
+);
+
+SELECT * FROM finish();
+-- Complete transactional rollback
+ROLLBACK;
