@@ -1,9 +1,10 @@
 import React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import StatsPage from '@/app/(app)/stats/page'
 import { StatsWorkspace } from '@/components/papers/stats-workspace'
 import { ChapterAccuracyChart } from '@/components/papers/chapter-accuracy-chart'
+import { StudyIndicatorsSkeleton, getExpectedStudyIndicatorCount } from '@/components/papers/study-indicators'
 import type { RawEnrollment } from '@/components/papers/async-study-indicators'
 import type { ChapterAccuracy, PaperWithSubject } from '@/types'
 import type { PracticeRouteContext } from '@/types/practice-sessions'
@@ -768,5 +769,250 @@ describe('StatsPage layout ordering and streaming proof', () => {
     expect(pageJsx?.props.initialSubjectId).toBe(subjectId)
     expect(pageJsx?.props.subjects).toHaveLength(1)
     expect(pageJsx?.props.initialData.subjectId).toBe(subjectId)
+  })
+
+  it('renders matching responsive card shells, control placeholders, and stat cells in loading states', () => {
+    // 1. StudyIndicatorsSkeleton geometry and card count
+    const { container: skelSingle } = render(<StudyIndicatorsSkeleton activeSubjectName="Mathematics" cardCount={1} />)
+    const singleCards = skelSingle.querySelectorAll('.card')
+    expect(singleCards).toHaveLength(1)
+    expect(singleCards[0].getAttribute('role')).toBe('status')
+    expect(singleCards[0].getAttribute('aria-label')).toBe('Loading study indicators')
+
+    const { container: skelMulti } = render(<StudyIndicatorsSkeleton cardCount={3} />)
+    const multiCards = skelMulti.querySelectorAll('.card')
+    expect(multiCards).toHaveLength(3)
+
+    // 2. StatsWorkspace skeleton elements & stat cell classes
+    const { container: wsView } = render(
+      <StatsWorkspace
+        userId="user-1"
+        subjects={[{ id: subjectId, name: 'Mathematics', color_hex: '#3b82f6', code: '9709' }]}
+        initialSubjectId={subjectId}
+        initialOverview={{
+          subjectId,
+          trend: [],
+          trendSubjects: [],
+          summaryStats: [
+            { label: 'Papers logged', value: 0 },
+            { label: 'Full-paper average', value: '—' },
+            { label: 'Best full paper', value: '—' },
+          ],
+          componentStats: [],
+          activeSubjectName: 'Mathematics',
+          timestamp: Date.now(),
+        }}
+      />
+    )
+
+    // Summary grid items must use past-papers-stat-cell class without inline padding override
+    const statCells = wsView.querySelectorAll('.past-papers-stats-grid .past-papers-stat-cell')
+    expect(statCells).toHaveLength(3)
+    statCells.forEach((cell) => {
+      expect((cell as HTMLElement).style.padding).toBe('')
+    })
+  })
+
+  it('supports cold-overview selection with deferred responses and verifies actual loading controls and structure', async () => {
+    const mathSub = {
+      id: 'sub-math',
+      name: 'Mathematics',
+      code: '9709',
+      color_hex: '#3b82f6',
+      study_route: 'staged' as const,
+      stage: 'as' as const,
+    }
+    const chemSub = {
+      id: 'sub-chem',
+      name: 'Chemistry',
+      code: '9701',
+      color_hex: '#10b981',
+      study_route: 'as_only' as const,
+      stage: 'as' as const,
+    }
+    const bioSub = {
+      id: 'sub-bio',
+      name: 'Biology',
+      code: '9700',
+      color_hex: '#8b5cf6',
+      study_route: 'full_level' as const,
+      stage: 'full' as const,
+    }
+    const physSub = {
+      id: 'sub-phys',
+      name: 'Physics',
+      code: '9702',
+      color_hex: '#f59e0b',
+      study_route: 'unconfirmed' as const,
+      stage: null,
+    }
+
+    clearSessionCache()
+
+    // Hold the overview request deferred
+    let deferredResolver: ((val: unknown) => void) | null = null
+    mockGetStatsOverviewData.mockImplementation(() => new Promise((resolve) => {
+      deferredResolver = resolve
+    }))
+
+    render(
+      <StatsWorkspace
+        userId="user-cold-1"
+        subjects={[mathSub, chemSub, bioSub, physSub]}
+        initialSubjectId={null}
+        initialOverview={{
+          subjectId: null,
+          trend: [],
+          trendSubjects: [],
+          summaryStats: [
+            { label: 'Papers logged', value: 0 },
+            { label: 'Full-paper average', value: '—' },
+            { label: 'Best full paper', value: '—' },
+          ],
+          componentStats: [],
+          activeSubjectName: null,
+          timestamp: Date.now(),
+        }}
+      />
+    )
+
+    // User clicks Mathematics (staged -> 2 cards expected)
+    const mathTab = screen.getByRole('link', { name: /^Mathematics/ })
+    fireEvent.click(mathTab)
+
+    // Assert that the deferred request started
+    expect(deferredResolver).not.toBeNull()
+
+    // 1. Assert actual loading controls and responsive trend loading structure
+    const trendCard = document.querySelector('.card.practice-trend-card')
+    expect(trendCard).toBeTruthy()
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Score trend' })).toBeTruthy()
+
+    const trendTabs = screen.getByRole('group', { name: 'Trend evidence type' })
+    expect(trendTabs).toBeTruthy()
+
+    const disabledButtons = trendTabs.querySelectorAll('button')
+    expect(disabledButtons).toHaveLength(3)
+    disabledButtons.forEach((btn) => {
+      expect((btn as HTMLButtonElement).disabled).toBe(true)
+      expect(btn.getAttribute('aria-disabled')).toBe('true')
+    })
+
+    const trendLoadingRegion = screen.getByRole('region', { name: 'Loading score trend' })
+    expect(trendLoadingRegion).toBeTruthy()
+
+    const chartSkeleton = screen.getByRole('status', { name: 'Loading score trend chart' })
+    expect(chartSkeleton).toBeTruthy()
+    expect(chartSkeleton.style.aspectRatio).toBe('800 / 250')
+    expect(chartSkeleton.style.maxHeight).toBe('280px')
+
+    expect(screen.getByText(/Full paper.*Question session.*Each marker is one attempt/)).toBeTruthy()
+
+    // Chapter accuracy skeleton
+    expect(screen.getByRole('status', { name: 'Loading chapter accuracy' })).toBeTruthy()
+
+    // Study indicators skeleton for staged subject: exactly 2 placeholder cards
+    const stagedIndicators = screen.getAllByRole('status', { name: 'Loading study indicators' })
+    expect(stagedIndicators).toHaveLength(2)
+
+    // Resolve request to clean up
+    deferredResolver!({
+      subjectId: 'sub-math',
+      trend: [],
+      trendSubjects: [],
+      summaryStats: [
+        { label: 'Papers logged', value: 5 },
+        { label: 'Full-paper average', value: '82%' },
+        { label: 'Best full paper', value: '90%' },
+      ],
+      componentStats: [],
+      activeSubjectName: 'Mathematics',
+      timestamp: Date.now(),
+    })
+  })
+
+  it('correctly derives placeholder counts from study_route for as_only, staged, full_level, unconfirmed, and All exceeding six', () => {
+    // 1. Domain helper verification
+    expect(getExpectedStudyIndicatorCount('unconfirmed')).toBe(0)
+    expect(getExpectedStudyIndicatorCount('as_only')).toBe(1)
+    expect(getExpectedStudyIndicatorCount('staged')).toBe(2)
+    expect(getExpectedStudyIndicatorCount('full_level')).toBe(2)
+
+    // 2. Direct StudyIndicatorsSkeleton tests:
+    // Unconfirmed (0) removes forced minimum-one behavior
+    const { container: skelZero, unmount: unmountZero } = render(<StudyIndicatorsSkeleton cardCount={0} />)
+    expect(skelZero.querySelectorAll('.card')).toHaveLength(0)
+    unmountZero()
+
+    // AS-only (1)
+    const { container: skelAsOnly, unmount: unmountAsOnlyDirect } = render(<StudyIndicatorsSkeleton cardCount={1} />)
+    expect(skelAsOnly.querySelectorAll('.card')).toHaveLength(1)
+    unmountAsOnlyDirect()
+
+    // Staged / full_level (2)
+    const { container: skelStaged, unmount: unmountStagedDirect } = render(<StudyIndicatorsSkeleton cardCount={2} />)
+    expect(skelStaged.querySelectorAll('.card')).toHaveLength(2)
+    unmountStagedDirect()
+
+    // All totals exceeding six (e.g. 4 staged subjects -> 8 cards): removes arbitrary 6-card cap
+    const { container: skelEight, unmount: unmountEightDirect } = render(<StudyIndicatorsSkeleton cardCount={8} />)
+    expect(skelEight.querySelectorAll('.card')).toHaveLength(8)
+    unmountEightDirect()
+
+    // 3. StatsWorkspace integration with various subject study_routes during loading
+    // AS-only subject
+    const { unmount: unmountAsOnly } = render(
+      <StatsWorkspace
+        userId="user-counts-1"
+        subjects={[{ id: 'sub-as', name: 'AS Subject', color_hex: '#10b981', study_route: 'as_only' }]}
+        initialSubjectId="sub-as"
+        initialOverview={undefined} // Cold loading
+      />
+    )
+    expect(screen.getAllByRole('status', { name: 'Loading study indicators' })).toHaveLength(1)
+    unmountAsOnly()
+
+    // Full-level subject
+    const { unmount: unmountFull } = render(
+      <StatsWorkspace
+        userId="user-counts-2"
+        subjects={[{ id: 'sub-fl', name: 'Full Level', color_hex: '#8b5cf6', study_route: 'full_level' }]}
+        initialSubjectId="sub-fl"
+        initialOverview={undefined}
+      />
+    )
+    expect(screen.getAllByRole('status', { name: 'Loading study indicators' })).toHaveLength(2)
+    unmountFull()
+
+    // Unconfirmed subject: exactly 0 placeholder cards
+    const { unmount: unmountUnconf } = render(
+      <StatsWorkspace
+        userId="user-counts-3"
+        subjects={[{ id: 'sub-un', name: 'Unconfirmed Sub', color_hex: '#f59e0b', study_route: 'unconfirmed' }]}
+        initialSubjectId="sub-un"
+        initialOverview={undefined}
+      />
+    )
+    expect(screen.queryAllByRole('status', { name: 'Loading study indicators' })).toHaveLength(0)
+    unmountUnconf()
+
+    // "All" with 4 staged subjects -> 8 cards (exceeds six-card cap)
+    const fourStaged = [
+      { id: 's1', name: 'Subject 1', color_hex: '#3b82f6', study_route: 'staged' as const },
+      { id: 's2', name: 'Subject 2', color_hex: '#10b981', study_route: 'staged' as const },
+      { id: 's3', name: 'Subject 3', color_hex: '#8b5cf6', study_route: 'staged' as const },
+      { id: 's4', name: 'Subject 4', color_hex: '#f59e0b', study_route: 'staged' as const },
+    ]
+    const { unmount: unmountAllEight } = render(
+      <StatsWorkspace
+        userId="user-counts-4"
+        subjects={fourStaged}
+        initialSubjectId={null} // All
+        initialOverview={undefined}
+      />
+    )
+    expect(screen.getAllByRole('status', { name: 'Loading study indicators' })).toHaveLength(8)
+    unmountAllEight()
   })
 })

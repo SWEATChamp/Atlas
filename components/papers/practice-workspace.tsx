@@ -87,7 +87,11 @@ export function PracticeTrend({ points, subjects = [], preferredSubjectId }: {
         </svg>
         <p className="practice-trend-description practice-trend-marker-note">● Full paper &nbsp; ◆ Question session. Each marker is one attempt, including attempts made on the same day.</p>
         <details>
-          <summary style={{ cursor: 'pointer', minHeight: 44, display: 'flex', alignItems: 'center' }}>Text evidence for all {visible.length} attempts</summary>
+          <summary style={{ cursor: 'pointer', minHeight: 44, display: 'flex', alignItems: 'center' }}>
+            {visible.length === 1
+              ? 'Text evidence for 1 attempt'
+              : `Text evidence for all ${visible.length} attempts`}
+          </summary>
           <ol className="practice-trend-evidence">
             {visible.map((point, index) => <li key={`${point.source}-${point.id}`}>
               {subjectNames.get(point.subjectId)} · {formatDate(point.attemptDate)} · {point.source === 'full_paper' ? 'Full paper' : `Question practice (${point.itemCount} items)`} · {point.stage?.toUpperCase() ?? 'Stage untagged'} · {point.raw}/{point.max} marks ({point.accuracyPct.toFixed(1)}%). {showOverall ? `Overall to this attempt: ${overall[index].raw}/${overall[index].max} marks (${overall[index].accuracyPct.toFixed(1)}%). ` : ''}{point.eligibleForCurrentRoute ? `Current route: ${point.eligibleRaw}/${point.eligibleMax} eligible marks.` : 'Historical/off-route; no current-route marks.'}
@@ -165,7 +169,7 @@ export function PracticeWorkspace({ sessions, trend, subjects, trendSubjects = s
       {attemptType === 'full_paper' && <>
         <div className="practice-workspace-heading">
           <div><h2 className="text-heading-2" style={{ margin: 0 }}>Full papers</h2><p style={{ color: 'var(--text-muted)', margin: '4px 0 0' }}>Record complete papers and review your results.</p></div>
-          <LogPaperButton timeZone={timeZone} />
+          <LogPaperButton timeZone={timeZone} preferredSubjectId={preferredSubjectId} />
         </div>
         {children}
       </>}

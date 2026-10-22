@@ -85,6 +85,19 @@ describe('practice UI evidence', () => {
     view.rerender(<PracticeTrend {...props} preferredSubjectId={subjectId} />)
     expect(screen.getByText(/1\/10 marks · 1 attempt/)).toBeTruthy()
   })
+
+  it('correctly uses singular and plural trend disclosure wording while retaining All practice terminology', () => {
+    const singlePoint = [points[0]]
+    const view1 = render(<PracticeTrend points={singlePoint} />)
+    expect(screen.getByRole('button', { name: 'All practice' })).toBeTruthy()
+    expect(screen.getByText('Text evidence for 1 attempt')).toBeTruthy()
+    view1.unmount()
+
+    const view2 = render(<PracticeTrend points={points} />)
+    expect(screen.getByRole('button', { name: 'All practice' })).toBeTruthy()
+    expect(screen.getByText('Text evidence for all 2 attempts')).toBeTruthy()
+    view2.unmount()
+  })
 })
 
 describe('question form provenance and accessibility', () => {

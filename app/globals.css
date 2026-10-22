@@ -633,9 +633,15 @@ body {
 
 .past-papers-stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border-block: 1px solid var(--border-subtle);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
   width: 100%;
+}
+
+@media (max-width: 640px) {
+  .past-papers-stats-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* Question-practice forms, evidence, and history */
