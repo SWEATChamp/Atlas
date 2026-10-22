@@ -563,26 +563,28 @@ export function StatsWorkspace({
             aria-label="Loading score trend"
             className="practice-trend-content"
           >
-            <div className="practice-trend-summary" aria-hidden="true" style={{ display: 'grid', gap: 'var(--space-2)' }}>
-              <p style={{ margin: 0 }}>
-                <span className="skeleton" style={{ display: 'inline-block', height: '1.2em', width: '75%', minWidth: '200px', borderRadius: 'var(--radius-sm)' }} />
+            <div className="practice-trend-summary" aria-hidden="true">
+              <p className="practice-trend-summary-placeholder practice-trend-summary-lifetime">
+                <span className="skeleton practice-trend-summary-line" />
+                <span className="skeleton practice-trend-summary-line practice-trend-skeleton-wrap" />
               </p>
-              <div style={{ display: 'grid', gap: 4 }}>
-                <p style={{ margin: 0 }}>
-                  <span className="skeleton" style={{ display: 'inline-block', height: '1.2em', width: '60%', minWidth: '180px', borderRadius: 'var(--radius-sm)' }} />
+              <div>
+                <p className="practice-trend-summary-placeholder practice-trend-summary-route">
+                  <span className="skeleton practice-trend-summary-line" />
+                  <span className="skeleton practice-trend-summary-line practice-trend-skeleton-wrap" />
                 </p>
-                <p className="practice-trend-help" style={{ margin: 0 }}>
-                  <span className="skeleton" style={{ display: 'inline-block', height: '1em', width: '40%', minWidth: '120px', borderRadius: 'var(--radius-sm)' }} />
+                <p className="practice-trend-help practice-trend-summary-placeholder">
+                  <span className="skeleton practice-trend-summary-line" style={{ width: '55%', minWidth: '160px' }} />
                 </p>
               </div>
             </div>
-            <ul aria-hidden="true" className="practice-trend-legend" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              <li style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ul aria-hidden="true" className="practice-trend-legend">
+              <li style={{ minWidth: 0 }}>
                 <span className="skeleton" style={{ width: 28, height: 12, borderRadius: 'var(--radius-sm)', flexShrink: 0 }} />
                 <span className="skeleton" style={{ width: 90, height: 16, borderRadius: 'var(--radius-sm)' }} />
               </li>
               {!selectedSubjectId && (
-                <li style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <li style={{ minWidth: 0 }}>
                   <span className="skeleton" style={{ width: 28, height: 12, borderRadius: 'var(--radius-sm)', flexShrink: 0 }} />
                   <span className="skeleton" style={{ width: 140, height: 16, borderRadius: 'var(--radius-sm)' }} />
                 </li>

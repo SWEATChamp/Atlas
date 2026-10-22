@@ -902,6 +902,27 @@ describe('StatsPage layout ordering and streaming proof', () => {
     const trendLoadingRegion = screen.getByRole('region', { name: 'Loading score trend' })
     expect(trendLoadingRegion).toBeTruthy()
 
+    const summaryPlaceholder = trendLoadingRegion.querySelector('.practice-trend-summary')
+    expect(summaryPlaceholder).toBeTruthy()
+    expect(summaryPlaceholder?.getAttribute('style')).toBeNull()
+
+    const lifetimePlaceholder = summaryPlaceholder?.querySelector('.practice-trend-summary-lifetime')
+    expect(lifetimePlaceholder).toBeTruthy()
+    expect(lifetimePlaceholder?.querySelectorAll('.practice-trend-summary-line')).toHaveLength(2)
+    expect(lifetimePlaceholder?.querySelector('.practice-trend-skeleton-wrap')).toBeTruthy()
+
+    const routePlaceholder = summaryPlaceholder?.querySelector('.practice-trend-summary-route')
+    expect(routePlaceholder).toBeTruthy()
+    expect(routePlaceholder?.querySelectorAll('.practice-trend-summary-line')).toHaveLength(2)
+    expect(routePlaceholder?.querySelector('.practice-trend-skeleton-wrap')).toBeTruthy()
+
+    const helpPlaceholder = summaryPlaceholder?.querySelector('.practice-trend-help')
+    expect(helpPlaceholder).toBeTruthy()
+
+    const legendPlaceholder = trendLoadingRegion.querySelector('ul.practice-trend-legend')
+    expect(legendPlaceholder).toBeTruthy()
+    expect(legendPlaceholder?.querySelectorAll('li')).toHaveLength(1)
+
     const chartSkeleton = screen.getByRole('status', { name: 'Loading score trend chart' })
     expect(chartSkeleton).toBeTruthy()
     expect(chartSkeleton.style.aspectRatio).toBe('800 / 250')
