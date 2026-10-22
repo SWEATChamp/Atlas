@@ -7,7 +7,7 @@
 -- Two synthetic test users use fixed UUIDs in the r021-... space.
 -- handle_new_user() trigger creates profile, streak, settings, pet.
 --
--- Tests (25):
+-- Tests (27):
 --   Readiness (1-11):
 --    1.  Untouched chapters → readiness = 0, not NULL or inflated
 --    2.  complete notes → notes_pct increases; in_progress = 0
@@ -57,6 +57,8 @@ CREATE TEMP TABLE r021_ctx (
   subj_id     UUID NOT NULL DEFAULT gen_random_uuid(),
   subj_a2_id  UUID NOT NULL DEFAULT gen_random_uuid(),  -- separate subject with A2 chapters
   owner_us_id UUID,
+  as_sp_id    UUID NOT NULL DEFAULT gen_random_uuid(),
+  a2_sp_id    UUID NOT NULL DEFAULT gen_random_uuid(),
   -- Chapter UUIDs
   as_ch_id    UUID NOT NULL DEFAULT gen_random_uuid(),
   shared_ch_id UUID NOT NULL DEFAULT gen_random_uuid(),
@@ -101,6 +103,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.user_chapters TO authentica
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.past_papers TO authenticated, anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.subject_stage_results TO authenticated, anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.subject_paper_selections TO authenticated, anon;
+GRANT SELECT ON TABLE public.subject_papers TO authenticated, anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.user_subjects TO authenticated, anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.daily_missions TO authenticated, anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.user_settings TO authenticated, anon;
@@ -154,14 +157,22 @@ DECLARE
   v_sh_ch     UUID;
   v_a2_ch     UUID;
   v_rd_ch     UUID;
+  v_as_sp     UUID;
+  v_a2_sp     UUID;
 BEGIN
-  SELECT owner_id, subj_id, as_ch_id, shared_ch_id, a2_ch_id, rd_ch_id
-  INTO   v_owner, v_subj, v_as_ch, v_sh_ch, v_a2_ch, v_rd_ch
+  SELECT owner_id, subj_id, as_ch_id, shared_ch_id, a2_ch_id, rd_ch_id, as_sp_id, a2_sp_id
+  INTO   v_owner, v_subj, v_as_ch, v_sh_ch, v_a2_ch, v_rd_ch, v_as_sp, v_a2_sp
   FROM   r021_ctx;
 
   -- Subject
   INSERT INTO public.subjects (id, name, is_global, created_by)
   VALUES (v_subj, 'R021 Test Subject', FALSE, v_owner);
+
+  -- Subject papers (Paper 1 for AS, Paper 3 for A2)
+  INSERT INTO public.subject_papers (id, subject_id, paper_number, name, code_suffix, stage_behavior, default_stage)
+  VALUES
+    (v_as_sp, v_subj, 1, 'Pure Mathematics 1', 'P1', 'fixed_as', 'as'),
+    (v_a2_sp, v_subj, 3, 'Pure Mathematics 3', 'P3', 'fixed_a2', 'a2');
 
   -- Chapters: one of each stage type
   INSERT INTO public.chapters (id, subject_id, title, number, component, is_global, stage)
@@ -178,6 +189,12 @@ BEGIN
   )
   VALUES (v_owner, v_subj, 3, CURRENT_DATE + 90, 'staged', 'as')
   RETURNING id INTO v_us_id;
+
+  -- Paper selections for staged/as enrollment
+  INSERT INTO public.subject_paper_selections (user_subject_id, subject_paper_id, component_name, paper_number, stage)
+  VALUES
+    (v_us_id, v_as_sp, 'Pure 1', 1, 'as'),
+    (v_us_id, v_a2_sp, 'Pure 3', 3, 'a2');
 
   UPDATE r021_ctx SET owner_us_id = v_us_id;
 END;
@@ -271,41 +288,76 @@ SELECT ok((SELECT t2_notes_complete FROM r021_ctx),
 
 -- ═══════════════════════════════════════════════════════════════════
 -- TEST 3: shared chapter contributes to both AS and A2 readiness
+-- Under canonical readiness, a shared chapter contributes to AS readiness
+-- while in staged/as (with A2 locked at 0.00), and contributes to both
+-- AS and A2 readiness once A2 is accessible (e.g. under full_level route).
 -- ═══════════════════════════════════════════════════════════════════
 
 DO $$
 DECLARE
-  v_owner   UUID;
-  v_subj    UUID;
-  v_sh_ch   UUID;
-  v_sh_uc   UUID;
-  v_as_before NUMERIC;
-  v_a2_before NUMERIC;
-  v_as_after  NUMERIC;
-  v_a2_after  NUMERIC;
+  v_owner        UUID;
+  v_subj         UUID;
+  v_us_id        UUID;
+  v_sh_ch        UUID;
+  v_sh_uc        UUID;
+  v_as_before    NUMERIC;
+  v_a2_before    NUMERIC;
+  v_as_after     NUMERIC;
+  v_a2_after     NUMERIC;
+  v_fl_as_after  NUMERIC;
+  v_fl_a2_after  NUMERIC;
 BEGIN
-  SELECT owner_id, subj_id, shared_ch_id, shared_uc_id
-  INTO   v_owner, v_subj, v_sh_ch, v_sh_uc
+  SELECT owner_id, subj_id, owner_us_id, shared_ch_id, shared_uc_id
+  INTO   v_owner, v_subj, v_us_id, v_sh_ch, v_sh_uc
   FROM   r021_ctx;
 
   SET LOCAL ROLE authenticated;
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_owner::text)::text, true);
 
+  -- Measure staged/as before shared chapter
   v_as_before := public.compute_readiness_score(v_owner, v_subj, 'as');
   v_a2_before := public.compute_readiness_score(v_owner, v_subj, 'a2');
 
+  -- Complete shared chapter
   INSERT INTO public.user_chapters (id, user_id, chapter_id, notes_status, confidence_level)
   VALUES (v_sh_uc, v_owner, v_sh_ch, 'complete', 5);
 
+  -- Under staged/as: AS increases; A2 remains locked at 0.00
   v_as_after := public.compute_readiness_score(v_owner, v_subj, 'as');
   v_a2_after := public.compute_readiness_score(v_owner, v_subj, 'a2');
 
-  UPDATE r021_ctx SET
-    t3_shared       = (v_as_after > v_as_before AND v_a2_after > v_a2_before),
-    shared_uc_id    = v_sh_uc;
-
   RESET ROLE;
   PERFORM set_config('request.jwt.claims', '', true);
+
+  -- Switch temporarily to full_level route to verify cross-stage shared chapter contribution
+  UPDATE public.user_subjects
+  SET study_route = 'full_level', current_stage = 'full'
+  WHERE id = v_us_id;
+
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_owner::text)::text, true);
+
+  v_fl_as_after := public.compute_readiness_score(v_owner, v_subj, 'as');
+  v_fl_a2_after := public.compute_readiness_score(v_owner, v_subj, 'a2');
+
+  -- Restore to staged/as for subsequent tests
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', true);
+  UPDATE public.user_subjects
+  SET study_route = 'staged', current_stage = 'as'
+  WHERE id = v_us_id;
+
+  UPDATE r021_ctx SET
+    t3_shared       = (
+      -- Under staged/as: AS increases, A2 stays locked at 0
+      v_as_after > v_as_before
+      AND v_a2_before = 0.00
+      AND v_a2_after = 0.00
+      -- Under full_level (both stages accessible): shared chapter contributes to both AS and A2
+      AND v_fl_as_after > 0.00
+      AND v_fl_a2_after > 0.00
+    ),
+    shared_uc_id    = v_sh_uc;
 END;
 $$;
 
@@ -315,18 +367,27 @@ SELECT ok((SELECT t3_shared FROM r021_ctx),
 
 -- ═══════════════════════════════════════════════════════════════════
 -- TEST 4: AS paper increases AS readiness; A2 readiness unchanged
+-- Opens both AS and A2 (via full_level/full) to verify the AS paper
+-- raises AS readiness while open A2 readiness remains unchanged.
 -- ═══════════════════════════════════════════════════════════════════
 
 DO $$
 DECLARE
-  v_owner  UUID;
-  v_subj   UUID;
+  v_owner     UUID;
+  v_subj      UUID;
+  v_us_id     UUID;
+  v_as_sp     UUID;
   v_as_before NUMERIC;
   v_a2_before NUMERIC;
   v_as_after  NUMERIC;
   v_a2_after  NUMERIC;
 BEGIN
-  SELECT owner_id, subj_id INTO v_owner, v_subj FROM r021_ctx;
+  SELECT owner_id, subj_id, owner_us_id, as_sp_id INTO v_owner, v_subj, v_us_id, v_as_sp FROM r021_ctx;
+
+  -- Temporarily open both AS and A2 (full_level/full) to test AS paper readiness calculation with open A2
+  UPDATE public.user_subjects
+  SET study_route = 'full_level', current_stage = 'full'
+  WHERE id = v_us_id;
 
   SET LOCAL ROLE authenticated;
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_owner::text)::text, true);
@@ -335,18 +396,22 @@ BEGIN
   v_a2_before := public.compute_readiness_score(v_owner, v_subj, 'a2');
 
   INSERT INTO public.past_papers (
-    user_id, subject_id, paper_code, year, session, score_raw, score_max, stage
-  ) VALUES (v_owner, v_subj, '9709_s24_qp_11', 2024, 'may_jun', 60, 75, 'as');
+    user_id, subject_id, subject_paper_id, paper_number, paper_code, year, session, score_raw, score_max, stage
+  ) VALUES (v_owner, v_subj, v_as_sp, 1, '9709_s24_qp_11', 2024, 'may_jun', 60, 75, 'as');
 
   v_as_after := public.compute_readiness_score(v_owner, v_subj, 'as');
   v_a2_after := public.compute_readiness_score(v_owner, v_subj, 'a2');
 
-  UPDATE r021_ctx SET t4_as_paper = (
-    v_as_after > v_as_before AND v_a2_after = v_a2_before
-  );
-
+  -- Restore to staged/as for subsequent tests
   RESET ROLE;
   PERFORM set_config('request.jwt.claims', '', true);
+  UPDATE public.user_subjects
+  SET study_route = 'staged', current_stage = 'as'
+  WHERE id = v_us_id;
+
+  UPDATE r021_ctx SET t4_as_paper = (
+    v_as_after > v_as_before AND v_a2_before > 0.00 AND v_a2_after = v_a2_before
+  );
 END;
 $$;
 
@@ -356,18 +421,27 @@ SELECT ok((SELECT t4_as_paper FROM r021_ctx),
 
 -- ═══════════════════════════════════════════════════════════════════
 -- TEST 5: A2 paper increases A2 readiness; AS readiness unchanged
+-- In canonical readiness, an A2 paper contributes to A2 readiness when A2
+-- is open (e.g. full_level or post-A2 unlock), and does not affect AS.
 -- ═══════════════════════════════════════════════════════════════════
 
 DO $$
 DECLARE
   v_owner  UUID;
   v_subj   UUID;
+  v_us_id  UUID;
+  v_a2_sp  UUID;
   v_as_before NUMERIC;
   v_a2_before NUMERIC;
   v_as_after  NUMERIC;
   v_a2_after  NUMERIC;
 BEGIN
-  SELECT owner_id, subj_id INTO v_owner, v_subj FROM r021_ctx;
+  SELECT owner_id, subj_id, owner_us_id, a2_sp_id INTO v_owner, v_subj, v_us_id, v_a2_sp FROM r021_ctx;
+
+  -- Temporarily enable A2 stage to test A2 paper readiness calculation
+  UPDATE public.user_subjects
+  SET study_route = 'full_level', current_stage = 'full'
+  WHERE id = v_us_id;
 
   SET LOCAL ROLE authenticated;
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_owner::text)::text, true);
@@ -380,8 +454,8 @@ BEGIN
 
   -- Insert A2 paper as database test administrator (readiness calculation test)
   INSERT INTO public.past_papers (
-    user_id, subject_id, paper_code, year, session, score_raw, score_max, stage
-  ) VALUES (v_owner, v_subj, '9709_s24_qp_31', 2024, 'may_jun', 67, 75, 'a2');
+    user_id, subject_id, subject_paper_id, paper_number, paper_code, year, session, score_raw, score_max, stage
+  ) VALUES (v_owner, v_subj, v_a2_sp, 3, '9709_s24_qp_31', 2024, 'may_jun', 67, 75, 'a2');
 
   SET LOCAL ROLE authenticated;
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_owner::text)::text, true);
@@ -389,12 +463,16 @@ BEGIN
   v_as_after := public.compute_readiness_score(v_owner, v_subj, 'as');
   v_a2_after := public.compute_readiness_score(v_owner, v_subj, 'a2');
 
+  -- Restore to staged/as
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', true);
+  UPDATE public.user_subjects
+  SET study_route = 'staged', current_stage = 'as'
+  WHERE id = v_us_id;
+
   UPDATE r021_ctx SET t5_a2_paper = (
     v_a2_after > v_a2_before AND v_as_after = v_as_before
   );
-
-  RESET ROLE;
-  PERFORM set_config('request.jwt.claims', '', true);
 END;
 $$;
 
