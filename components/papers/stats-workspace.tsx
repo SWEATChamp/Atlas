@@ -567,26 +567,29 @@ export function StatsWorkspace({
               <p className="practice-trend-summary-placeholder practice-trend-summary-lifetime">
                 <span className="skeleton practice-trend-summary-line" />
                 <span className="skeleton practice-trend-summary-line practice-trend-skeleton-wrap" />
+                <span className="skeleton practice-trend-summary-line practice-trend-skeleton-compact-wrap" />
               </p>
-              <div>
+              <div className="practice-trend-summary-route-wrap">
                 <p className="practice-trend-summary-placeholder practice-trend-summary-route">
                   <span className="skeleton practice-trend-summary-line" />
                   <span className="skeleton practice-trend-summary-line practice-trend-skeleton-wrap" />
+                  <span className="skeleton practice-trend-summary-line practice-trend-skeleton-compact-wrap" />
                 </p>
                 <p className="practice-trend-help practice-trend-summary-placeholder">
-                  <span className="skeleton practice-trend-summary-line" style={{ width: '55%', minWidth: '160px' }} />
+                  <span className="skeleton practice-trend-summary-line" />
+                  <span className="skeleton practice-trend-summary-line practice-trend-skeleton-helper-wrap" />
                 </p>
               </div>
             </div>
             <ul aria-hidden="true" className="practice-trend-legend">
               <li style={{ minWidth: 0 }}>
                 <span className="skeleton" style={{ width: 28, height: 12, borderRadius: 'var(--radius-sm)', flexShrink: 0 }} />
-                <span className="skeleton" style={{ width: 90, height: 16, borderRadius: 'var(--radius-sm)' }} />
+                <span className="skeleton" style={{ width: 90, height: '1.2em', borderRadius: 'var(--radius-sm)' }} />
               </li>
               {!selectedSubjectId && (
                 <li style={{ minWidth: 0 }}>
                   <span className="skeleton" style={{ width: 28, height: 12, borderRadius: 'var(--radius-sm)', flexShrink: 0 }} />
-                  <span className="skeleton" style={{ width: 140, height: 16, borderRadius: 'var(--radius-sm)' }} />
+                  <span className="skeleton" style={{ width: 140, height: '1.2em', borderRadius: 'var(--radius-sm)' }} />
                 </li>
               )}
             </ul>

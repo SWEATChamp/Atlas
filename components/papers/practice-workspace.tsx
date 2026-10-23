@@ -54,9 +54,9 @@ export function PracticeTrend({ points, subjects = [], preferredSubjectId }: {
     <div role="region" aria-label={`${trendModes.find(option => option.id === mode)?.label} trend`} className="practice-trend-content">
       {visible.length === 0 ? <p role="status" className="practice-trend-description">No {mode === 'full_paper' ? 'full-paper' : mode === 'practice' ? 'question-practice' : 'practice'} attempts yet.</p> : <>
         <div className="practice-trend-summary" aria-live="polite">
-          <p><strong>Lifetime:</strong> {formatPercent(summary.lifetime.weightedAccuracyPct)} mark-weighted · {summary.lifetime.raw}/{summary.lifetime.max} marks · {summary.lifetime.attempts} {summary.lifetime.attempts === 1 ? 'attempt' : 'attempts'}{mode !== 'full_paper' ? ` · ${itemCount} question ${itemCount === 1 ? 'item' : 'items'}` : ''}</p>
-          <div>
-            <p><strong>Current route evidence:</strong> {formatPercent(summary.currentRoute.weightedAccuracyPct)} · {summary.currentRoute.raw}/{summary.currentRoute.max} eligible marks · {summary.currentRoute.attempts} contributing {summary.currentRoute.attempts === 1 ? 'attempt' : 'attempts'}.</p>
+          <p className="practice-trend-summary-lifetime"><strong>Lifetime:</strong> {formatPercent(summary.lifetime.weightedAccuracyPct)} mark-weighted · {summary.lifetime.raw}/{summary.lifetime.max} marks · {summary.lifetime.attempts} {summary.lifetime.attempts === 1 ? 'attempt' : 'attempts'}{mode !== 'full_paper' ? ` · ${itemCount} question ${itemCount === 1 ? 'item' : 'items'}` : ''}</p>
+          <div className="practice-trend-summary-route-wrap">
+            <p className="practice-trend-summary-route"><strong>Current route evidence:</strong> {formatPercent(summary.currentRoute.weightedAccuracyPct)} · {summary.currentRoute.raw}/{summary.currentRoute.max} eligible marks · {summary.currentRoute.attempts} contributing {summary.currentRoute.attempts === 1 ? 'attempt' : 'attempts'}.</p>
             <p className="practice-trend-help">Partial sessions contribute eligible items only.</p>
           </div>
         </div>
