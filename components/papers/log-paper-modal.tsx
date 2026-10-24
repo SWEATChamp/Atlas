@@ -198,6 +198,7 @@ export function LogPaperModal({
   timeZone,
   existingPaperId,
   existingPaper,
+  preferredSubjectId,
 }: {
   onSuccess?: () => void
   onClose: () => void
@@ -215,6 +216,7 @@ export function LogPaperModal({
     timeTakenMins?: number
     notes?: string
   }
+  preferredSubjectId?: string | null
 }) {
   const isEditing = !!existingPaperId
   const supabase = useMemo(() => createClient(), [])
@@ -236,7 +238,7 @@ export function LogPaperModal({
     return avail[avail.length - 1] ?? 'may_jun'
   })()
 
-  const [subjectId,          setSubjectId]          = useState(existingPaper?.subjectId          ?? '')
+  const [subjectId,          setSubjectId]          = useState(existingPaper?.subjectId          ?? preferredSubjectId ?? '')
   const [subjectPaperId,     setSubjectPaperId]     = useState<string | null>(existingPaper?.subjectPaperId ?? null)
   const [paperNumber,        setPaperNumber]        = useState(existingPaper?.paperNumber         ?? 1)
   const [variant,            setVariant]            = useState(existingPaper?.variant             ?? 1)
@@ -253,6 +255,8 @@ export function LogPaperModal({
   const [optionsLoading, setOptionsLoading] = useState(false)
   const [optionsError, setOptionsError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
+  const userHasSelectedSubjectRef = useRef(false)
+  const isInitializedRef = useRef(false)
   const currentSelectionRef = useRef({ subjectPaperId, paperNumber })
   useEffect(() => {
     currentSelectionRef.current = { subjectPaperId, paperNumber }
@@ -274,13 +278,19 @@ export function LogPaperModal({
         setEnrollments(rawEnrollments)
         const subs = rawEnrollments.map(d => d.subjects).filter((s): s is RawSubject => Boolean(s))
         setSubjects(subs)
-        if (!isEditing && subs.length > 0) {
-          setSubjectId(subs[0].id)
+        if (!isEditing && !userHasSelectedSubjectRef.current && !isInitializedRef.current) {
+          isInitializedRef.current = true
+          if (subs.length > 0) {
+            const matchingPreferred = preferredSubjectId ? subs.find(s => s.id === preferredSubjectId) : null
+            setSubjectId(matchingPreferred ? matchingPreferred.id : subs[0].id)
+          } else {
+            setSubjectId('')
+          }
         }
       }
     }
     load()
-  }, [isEditing, supabase])
+  }, [isEditing, preferredSubjectId, supabase])
 
   // In edit mode, load existing questions
   useEffect(() => {
@@ -620,9 +630,11 @@ export function LogPaperModal({
               <label style={{ display: 'block', marginBottom: 6, fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Subject</label>
               <select
                 className="input"
+                aria-label="Subject"
                 value={subjectId}
                 disabled={isEditing}
                 onChange={e => {
+                  userHasSelectedSubjectRef.current = true
                   setSubjectId(e.target.value)
                   setSubjectPaperId(null)
                   if (!isEditing) {

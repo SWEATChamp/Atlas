@@ -231,6 +231,18 @@ export function ChapterAccuracySkeleton() {
         </p>
       </div>
       <div className="skeleton" role="status" aria-label="Loading chapter accuracy" style={{ height: '260px', borderRadius: 'var(--radius-md)' }} />
+      <div
+        aria-hidden="true"
+        style={{
+          marginTop: 'var(--space-3)',
+          borderTop: '1px solid var(--border-subtle)',
+          paddingTop: 'var(--space-2)',
+        }}
+      >
+        <div style={{ padding: '4px 0' }}>
+          <div className="skeleton" style={{ height: '16px', width: '240px', borderRadius: 'var(--radius-sm)' }} />
+        </div>
+      </div>
     </section>
   )
 }

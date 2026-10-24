@@ -529,7 +529,7 @@ export function LogsWorkspace({
                   Record complete papers and review your results.
                 </p>
               </div>
-              <LogPaperButton timeZone={timeZone} />
+              <LogPaperButton timeZone={timeZone} preferredSubjectId={selectedSubjectId} />
             </div>
 
             {isLogsStaleOrSwitching ? (
