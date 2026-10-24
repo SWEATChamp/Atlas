@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - Pending Production Deployment
+
+### Fixed
+- **Stats Workspace Loading Stability**:
+  - Improved Stats loading-layout stability. Aligned loading skeleton and loaded summary geometry contracts using container-driven inline-size sizing across compact, mobile, and wide viewports.
+  - Corrected trend legend item line-height from fixed pixels to font-relative (`1.6em`), eliminating subpixel discrepancy with rendered badge typography.
+  - Measured Preview results on commit `5fcd07d`: 0px movement for both target headings (Score trend and Chapter & Topic Accuracy) and no horizontal document overflow at 313, 460, and 1154px.
+- **Narrow-Screen Layout & UI Consistency**:
+  - Improved narrow-screen statistics-card layout, preventing text and metric overflow on constrained screens while preserving complete numerical evidence.
+  - Full-paper logging defaults to the selected subject.
+  - Corrected single-attempt evidence-disclosure wording.
+
+### Limitations & Verification Boundaries
+- Exact intermediate viewport widths (320px, 375px, 394px, 640px, 641px) were not explicitly measured on this Preview deployment.
+- Long-content sets exceeding container capacity expand naturally without clipping; layout shifts are not universally guaranteed to be zero for arbitrary text lengths.
+- Multi-subject legend series badges in All view expand dynamically with recorded subject data.
+- Transitioning to subjects with zero attempts collapses from the skeleton to the compact empty message card.
+- Record-saving/deletion workflows were not exercised. Production application smoke verification remains pending; this patch requires no database migrations.
+
 ## [1.3.0] - 2026-10-21
 
 ### Added
