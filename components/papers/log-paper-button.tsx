@@ -6,9 +6,11 @@ import { LazyLogPaperModal } from './lazy-log-paper-modal'
 export function LogPaperButton({
   onSuccess,
   timeZone,
+  preferredSubjectId,
 }: {
   onSuccess?: () => void
   timeZone: string
+  preferredSubjectId?: string | null
 }) {
   const [isOpen, setIsOpen] = useState(false)
 
@@ -24,6 +26,7 @@ export function LogPaperButton({
       {isOpen && (
         <LazyLogPaperModal
           timeZone={timeZone}
+          preferredSubjectId={preferredSubjectId}
           onSuccess={() => {
             setIsOpen(false)
             onSuccess?.()
