@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.1] - Pending Production Deployment
+## [1.3.1] - 2026-10-25
 
 ### Fixed
 - **Stats Workspace Loading Stability**:
@@ -17,12 +17,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Full-paper logging defaults to the selected subject.
   - Corrected single-attempt evidence-disclosure wording.
 
+### Production Deployment & Scoped Smoke Verification
+- **Production Deployment (2026-10-25)**:
+  - Merged PR #34 into `main` at merge commit `5526fbf4f0590a183fcf1bfa63a70fa6391fadd8`.
+  - Automatic Vercel Production deployment `dpl_3NVYwUMWRomp6ESfA8RrK43JVBuo` reached `Ready` in Singapore (`sin1`) on 2026-10-25 (Singapore time) at canonical URL `https://atlas-alpha-vert.vercel.app`.
+- **Authenticated Read-Only Production Smoke Verification (2026-10-26)**:
+  - Verified by the primary orchestrator:
+    - Version/footer and release notification banner display `1.3.1`.
+    - Release notification dismissal persists across subsequent page visits and navigations.
+    - Navigation between `/stats` and `/logs` passed without console errors.
+    - The legacy `/past-papers` listing redirect cleanly preserved the selected subject.
+    - Subject switching operates cleanly across repeated visits.
+    - Both logging dialogs open cleanly without form submission.
+    - Full-paper logging dialog defaults to the selected subject (Mathematics).
+    - Zero captured browser console warnings or errors.
+    - At 313 CSS pixels, cold Mathematics subject switch measured 0px movement for both target headings (Score trend and Chapter & Topic Accuracy) and 0px horizontal document overflow.
+
 ### Limitations & Verification Boundaries
-- Exact intermediate viewport widths (320px, 375px, 394px, 640px, 641px) were not explicitly measured on this Preview deployment.
-- Long-content sets exceeding container capacity expand naturally without clipping; layout shifts are not universally guaranteed to be zero for arbitrary text lengths.
-- Multi-subject legend series badges in All view expand dynamically with recorded subject data.
-- Transitioning to subjects with zero attempts collapses from the skeleton to the compact empty message card.
-- Record-saving/deletion workflows were not exercised. Production application smoke verification remains pending; this patch requires no database migrations.
+- **Unverified Scopes in Production**:
+  - No record creation, editing, deletion, or tagging workflows were exercised in Production.
+  - No populated question-history or pagination testing was performed in Production.
+  - Cross-user data isolation was not tested in Production.
+  - Wider Production viewport widths (e.g. 320px, 375px, 394px, 460px, 640px, 641px, 1154px) were not explicitly measured on Production.
+  - Exact intermediate viewport widths (320px, 375px, 394px, 640px, 641px) were not measured on Preview; earlier multi-viewport Preview measurements (313px, 460px, 1154px) retain their specific commit attribution to Preview commit `5fcd07d`.
+  - Long-content sets exceeding container capacity expand naturally without clipping; layout shifts are not universally guaranteed to be zero for arbitrary text lengths.
+  - Multi-subject legend series badges in All view expand dynamically with recorded subject data.
+  - Transitioning to subjects with zero attempts collapses from the skeleton to the compact empty message card.
+  - This release required zero database migrations.
 
 ## [1.3.0] - 2026-10-21
 
