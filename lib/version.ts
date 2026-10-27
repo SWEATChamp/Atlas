@@ -12,7 +12,7 @@ export interface ReleaseInfo {
 export const CURRENT_RELEASE: ReleaseInfo = {
   version: '1.3.1',
   title: 'Stats Layout & UI Stability',
-  releaseDate: 'Pending Production Deployment',
+  releaseDate: '2026-10-25',
   changes: [
     'Improved Stats loading-layout stability.',
     'Improved narrow-screen statistics-card layout.',
