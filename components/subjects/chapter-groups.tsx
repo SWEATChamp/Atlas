@@ -248,44 +248,49 @@ export default function ChapterGroups({
               </p>
             </div>
           ) : (
-            filteredGroups.map((group) => (
-              <div key={group.name}>
-                {/* Component header */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    marginBottom: 8,
-                    paddingBottom: 8,
-                    borderBottom: '1px solid var(--border-subtle)',
-                  }}
-                >
-                  <h3
+            filteredGroups.map((group) => {
+              const accessibleChapters = group.chapters.filter((c) => c.isAccessible !== false)
+              const completedCount = accessibleChapters.filter((c) => c.userChapter?.notes_status === 'complete').length
+              const totalCount = accessibleChapters.length
+
+              return (
+                <div key={group.name}>
+                  {/* Component header */}
+                  <div
                     style={{
-                      fontSize: '0.75rem',
-                      fontWeight: 700,
-                      letterSpacing: '0.06em',
-                      textTransform: 'uppercase',
-                      color: 'var(--text-secondary)',
-                      margin: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      marginBottom: 8,
+                      paddingBottom: 8,
+                      borderBottom: '1px solid var(--border-subtle)',
                     }}
                   >
-                    {group.name}
-                  </h3>
-                  <span
-                    style={{
-                      fontSize: '0.7rem',
-                      color: 'var(--text-muted)',
-                      background: 'var(--bg-overlay)',
-                      border: '1px solid var(--border-subtle)',
-                      padding: '1px 8px',
-                      borderRadius: 99,
-                    }}
-                  >
-                    {group.chapters.filter((c) => c.userChapter?.notes_status === 'complete').length}/{group.chapters.length}
-                  </span>
-                </div>
+                    <h3
+                      style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        letterSpacing: '0.06em',
+                        textTransform: 'uppercase',
+                        color: 'var(--text-secondary)',
+                        margin: 0,
+                      }}
+                    >
+                      {group.name}
+                    </h3>
+                    <span
+                      style={{
+                        fontSize: '0.7rem',
+                        color: 'var(--text-muted)',
+                        background: 'var(--bg-overlay)',
+                        border: '1px solid var(--border-subtle)',
+                        padding: '1px 8px',
+                        borderRadius: 99,
+                      }}
+                    >
+                      {completedCount}/{totalCount}
+                    </span>
+                  </div>
 
                 {/* Chapter rows */}
                 <div
@@ -307,7 +312,7 @@ export default function ChapterGroups({
                       }}
                     >
                       <ChapterRow
-                        key={`${cws.chapter.id}:${cws.userChapter?.notes_status ?? 'none'}:${cws.userChapter?.confidence_level ?? 'unset'}`}
+                        key={cws.chapter.id}
                         chapter={cws.chapter}
                         userChapter={cws.userChapter}
                         avgScore={cws.avgScore}
@@ -318,8 +323,8 @@ export default function ChapterGroups({
                   ))}
                 </div>
               </div>
-            ))
-          )}
+            )
+          }))}
         </motion.div>
       </AnimatePresence>
     </div>

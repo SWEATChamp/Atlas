@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2026-10-28
+
+### Fixed
+- **Route- and Stage-Aware Subject Progress Totals**:
+  - Scoped subject progress summaries, headline totals, completed chapter counts, in-progress chapter counts, and average confidence levels to chapters accessible under the learner’s configured route, current stage, and normalized paper selections.
+  - Component header badges (`completed/total`) in `ChapterGroups` now evaluate only accessible chapters (`isAccessible !== false`), preventing locked or unselected historical chapters from inflating totals.
+- **Robust Subject Data Loading & Error Presentation**:
+  - Clear separation between query failures and legitimate empty enrollment/progress states across `getSubjectsWithProgress` and `getSubjectDetail`.
+  - Added dedicated `/subjects` error boundary (`app/(app)/subjects/error.tsx`) with retry support (`unstable_retry`) and accessible failure presentation, avoiding misleading empty progress or missing enrollment displays during database or RPC outages.
+- **Reliable Optimistic Notes-Status & Confidence Updates**:
+  - Serialized single-flight mutation queues in `ChapterRow` with strict request ordering, rollback to the last confirmed server value upon failure, and accessible error banners.
+  - Reconciles refreshed server props only when idle, preventing late or stale prop refreshes from overwriting in-flight optimistic state or rollback baselines.
+  - Maintained independent mutation queues and error states for notes-status and confidence levels.
+  - Ensured stable `ChapterRow` component identity across prop revalidations.
+- **Readiness Test Fixture Repair**:
+  - Repaired synthetic `subject_papers` fixture rows in `supabase/tests/database/as_a2_readiness.test.sql` to include canonical attributes (`name`, `code_suffix`, `stage_behavior`, `default_stage`) and normalized paper selections, resolving legacy fixture failures in tests 3, 4, and 5.
+- **Expanded Regression Coverage**:
+  - Added `tests/chapter-row-mutation.test.tsx` exercising rapid status/confidence cycling, queue serialization, late stale prop arrival, rollback baseline preservation, and failure alerts through the real `ChapterGroups` parent.
+  - Added `tests/chapter-summary-accuracy.test.ts` asserting route-aware summary counts and error boundary propagation.
+
+### Verification Evidence
+- Complete integrated application test suite: 594 tests passed with six intentional live-network skips (`npm test`).
+- Database verification: All nine TAP suites passed (600 planned assertions, 600 passed, 0 failed) in a uniquely isolated disposable local container (`public.ecr.aws/supabase/postgres:17.6.1.140`).
+- AS/A2 readiness verification: 27/27 assertions passed against both Migration 032 and Migration 033 schemas.
+- Authenticated read-only browser smoke testing passed on the final integrated v1.3.2 PR Preview at application commit `65f4500daa856dd97ba0182da8e887ff632e98aa`: the v1.3.2 release notice and footer rendered correctly; Dashboard, Subjects, Mathematics route-aware chapter totals, Stats, and Logs loaded without error boundaries or browser console warnings/errors. No data-changing controls were exercised.
+
+### Limitations & Verification Boundaries
+- This release introduces no database migrations.
+- Production verification, full automated authentication-flow E2E, and optional live Cambridge verification remain outstanding.
+- v1.3.2 is not yet merged, deployed to Production, Production-verified, tagged, or released.
+
 ## [1.3.1] - 2026-10-25
 
 ### Fixed

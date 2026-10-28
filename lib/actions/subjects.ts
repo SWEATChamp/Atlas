@@ -18,6 +18,7 @@ import type {
 import {
   buildChapterPaperMap,
   assembleComponentGroups,
+  resolveChapterAccessibility,
   type ComponentGroup,
 } from '@/lib/subject-chapters'
 
@@ -84,18 +85,24 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
     .eq('is_archived', false)
     .order('priority')
 
-  const enrollments = enrollmentsResult.data
+  if (enrollmentsResult.error) {
+    console.error('[getSubjectsWithProgress] Failed to fetch enrollments:', enrollmentsResult.error)
+    throw new Error('Failed to load enrolled subjects')
+  }
+
+  const enrollments = enrollmentsResult.data ?? []
   const timeZone = profile?.timezone ?? 'UTC'
 
-  if (!enrollments?.length) return []
+  if (!enrollments.length) return []
 
   const subjectIds = enrollments.map((e) => e.subject_id)
+  const userSubjectIds = enrollments.map((e) => e.id)
 
-  // Batch 1: chapters, papers, and all readiness scores in parallel.
-  const [chaptersResult, papersResult, dashboardResult] = await Promise.all([
+  // Batch 1: chapters, papers, dashboard stats, and paper selections in parallel
+  const [chaptersResult, papersResult, dashboardResult, paperSelectionsResult] = await Promise.all([
     supabase
       .from('chapters')
-      .select('id, subject_id')
+      .select('id, subject_id, stage, component')
       .in('subject_id', subjectIds)
       .eq('is_active', true),
     supabase
@@ -104,20 +111,62 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
       .eq('user_id', user.id)
       .in('subject_id', subjectIds),
     dashboardPromise,
+    supabase
+      .from('subject_paper_selections')
+      .select('*')
+      .in('user_subject_id', userSubjectIds),
   ])
+
+  if (chaptersResult.error) {
+    console.error('[getSubjectsWithProgress] Failed to fetch chapters:', chaptersResult.error)
+    throw new Error('Failed to load chapters')
+  }
+  if (papersResult.error) {
+    console.error('[getSubjectsWithProgress] Failed to fetch past papers:', papersResult.error)
+    throw new Error('Failed to load past papers')
+  }
+  if (dashboardResult.error) {
+    console.error('[getSubjectsWithProgress] Failed to fetch dashboard stats:', dashboardResult.error)
+    throw new Error('Failed to load readiness scores')
+  }
+  if (paperSelectionsResult.error) {
+    console.error('[getSubjectsWithProgress] Failed to fetch paper selections:', paperSelectionsResult.error)
+    throw new Error('Failed to load paper selections')
+  }
 
   const chapters = chaptersResult.data ?? []
   const papers = papersResult.data ?? []
+  const paperSelections = (paperSelectionsResult.data ?? []) as SubjectPaperSelection[]
   const chapterIds = chapters.map((c) => c.id)
 
-  // Batch 2: user chapters
-  const { data: userChapters } = chapterIds.length > 0
-    ? await supabase
-        .from('user_chapters')
-        .select('chapter_id, notes_status, confidence_level')
-        .eq('user_id', user.id)
-        .in('chapter_id', chapterIds)
-    : { data: [] }
+  // Batch 2: user chapters and chapter_papers in parallel
+  const [userChaptersResult, chapterPapersResult] = await Promise.all([
+    chapterIds.length > 0
+      ? supabase
+          .from('user_chapters')
+          .select('chapter_id, notes_status, confidence_level')
+          .eq('user_id', user.id)
+          .in('chapter_id', chapterIds)
+      : Promise.resolve({ data: [], error: null }),
+    chapterIds.length > 0
+      ? supabase
+          .from('chapter_papers')
+          .select('chapter_id, subject_paper_id')
+          .in('chapter_id', chapterIds)
+      : Promise.resolve({ data: [], error: null }),
+  ])
+
+  if (userChaptersResult.error) {
+    console.error('[getSubjectsWithProgress] Failed to fetch user chapters:', userChaptersResult.error)
+    throw new Error('Failed to load chapter progress')
+  }
+  if (chapterPapersResult.error) {
+    console.error('[getSubjectsWithProgress] Failed to fetch chapter papers:', chapterPapersResult.error)
+    throw new Error('Failed to load chapter paper links')
+  }
+
+  const userChapters = userChaptersResult.data ?? []
+  const chapterPaperMap = buildChapterPaperMap(chapterPapersResult.data, chapters as Chapter[])
 
   type ReadinessRow = {
     subject_id: string
@@ -133,17 +182,20 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
   )
 
   // Index for fast lookup
-  const ucByChapter = new Map(
-    (userChapters ?? []).map((uc) => [uc.chapter_id, uc])
-  )
-  const chaptersBySubject = new Map<string, string[]>()
-  ;(chapters ?? []).forEach((c) => {
+  const chaptersBySubject = new Map<string, typeof chapters>()
+  chapters.forEach((c) => {
     const arr = chaptersBySubject.get(c.subject_id) ?? []
-    arr.push(c.id)
+    arr.push(c)
     chaptersBySubject.set(c.subject_id, arr)
   })
+  const selectionsByEnrollment = new Map<string, SubjectPaperSelection[]>()
+  paperSelections.forEach((sel) => {
+    const arr = selectionsByEnrollment.get(sel.user_subject_id) ?? []
+    arr.push(sel)
+    selectionsByEnrollment.set(sel.user_subject_id, arr)
+  })
   const papersBySubject = new Map<string, { score_raw: number; score_max: number }[]>()
-  ;(papers ?? []).forEach((p) => {
+  papers.forEach((p) => {
     const arr = papersBySubject.get(p.subject_id) ?? []
     arr.push({ score_raw: p.score_raw, score_max: p.score_max })
     papersBySubject.set(p.subject_id, arr)
@@ -151,18 +203,33 @@ export async function getSubjectsWithProgress(): Promise<SubjectWithProgress[]> 
 
   return enrollments.map((enrollment) => {
     const subject = enrollment.subjects as unknown as Subject
-    const chIds = chaptersBySubject.get(enrollment.subject_id) ?? []
-    const ucs = chIds
-      .map((id) => ucByChapter.get(id))
-      .filter(Boolean) as Pick<UserChapter, 'notes_status' | 'confidence_level'>[]
+    const subjectChapters = chaptersBySubject.get(enrollment.subject_id) ?? []
+    const enrollmentSelections = selectionsByEnrollment.get(enrollment.id) ?? []
 
-    const totalChapters = chIds.length
-    const completedChapters = ucs.filter((uc) => uc.notes_status === 'complete').length
-    const inProgressChapters = ucs.filter((uc) => uc.notes_status === 'in_progress').length
+    // Accessible chapters only
+    const accessibleChapters = subjectChapters.filter((chapter) =>
+      resolveChapterAccessibility({
+        chapterStage: chapter.stage,
+        chapterComponent: chapter.component,
+        studyRoute: enrollment.study_route,
+        currentStage: enrollment.current_stage,
+        paperSelections: enrollmentSelections,
+        linkedPaperIds: chapterPaperMap.get(chapter.id) ?? [],
+      })
+    )
+
+    const accessibleChapterIds = new Set(accessibleChapters.map((c) => c.id))
+    const accessibleUcs = (userChapters ?? []).filter((uc) =>
+      accessibleChapterIds.has(uc.chapter_id)
+    )
+
+    const totalChapters = accessibleChapters.length
+    const completedChapters = accessibleUcs.filter((uc) => uc.notes_status === 'complete').length
+    const inProgressChapters = accessibleUcs.filter((uc) => uc.notes_status === 'in_progress').length
 
     const paperAccuracy = markWeightedScores(papersBySubject.get(enrollment.subject_id) ?? [])
 
-    const withConfidence = ucs.filter((uc) => uc.confidence_level !== null)
+    const withConfidence = accessibleUcs.filter((uc) => uc.confidence_level !== null)
     const avgConfidence =
       withConfidence.length > 0
         ? withConfidence.reduce((acc, uc) => acc + (uc.confidence_level ?? 0), 0) /
@@ -210,8 +277,11 @@ export async function getAvailableMvpSubjects(): Promise<Subject[]> {
     .eq('is_available', true)
     .order('name')
 
-  if (error || !data) return []
-  return data as Subject[]
+  if (error) {
+    console.error('[getAvailableMvpSubjects] Database error:', error)
+    throw new Error('Failed to load available subjects')
+  }
+  return (data ?? []) as Subject[]
 }
 
 /**
@@ -242,6 +312,23 @@ export const getSubjectDetail = cache(async (
       .single(),
   ])
 
+  // Distinguish legitimate missing records (PGRST116: 0 rows) from database query failures
+  if (subjectResult.error) {
+    if (subjectResult.error.code === 'PGRST116') {
+      return null
+    }
+    console.error('[getSubjectDetail] Database error fetching subject:', subjectResult.error)
+    throw new Error('Failed to load subject')
+  }
+
+  if (enrollmentResult.error) {
+    if (enrollmentResult.error.code === 'PGRST116') {
+      return null
+    }
+    console.error('[getSubjectDetail] Database error fetching enrollment:', enrollmentResult.error)
+    throw new Error('Failed to load enrollment')
+  }
+
   const subject = subjectResult.data
   if (!subject) return null
 
@@ -267,6 +354,19 @@ export const getSubjectDetail = cache(async (
       .eq('user_subject_id', enrollment.id)
       .order('created_at', { ascending: false }),
   ])
+
+  if (chaptersResult.error) {
+    console.error('[getSubjectDetail] Database error fetching chapters:', chaptersResult.error)
+    throw new Error('Failed to load chapters')
+  }
+  if (paperSelectionsResult.error) {
+    console.error('[getSubjectDetail] Database error fetching paper selections:', paperSelectionsResult.error)
+    throw new Error('Failed to load paper selections')
+  }
+  if (stageResultsResult.error) {
+    console.error('[getSubjectDetail] Database error fetching stage results:', stageResultsResult.error)
+    throw new Error('Failed to load stage results')
+  }
 
   const chapters = chaptersResult.data ?? []
   const paperSelections = (paperSelectionsResult.data ?? []) as SubjectPaperSelection[]
@@ -310,21 +410,40 @@ export const getSubjectDetail = cache(async (
       .in('chapter_id', chapterIds),
   ])
 
+  if (userChaptersResult.error) {
+    console.error('[getSubjectDetail] Database error fetching user chapters:', userChaptersResult.error)
+    throw new Error('Failed to load chapter progress')
+  }
+  if (paperIdsResult.error) {
+    console.error('[getSubjectDetail] Database error fetching past papers:', paperIdsResult.error)
+    throw new Error('Failed to load past papers')
+  }
+  if (chapterPapersResult.error) {
+    console.error('[getSubjectDetail] Database error fetching chapter papers:', chapterPapersResult.error)
+    throw new Error('Failed to load chapter paper links')
+  }
+
   const userChapters = userChaptersResult.data ?? []
   const paperRows = paperIdsResult.data ?? []
 
   // Index chapter_papers by chapter_id using pure helper
-  const chapterPaperMap = buildChapterPaperMap(chapterPapersResult?.data, chapters as Chapter[])
+  const chapterPaperMap = buildChapterPaperMap(chapterPapersResult.data, chapters as Chapter[])
 
   // Fetch question attempts for chapter accuracy
   const chapterAccuracyMap = new Map<string, { obtained: number; available: number }>()
   if (paperRows.length > 0) {
-    const { data: attempts } = await supabase
+    const attemptsResult = await supabase
       .from('paper_question_attempts')
       .select('chapter_id, marks_obtained, marks_available')
       .in('paper_id', paperRows.map((p) => p.id))
       .not('chapter_id', 'is', null)
-    for (const q of attempts ?? []) {
+
+    if (attemptsResult.error) {
+      console.error('[getSubjectDetail] Database error fetching question attempts:', attemptsResult.error)
+      throw new Error('Failed to load question attempts')
+    }
+
+    for (const q of attemptsResult.data ?? []) {
       if (!q.chapter_id) continue
       const s = chapterAccuracyMap.get(q.chapter_id) ?? { obtained: 0, available: 0 }
       s.obtained += q.marks_obtained
@@ -343,13 +462,24 @@ export const getSubjectDetail = cache(async (
     paperSelections,
   })
 
-  const allUcs = userChapters as UserChapter[]
-  const completedChapters = allUcs.filter((uc) => uc.notes_status === 'complete').length
-  const inProgressChapters = allUcs.filter((uc) => uc.notes_status === 'in_progress').length
-  const withConfidence = allUcs.filter((uc) => uc.confidence_level !== null)
-  const avgConfidence = withConfidence.length > 0
-    ? withConfidence.reduce((acc, uc) => acc + (uc.confidence_level ?? 0), 0) / withConfidence.length
-    : null
+  // Summary aggregation using ONLY accessible chapters
+  const allGroupChapters = groups.flatMap((g) => g.chapters)
+  const accessibleGroupChapters = allGroupChapters.filter((c) => c.isAccessible)
+
+  const totalChapters = accessibleGroupChapters.length
+  const completedChapters = accessibleGroupChapters.filter(
+    (c) => c.userChapter?.notes_status === 'complete'
+  ).length
+  const inProgressChapters = accessibleGroupChapters.filter(
+    (c) => c.userChapter?.notes_status === 'in_progress'
+  ).length
+  const withConfidence = accessibleGroupChapters
+    .map((c) => c.userChapter?.confidence_level)
+    .filter((lvl): lvl is number => typeof lvl === 'number')
+  const avgConfidence =
+    withConfidence.length > 0
+      ? withConfidence.reduce((acc, lvl) => acc + lvl, 0) / withConfidence.length
+      : null
 
   // Compute database readiness scores
   let asScore: number | null = null
@@ -372,6 +502,15 @@ export const getSubjectDetail = cache(async (
         : Promise.resolve({ data: null, error: null }),
     ])
 
+    if (asRpc.error) {
+      console.error('[getSubjectDetail] RPC error computing AS readiness:', asRpc.error)
+      throw new Error('Failed to compute readiness score')
+    }
+    if (a2Rpc.error) {
+      console.error('[getSubjectDetail] RPC error computing A2 readiness:', a2Rpc.error)
+      throw new Error('Failed to compute readiness score')
+    }
+
     asScore = typeof asRpc.data === 'number' ? asRpc.data : null
     a2Score = typeof a2Rpc.data === 'number' ? a2Rpc.data : null
     legacyScore = enrollment.study_route === 'full_level' ? null : asScore
@@ -383,7 +522,7 @@ export const getSubjectDetail = cache(async (
     groups,
     paperSelections,
     stageResults,
-    totalChapters: chapters.length,
+    totalChapters,
     completedChapters,
     inProgressChapters,
     avgConfidence,
