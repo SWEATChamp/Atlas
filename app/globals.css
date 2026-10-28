@@ -633,9 +633,15 @@ body {
 
 .past-papers-stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border-block: 1px solid var(--border-subtle);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
   width: 100%;
+}
+
+@media (max-width: 640px) {
+  .past-papers-stats-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* Question-practice forms, evidence, and history */
@@ -683,6 +689,8 @@ body {
 .practice-metrics strong { font-size: 1.375rem; }
 .practice-metrics small { color: var(--text-muted); }
 .practice-trend-card {
+  container-name: practice-trend;
+  container-type: inline-size;
   display: grid;
   gap: var(--space-5);
   padding: var(--space-5);
@@ -696,8 +704,117 @@ body {
 .practice-trend-tabs { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .practice-trend-content { display: grid; gap: var(--space-4); min-width: 0; }
 .practice-trend-summary { display: grid; gap: var(--space-3); line-height: 1.6; overflow-wrap: anywhere; }
-.practice-trend-summary .practice-trend-help { margin-top: var(--space-2); color: var(--text-secondary); font-size: 0.875rem; }
+.practice-trend-summary-lifetime,
+.practice-trend-summary-route {
+  margin: 0;
+  line-height: 1.6;
+  min-width: 0;
+}
+.practice-trend-summary-route-wrap {
+  display: grid;
+}
+.practice-trend-summary .practice-trend-help {
+  margin-top: var(--space-2);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.practice-trend-summary-placeholder {
+  display: grid;
+  gap: 0.4em;
+  padding: 0.2em 0;
+}
+.practice-trend-summary-line {
+  display: block;
+  height: 1.2em;
+  border-radius: var(--radius-sm);
+}
+
+/* Base / Tier 3: Compact Container (≤ 280px container, e.g. ≤ 340px viewport) */
+.practice-trend-summary-lifetime { min-height: 4.8em; }
+.practice-trend-summary-route { min-height: 4.8em; }
+.practice-trend-help { min-height: 3.2em; }
+
+.practice-trend-summary-lifetime .practice-trend-summary-line:nth-child(1) { width: 95%; }
+.practice-trend-summary-lifetime .practice-trend-summary-line:nth-child(2) { width: 85%; }
+.practice-trend-summary-lifetime .practice-trend-summary-line:nth-child(3) { width: 50%; }
+
+.practice-trend-summary-route .practice-trend-summary-line:nth-child(1) { width: 90%; }
+.practice-trend-summary-route .practice-trend-summary-line:nth-child(2) { width: 80%; }
+.practice-trend-summary-route .practice-trend-summary-line:nth-child(3) { width: 60%; }
+
+.practice-trend-help .practice-trend-summary-line:nth-child(1) { width: 90%; }
+.practice-trend-help .practice-trend-summary-line:nth-child(2) { width: 45%; }
+
+.practice-trend-skeleton-wrap { display: block; }
+.practice-trend-skeleton-compact-wrap { display: block; }
+.practice-trend-skeleton-helper-wrap { display: block; }
+
+/* Tier 2: Standard Mobile (281px to 580px container) */
+@container practice-trend (min-width: 281px) {
+  .practice-trend-summary-lifetime { min-height: 3.2em; }
+  .practice-trend-summary-route { min-height: 3.2em; }
+  .practice-trend-help { min-height: 1.6em; }
+
+  .practice-trend-skeleton-compact-wrap { display: none; }
+  .practice-trend-skeleton-helper-wrap { display: none; }
+  .practice-trend-summary-lifetime .practice-trend-summary-line:nth-child(1) { width: 90%; }
+  .practice-trend-summary-lifetime .practice-trend-summary-line:nth-child(2) { width: 60%; }
+  .practice-trend-summary-route .practice-trend-summary-line:nth-child(1) { width: 85%; }
+  .practice-trend-summary-route .practice-trend-summary-line:nth-child(2) { width: 45%; }
+  .practice-trend-help .practice-trend-summary-line:nth-child(1) { width: 55%; min-width: 160px; }
+}
+
+/* Tier 1: Wide / Desktop (> 580px container) */
+@container practice-trend (min-width: 581px) {
+  .practice-trend-summary-lifetime { min-height: 1.6em; }
+  .practice-trend-summary-route { min-height: 1.6em; }
+  .practice-trend-help { min-height: 1.6em; }
+
+  .practice-trend-skeleton-wrap { display: none; }
+  .practice-trend-skeleton-compact-wrap { display: none; }
+  .practice-trend-skeleton-helper-wrap { display: none; }
+  .practice-trend-summary-lifetime .practice-trend-summary-line:nth-child(1) { width: 75%; }
+  .practice-trend-summary-route .practice-trend-summary-line:nth-child(1) { width: 65%; }
+  .practice-trend-help .practice-trend-summary-line:nth-child(1) { width: 40%; min-width: 140px; }
+}
+
+/* Viewport media-query fallbacks for environments without container query support */
+@media (min-width: 341px) and (max-width: 640px) {
+  @supports not (container-type: inline-size) {
+    .practice-trend-summary-lifetime { min-height: 3.2em; }
+    .practice-trend-summary-route { min-height: 3.2em; }
+    .practice-trend-help { min-height: 1.6em; }
+
+    .practice-trend-skeleton-compact-wrap { display: none; }
+    .practice-trend-skeleton-helper-wrap { display: none; }
+    .practice-trend-summary-lifetime .practice-trend-summary-line:nth-child(1) { width: 90%; }
+    .practice-trend-summary-lifetime .practice-trend-summary-line:nth-child(2) { width: 60%; }
+    .practice-trend-summary-route .practice-trend-summary-line:nth-child(1) { width: 85%; }
+    .practice-trend-summary-route .practice-trend-summary-line:nth-child(2) { width: 45%; }
+    .practice-trend-help .practice-trend-summary-line:nth-child(1) { width: 55%; min-width: 160px; }
+  }
+}
+
+@media (min-width: 641px) {
+  @supports not (container-type: inline-size) {
+    .practice-trend-summary-lifetime { min-height: 1.6em; }
+    .practice-trend-summary-route { min-height: 1.6em; }
+    .practice-trend-help { min-height: 1.6em; }
+
+    .practice-trend-skeleton-wrap { display: none; }
+    .practice-trend-skeleton-compact-wrap { display: none; }
+    .practice-trend-skeleton-helper-wrap { display: none; }
+    .practice-trend-summary-lifetime .practice-trend-summary-line:nth-child(1) { width: 75%; }
+    .practice-trend-summary-route .practice-trend-summary-line:nth-child(1) { width: 65%; }
+    .practice-trend-help .practice-trend-summary-line:nth-child(1) { width: 40%; min-width: 140px; }
+  }
+}
+
 .practice-trend-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); list-style: none; padding: 0; margin: 0; }
+.practice-trend-legend li { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 1.6em; line-height: 1.6; }
+.practice-trend-legend li svg { flex-shrink: 0; }
+.practice-trend-legend li span { overflow-wrap: anywhere; }
 .practice-trend-marker-note { font-size: 0.8125rem; }
 .practice-trend-evidence,
 .practice-item-list { padding-left: 1.5rem; display: grid; gap: var(--space-2); overflow-wrap: anywhere; }

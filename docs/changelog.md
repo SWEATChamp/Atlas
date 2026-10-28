@@ -5,6 +5,77 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2026-10-28
+
+### Fixed
+- **Route- and Stage-Aware Subject Progress Totals**:
+  - Scoped subject progress summaries, headline totals, completed chapter counts, in-progress chapter counts, and average confidence levels to chapters accessible under the learner’s configured route, current stage, and normalized paper selections.
+  - Component header badges (`completed/total`) in `ChapterGroups` now evaluate only accessible chapters (`isAccessible !== false`), preventing locked or unselected historical chapters from inflating totals.
+- **Robust Subject Data Loading & Error Presentation**:
+  - Clear separation between query failures and legitimate empty enrollment/progress states across `getSubjectsWithProgress` and `getSubjectDetail`.
+  - Added dedicated `/subjects` error boundary (`app/(app)/subjects/error.tsx`) with retry support (`unstable_retry`) and accessible failure presentation, avoiding misleading empty progress or missing enrollment displays during database or RPC outages.
+- **Reliable Optimistic Notes-Status & Confidence Updates**:
+  - Serialized single-flight mutation queues in `ChapterRow` with strict request ordering, rollback to the last confirmed server value upon failure, and accessible error banners.
+  - Reconciles refreshed server props only when idle, preventing late or stale prop refreshes from overwriting in-flight optimistic state or rollback baselines.
+  - Maintained independent mutation queues and error states for notes-status and confidence levels.
+  - Ensured stable `ChapterRow` component identity across prop revalidations.
+- **Readiness Test Fixture Repair**:
+  - Repaired synthetic `subject_papers` fixture rows in `supabase/tests/database/as_a2_readiness.test.sql` to include canonical attributes (`name`, `code_suffix`, `stage_behavior`, `default_stage`) and normalized paper selections, resolving legacy fixture failures in tests 3, 4, and 5.
+- **Expanded Regression Coverage**:
+  - Added `tests/chapter-row-mutation.test.tsx` exercising rapid status/confidence cycling, queue serialization, late stale prop arrival, rollback baseline preservation, and failure alerts through the real `ChapterGroups` parent.
+  - Added `tests/chapter-summary-accuracy.test.ts` asserting route-aware summary counts and error boundary propagation.
+
+### Verification Evidence
+- Complete integrated application test suite: 594 tests passed with six intentional live-network skips (`npm test`).
+- Database verification: All nine TAP suites passed (600 planned assertions, 600 passed, 0 failed) in a uniquely isolated disposable local container (`public.ecr.aws/supabase/postgres:17.6.1.140`).
+- AS/A2 readiness verification: 27/27 assertions passed against both Migration 032 and Migration 033 schemas.
+- Authenticated read-only browser smoke testing passed on the pre-v1.3.1-integration PR #35 Preview deployment (`dpl_7dd8T3uF8PvDJWaCt98STtQoJSa9`). The final integrated v1.3.2 candidate remains unpushed and has not yet been deployed or smoke-tested on Preview.
+
+### Limitations & Verification Boundaries
+- This release introduces no database migrations.
+- Production verification, full automated authentication-flow E2E, and optional live Cambridge verification remain outstanding.
+- Worktree release preparation only; v1.3.2 is not yet merged, deployed, Production-verified, tagged, or released.
+
+## [1.3.1] - 2026-10-25
+
+### Fixed
+- **Stats Workspace Loading Stability**:
+  - Improved Stats loading-layout stability. Aligned loading skeleton and loaded summary geometry contracts using container-driven inline-size sizing across compact, mobile, and wide viewports.
+  - Corrected trend legend item line-height from fixed pixels to font-relative (`1.6em`), eliminating subpixel discrepancy with rendered badge typography.
+  - Measured Preview results on commit `5fcd07d`: 0px movement for both target headings (Score trend and Chapter & Topic Accuracy) and no horizontal document overflow at 313, 460, and 1154px.
+- **Narrow-Screen Layout & UI Consistency**:
+  - Improved narrow-screen statistics-card layout, preventing text and metric overflow on constrained screens while preserving complete numerical evidence.
+  - Full-paper logging defaults to the selected subject.
+  - Corrected single-attempt evidence-disclosure wording.
+
+### Production Deployment & Scoped Smoke Verification
+- **Production Deployment (2026-10-25)**:
+  - Merged PR #34 into `main` at merge commit `5526fbf4f0590a183fcf1bfa63a70fa6391fadd8`.
+  - Automatic Vercel Production deployment `dpl_3NVYwUMWRomp6ESfA8RrK43JVBuo` reached `Ready` in Singapore (`sin1`) on 2026-10-25 (Singapore time) at canonical URL `https://atlas-alpha-vert.vercel.app`.
+- **Authenticated Read-Only Production Smoke Verification (2026-10-26)**:
+  - Verified by the primary orchestrator:
+    - Version/footer and release notification banner display `1.3.1`.
+    - Release notification dismissal persists across subsequent page visits and navigations.
+    - Navigation between `/stats` and `/logs` passed without console errors.
+    - The legacy `/past-papers` listing redirect cleanly preserved the selected subject.
+    - Subject switching operates cleanly across repeated visits.
+    - Both logging dialogs open cleanly without form submission.
+    - Full-paper logging dialog defaults to the selected subject (Mathematics).
+    - Zero captured browser console warnings or errors.
+    - At 313 CSS pixels, cold Mathematics subject switch measured 0px movement for both target headings (Score trend and Chapter & Topic Accuracy) and 0px horizontal document overflow.
+
+### Limitations & Verification Boundaries
+- **Unverified Scopes in Production**:
+  - No record creation, editing, deletion, or tagging workflows were exercised in Production.
+  - No populated question-history or pagination testing was performed in Production.
+  - Cross-user data isolation was not tested in Production.
+  - Wider Production viewport widths (e.g. 320px, 375px, 394px, 460px, 640px, 641px, 1154px) were not explicitly measured on Production.
+  - Exact intermediate viewport widths (320px, 375px, 394px, 640px, 641px) were not measured on Preview; earlier multi-viewport Preview measurements (313px, 460px, 1154px) retain their specific commit attribution to Preview commit `5fcd07d`.
+  - Long-content sets exceeding container capacity expand naturally without clipping; layout shifts are not universally guaranteed to be zero for arbitrary text lengths.
+  - Multi-subject legend series badges in All view expand dynamically with recorded subject data.
+  - Transitioning to subjects with zero attempts collapses from the skeleton to the compact empty message card.
+  - This release required zero database migrations.
+
 ## [1.3.0] - 2026-10-21
 
 ### Added

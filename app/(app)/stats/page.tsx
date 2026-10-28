@@ -34,9 +34,15 @@ export default async function StatsPage(props: {
 
   const enrollments = (userSubjectsData.data || []) as unknown as RawEnrollment[]
   const subjects = enrollments
-    .map(e => e.subjects)
-    .filter((s): s is { id: string; name: string; color_hex: string; code?: string | null } => Boolean(s))
-    .map(s => ({ id: s.id, name: s.name, color_hex: s.color_hex ?? '#3b82f6', code: s.code }))
+    .filter(e => Boolean(e.subjects))
+    .map(e => ({
+      id: e.subjects!.id,
+      name: e.subjects!.name,
+      color_hex: e.subjects!.color_hex ?? '#3b82f6',
+      code: e.subjects!.code,
+      stage: e.current_stage,
+      study_route: e.study_route,
+    }))
 
   return (
     <StatsWorkspace

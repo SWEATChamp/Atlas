@@ -1,6 +1,14 @@
 'use client'
 
 import type { PredictedExamMarkResult } from '@/lib/practice-analytics'
+import type { StudyRoute } from '@/types/database'
+
+export function getExpectedStudyIndicatorCount(route?: StudyRoute | string | null): number {
+  if (route === 'unconfirmed') return 0
+  if (route === 'as_only') return 1
+  if (route === 'staged' || route === 'full_level') return 2
+  return 1
+}
 
 export interface IndicatorItem {
   subjectId: string
@@ -180,7 +188,18 @@ export function StudyIndicators({
   )
 }
 
-export function StudyIndicatorsSkeleton({ activeSubjectName }: { activeSubjectName?: string | null }) {
+export function StudyIndicatorsSkeleton({
+  activeSubjectName,
+  cardCount = 0,
+}: {
+  activeSubjectName?: string | null
+  cardCount?: number
+}) {
+  const count = Math.max(0, cardCount)
+  if (count === 0) return null
+
+  const cards = Array.from({ length: count }, (_, i) => i)
+
   return (
     <section aria-labelledby="study-indicators-title" style={{ display: 'grid', gap: 'var(--space-4)' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
@@ -198,7 +217,42 @@ export function StudyIndicatorsSkeleton({ activeSubjectName }: { activeSubjectNa
           gap: 'var(--space-4)',
         }}
       >
-        <div className="skeleton" role="status" aria-label="Loading study indicators" style={{ height: '180px', borderRadius: 'var(--radius-lg)' }} />
+        {cards.map((idx) => (
+          <div
+            key={idx}
+            className="card"
+            role="status"
+            aria-label="Loading study indicators"
+            style={{
+              display: 'grid',
+              gap: 'var(--space-4)',
+              padding: 'var(--space-5)',
+              border: '1px solid var(--border-subtle)',
+              background: 'var(--bg-card)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div className="skeleton" style={{ height: '20px', width: '120px', borderRadius: 'var(--radius-sm)' }} />
+              <div className="skeleton" style={{ height: '20px', width: '60px', borderRadius: 'var(--radius-full)' }} />
+            </div>
+            <div
+              className="skeleton"
+              style={{
+                height: '110px',
+                borderRadius: 'var(--radius-md)',
+                padding: 'var(--space-4)',
+              }}
+            />
+            <div
+              className="skeleton"
+              style={{
+                height: '130px',
+                borderRadius: 'var(--radius-md)',
+                padding: 'var(--space-4)',
+              }}
+            />
+          </div>
+        ))}
       </div>
     </section>
   )

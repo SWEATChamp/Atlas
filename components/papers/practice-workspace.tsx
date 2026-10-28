@@ -54,9 +54,9 @@ export function PracticeTrend({ points, subjects = [], preferredSubjectId }: {
     <div role="region" aria-label={`${trendModes.find(option => option.id === mode)?.label} trend`} className="practice-trend-content">
       {visible.length === 0 ? <p role="status" className="practice-trend-description">No {mode === 'full_paper' ? 'full-paper' : mode === 'practice' ? 'question-practice' : 'practice'} attempts yet.</p> : <>
         <div className="practice-trend-summary" aria-live="polite">
-          <p><strong>Lifetime:</strong> {formatPercent(summary.lifetime.weightedAccuracyPct)} mark-weighted · {summary.lifetime.raw}/{summary.lifetime.max} marks · {summary.lifetime.attempts} {summary.lifetime.attempts === 1 ? 'attempt' : 'attempts'}{mode !== 'full_paper' ? ` · ${itemCount} question ${itemCount === 1 ? 'item' : 'items'}` : ''}</p>
-          <div>
-            <p><strong>Current route evidence:</strong> {formatPercent(summary.currentRoute.weightedAccuracyPct)} · {summary.currentRoute.raw}/{summary.currentRoute.max} eligible marks · {summary.currentRoute.attempts} contributing {summary.currentRoute.attempts === 1 ? 'attempt' : 'attempts'}.</p>
+          <p className="practice-trend-summary-lifetime"><strong>Lifetime:</strong> {formatPercent(summary.lifetime.weightedAccuracyPct)} mark-weighted · {summary.lifetime.raw}/{summary.lifetime.max} marks · {summary.lifetime.attempts} {summary.lifetime.attempts === 1 ? 'attempt' : 'attempts'}{mode !== 'full_paper' ? ` · ${itemCount} question ${itemCount === 1 ? 'item' : 'items'}` : ''}</p>
+          <div className="practice-trend-summary-route-wrap">
+            <p className="practice-trend-summary-route"><strong>Current route evidence:</strong> {formatPercent(summary.currentRoute.weightedAccuracyPct)} · {summary.currentRoute.raw}/{summary.currentRoute.max} eligible marks · {summary.currentRoute.attempts} contributing {summary.currentRoute.attempts === 1 ? 'attempt' : 'attempts'}.</p>
             <p className="practice-trend-help">Partial sessions contribute eligible items only.</p>
           </div>
         </div>
@@ -65,9 +65,9 @@ export function PracticeTrend({ points, subjects = [], preferredSubjectId }: {
             <svg aria-hidden="true" width="28" height="12" style={{ flexShrink: 0 }}><line x1="0" y1="6" x2="28" y2="6" stroke={subject.colour} strokeWidth="3" strokeDasharray={subject.dash} /></svg>
             <span style={{ overflowWrap: 'anywhere' }}>{subject.name}</span>
           </li>)}
-          {showOverall && <li style={{ display: 'flex', alignItems: 'center', gap: 8 }}><svg aria-hidden="true" width="28" height="12"><line x1="0" y1="6" x2="28" y2="6" stroke="var(--text-primary)" strokeWidth="3" strokeDasharray="6 5" /></svg>Overall · cumulative weighted</li>}
+          {showOverall && <li style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}><svg aria-hidden="true" width="28" height="12" style={{ flexShrink: 0 }}><line x1="0" y1="6" x2="28" y2="6" stroke="var(--text-primary)" strokeWidth="3" strokeDasharray="6 5" /></svg><span style={{ overflowWrap: 'anywhere' }}>Overall · cumulative weighted</span></li>}
         </ul>
-        <svg viewBox="0 0 800 250" role="img" aria-label={`${visible.length} attempt${visible.length === 1 ? '' : 's'} in date order; ${series.map(subject => subject.name).join(', ')}${showOverall ? '; overall cumulative mark-weighted trend' : ''}; full papers are circles and question sessions are diamonds`} style={{ width: '100%', height: 'auto', maxHeight: 280 }}>
+        <svg viewBox="0 0 800 250" role="img" aria-label={`${visible.length} attempt${visible.length === 1 ? '' : 's'} in date order; ${series.map(subject => subject.name).join(', ')}${showOverall ? '; overall cumulative mark-weighted trend' : ''}; full papers are circles and question sessions are diamonds`} style={{ display: 'block', width: '100%', height: 'auto', maxHeight: 280 }}>
           {[0, 25, 50, 75, 100].map(pct => <g key={pct}><line x1="35" x2="765" y1={coordinate(0, pct).y} y2={coordinate(0, pct).y} stroke="var(--border-subtle)" /><text x="0" y={coordinate(0, pct).y + 4} fill="var(--text-muted)" fontSize="11">{pct}%</text></g>)}
           {showOverall && overall.length > 1 && <polyline aria-label="Overall cumulative mark-weighted accuracy" points={overallLine} fill="none" stroke="var(--text-primary)" strokeWidth="3" strokeDasharray="6 5" />}
           {series.map(subject => <g key={subject.id} aria-label={`${subject.name} attempt scores`}>
@@ -87,7 +87,11 @@ export function PracticeTrend({ points, subjects = [], preferredSubjectId }: {
         </svg>
         <p className="practice-trend-description practice-trend-marker-note">● Full paper &nbsp; ◆ Question session. Each marker is one attempt, including attempts made on the same day.</p>
         <details>
-          <summary style={{ cursor: 'pointer', minHeight: 44, display: 'flex', alignItems: 'center' }}>Text evidence for all {visible.length} attempts</summary>
+          <summary style={{ cursor: 'pointer', minHeight: 44, display: 'flex', alignItems: 'center' }}>
+            {visible.length === 1
+              ? 'Text evidence for 1 attempt'
+              : `Text evidence for all ${visible.length} attempts`}
+          </summary>
           <ol className="practice-trend-evidence">
             {visible.map((point, index) => <li key={`${point.source}-${point.id}`}>
               {subjectNames.get(point.subjectId)} · {formatDate(point.attemptDate)} · {point.source === 'full_paper' ? 'Full paper' : `Question practice (${point.itemCount} items)`} · {point.stage?.toUpperCase() ?? 'Stage untagged'} · {point.raw}/{point.max} marks ({point.accuracyPct.toFixed(1)}%). {showOverall ? `Overall to this attempt: ${overall[index].raw}/${overall[index].max} marks (${overall[index].accuracyPct.toFixed(1)}%). ` : ''}{point.eligibleForCurrentRoute ? `Current route: ${point.eligibleRaw}/${point.eligibleMax} eligible marks.` : 'Historical/off-route; no current-route marks.'}
@@ -165,7 +169,7 @@ export function PracticeWorkspace({ sessions, trend, subjects, trendSubjects = s
       {attemptType === 'full_paper' && <>
         <div className="practice-workspace-heading">
           <div><h2 className="text-heading-2" style={{ margin: 0 }}>Full papers</h2><p style={{ color: 'var(--text-muted)', margin: '4px 0 0' }}>Record complete papers and review your results.</p></div>
-          <LogPaperButton timeZone={timeZone} />
+          <LogPaperButton timeZone={timeZone} preferredSubjectId={preferredSubjectId} />
         </div>
         {children}
       </>}

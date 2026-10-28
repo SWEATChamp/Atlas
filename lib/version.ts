@@ -10,14 +10,12 @@ export interface ReleaseInfo {
  * releaseDate is finalized only after the release passes production smoke testing.
  */
 export const CURRENT_RELEASE: ReleaseInfo = {
-  version: '1.3.0',
-  title: 'Question Practice, Stats & Logs',
-  releaseDate: '2026-10-21',
+  version: '1.3.2',
+  title: 'Progress Reliability & Recovery',
+  releaseDate: '2026-10-28',
   changes: [
-    'Separate full-paper and standalone question-practice logging with distinct history tracking.',
-    'Required multi-chapter mapping per question with optional exam provenance (year, series, paper, variant).',
-    'Dedicated Stats and Logs workspaces featuring subject-specific performance analytics, score trends, and pagination.',
-    'Separate practice-informed predicted exam mark estimates (explicitly non-official) and syllabus readiness indicators.',
-    'Smoother repeated subject switching and warm tab revisits powered by client-session caching.',
+    'Progress summaries now reflect only chapters available for your current study route.',
+    'Subject-loading failures now show clear errors instead of misleading empty progress.',
+    'Chapter notes and confidence updates now recover reliably from failed or rapid changes.',
   ],
 }

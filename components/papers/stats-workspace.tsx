@@ -5,7 +5,12 @@ import { PracticeTrend } from '@/components/papers/practice-workspace'
 import { SubjectFilterTabs } from '@/components/papers/subject-filter-tabs'
 import { LazyChapterAccuracyChart } from '@/components/papers/paper-charts'
 import { ChapterAccuracySkeleton } from '@/components/papers/chapter-accuracy-chart'
-import { StudyIndicators, StudyIndicatorsSkeleton } from '@/components/papers/study-indicators'
+import {
+  StudyIndicators,
+  StudyIndicatorsSkeleton,
+  getExpectedStudyIndicatorCount,
+} from '@/components/papers/study-indicators'
+import { trendModes } from '@/lib/practice-ui'
 import {
   fetchStatsChapterAccuracy,
   fetchStatsOverview,
@@ -26,11 +31,19 @@ import {
   type StatsSubjectData,
 } from '@/lib/session-cache'
 import type { ChapterAccuracy } from '@/types'
+import type { StudyRoute, SubjectStage } from '@/types/database'
 import type { IndicatorItem } from '@/components/papers/study-indicators'
 
 export interface StatsWorkspaceProps {
   userId: string
-  subjects: { id: string; name: string; color_hex: string; code?: string | null }[]
+  subjects: {
+    id: string
+    name: string
+    color_hex: string
+    code?: string | null
+    stage?: SubjectStage | string | null
+    study_route?: StudyRoute | string | null
+  }[]
   initialSubjectId: string | null
   initialOverview?: StatsOverviewData
   initialChapterAccuracy?: ChapterAccuracy[] | null
@@ -458,6 +471,14 @@ export function StatsWorkspace({
   const selectedSubject = subjects.find((s) => s.id === selectedSubjectId)
   const isOverviewStaleOrLoading = overviewLoading || displayedSubjectId !== selectedSubjectId
 
+  const expectedIndicatorCount = useMemo(() => {
+    if (selectedSubjectId) {
+      const activeSub = subjects.find((s) => s.id === selectedSubjectId)
+      return getExpectedStudyIndicatorCount(activeSub?.study_route)
+    }
+    return subjects.reduce((sum, s) => sum + getExpectedStudyIndicatorCount(s.study_route), 0)
+  }, [selectedSubjectId, subjects])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
       {/* Header */}
@@ -507,21 +528,90 @@ export function StatsWorkspace({
 
       {/* 1. Score-trend graph */}
       {isOverviewStaleOrLoading ? (
-        <div
+        <section
           className="card practice-trend-card"
-          style={{ padding: 'var(--space-6)', display: 'grid', gap: 'var(--space-4)' }}
+          aria-labelledby="practice-trend-title"
         >
           <header className="practice-trend-heading">
             <h2 id="practice-trend-title" className="text-heading-3">Score trend</h2>
-            <p className="practice-trend-description">Loading trend data…</p>
+            <p className="practice-trend-description">
+              {selectedSubjectId
+                ? 'Attempt scores for the subject selected above.'
+                : 'Subject lines show each attempt. Overall is the running mark-weighted average.'}
+            </p>
           </header>
           <div
-            className="skeleton"
-            role="status"
+            role="group"
+            aria-label="Trend evidence type"
+            className="practice-trend-tabs"
+          >
+            {trendModes.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                disabled
+                aria-disabled="true"
+                className={`btn ${option.id === 'all' ? 'btn-primary' : 'btn-ghost'}`}
+                style={{ opacity: 0.7, pointerEvents: 'none' }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <div
+            role="region"
             aria-label="Loading score trend"
-            style={{ height: '220px', borderRadius: 'var(--radius-md)' }}
-          />
-        </div>
+            className="practice-trend-content"
+          >
+            <div className="practice-trend-summary" aria-hidden="true">
+              <p className="practice-trend-summary-placeholder practice-trend-summary-lifetime">
+                <span className="skeleton practice-trend-summary-line" />
+                <span className="skeleton practice-trend-summary-line practice-trend-skeleton-wrap" />
+                <span className="skeleton practice-trend-summary-line practice-trend-skeleton-compact-wrap" />
+              </p>
+              <div className="practice-trend-summary-route-wrap">
+                <p className="practice-trend-summary-placeholder practice-trend-summary-route">
+                  <span className="skeleton practice-trend-summary-line" />
+                  <span className="skeleton practice-trend-summary-line practice-trend-skeleton-wrap" />
+                  <span className="skeleton practice-trend-summary-line practice-trend-skeleton-compact-wrap" />
+                </p>
+                <p className="practice-trend-help practice-trend-summary-placeholder">
+                  <span className="skeleton practice-trend-summary-line" />
+                  <span className="skeleton practice-trend-summary-line practice-trend-skeleton-helper-wrap" />
+                </p>
+              </div>
+            </div>
+            <ul aria-hidden="true" className="practice-trend-legend">
+              <li style={{ minWidth: 0 }}>
+                <span className="skeleton" style={{ width: 28, height: 12, borderRadius: 'var(--radius-sm)', flexShrink: 0 }} />
+                <span className="skeleton" style={{ width: 90, height: '1.2em', borderRadius: 'var(--radius-sm)' }} />
+              </li>
+              {!selectedSubjectId && (
+                <li style={{ minWidth: 0 }}>
+                  <span className="skeleton" style={{ width: 28, height: 12, borderRadius: 'var(--radius-sm)', flexShrink: 0 }} />
+                  <span className="skeleton" style={{ width: 140, height: '1.2em', borderRadius: 'var(--radius-sm)' }} />
+                </li>
+              )}
+            </ul>
+            <div
+              className="skeleton"
+              role="status"
+              aria-label="Loading score trend chart"
+              style={{
+                width: '100%',
+                aspectRatio: '800 / 250',
+                maxHeight: '280px',
+                borderRadius: 'var(--radius-md)',
+              }}
+            />
+            <p className="practice-trend-description practice-trend-marker-note" aria-hidden="true">
+              ● Full paper &nbsp; ◆ Question session. Each marker is one attempt, including attempts made on the same day.
+            </p>
+            <div style={{ minHeight: 44, display: 'flex', alignItems: 'center' }} aria-hidden="true">
+              <span className="skeleton" style={{ height: '20px', width: '220px', borderRadius: 'var(--radius-sm)' }} />
+            </div>
+          </div>
+        </section>
       ) : (
         <PracticeTrend
           points={overview.trend}
@@ -602,7 +692,10 @@ export function StatsWorkspace({
 
       {/* 3. Study Indicators */}
       {indicatorsLoading || isOverviewStaleOrLoading ? (
-        <StudyIndicatorsSkeleton activeSubjectName={selectedSubject?.name} />
+        <StudyIndicatorsSkeleton
+          activeSubjectName={selectedSubject?.name}
+          cardCount={expectedIndicatorCount}
+        />
       ) : indicatorsError ? (
         <div
           role="alert"
@@ -636,8 +729,10 @@ export function StatsWorkspace({
       {/* Full-Paper Metrics Summary Grid */}
       <div className="past-papers-stats-grid">
         {overview.summaryStats.map((stat, i) => (
-          <div key={i} className="card" style={{ padding: 'var(--space-4) var(--space-5)' }}>
-            <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>{stat.label}</span>
+          <div key={i} className="card past-papers-stat-cell">
+            <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', overflowWrap: 'break-word' }}>
+              {stat.label}
+            </span>
             <div style={{ fontSize: '1.5rem', fontWeight: 700, marginTop: 4 }}>
               {isOverviewStaleOrLoading ? '—' : stat.value}
             </div>
