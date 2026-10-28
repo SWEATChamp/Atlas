@@ -29,12 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Complete integrated application test suite: 594 tests passed with six intentional live-network skips (`npm test`).
 - Database verification: All nine TAP suites passed (600 planned assertions, 600 passed, 0 failed) in a uniquely isolated disposable local container (`public.ecr.aws/supabase/postgres:17.6.1.140`).
 - AS/A2 readiness verification: 27/27 assertions passed against both Migration 032 and Migration 033 schemas.
-- Authenticated read-only browser smoke testing passed on the pre-v1.3.1-integration PR #35 Preview deployment (`dpl_7dd8T3uF8PvDJWaCt98STtQoJSa9`). The final integrated v1.3.2 candidate remains unpushed and has not yet been deployed or smoke-tested on Preview.
+- Authenticated read-only browser smoke testing passed on the final integrated v1.3.2 PR Preview at application commit `65f4500daa856dd97ba0182da8e887ff632e98aa`: the v1.3.2 release notice and footer rendered correctly; Dashboard, Subjects, Mathematics route-aware chapter totals, Stats, and Logs loaded without error boundaries or browser console warnings/errors. No data-changing controls were exercised.
 
 ### Limitations & Verification Boundaries
 - This release introduces no database migrations.
 - Production verification, full automated authentication-flow E2E, and optional live Cambridge verification remain outstanding.
-- Worktree release preparation only; v1.3.2 is not yet merged, deployed, Production-verified, tagged, or released.
+- v1.3.2 is not yet merged, deployed to Production, Production-verified, tagged, or released.
 
 ## [1.3.1] - 2026-10-25
 
