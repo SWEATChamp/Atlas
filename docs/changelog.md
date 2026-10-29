@@ -31,10 +31,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AS/A2 readiness verification: 27/27 assertions passed against both Migration 032 and Migration 033 schemas.
 - Authenticated read-only browser smoke testing passed on the final integrated v1.3.2 PR Preview at application commit `65f4500daa856dd97ba0182da8e887ff632e98aa`: the v1.3.2 release notice and footer rendered correctly; Dashboard, Subjects, Mathematics route-aware chapter totals, Stats, and Logs loaded without error boundaries or browser console warnings/errors. No data-changing controls were exercised.
 
+### Production Deployment & Scoped Smoke Verification
+- **Production Deployment (2026-10-28)**:
+  - Merged PR #35 into `main` at merge commit `020b374335850e0544d8549b1d65043c98c3a5c8` (PR head `cc17e5b0a61c36e40f01a3526f697cd94efae2eb`) on 2026-10-28 at 10:43:44 AM Singapore time.
+  - Automatic Vercel Production deployment reached `Ready` in Singapore (`sin1`) on 2026-10-28 at deployment URL `https://atlas-a47e6z3in-atlas-726e.vercel.app` (GitHub Deployment record: `7375775851`; canonical: `https://atlas-alpha-vert.vercel.app`; inspector: `https://vercel.com/atlas-726e/atlas/6QRpoU3rd6VY1PSiMo81fE4SMd2z`).
+- **Authenticated Read-Only Production Smoke Verification (2026-10-29)**:
+  - Completed on 2026-10-29 (Singapore time) by the primary orchestrator:
+    - Version/footer and release notification banner display `1.3.2`, title `Progress Reliability & Recovery`, and all three user-facing bullets.
+    - Dashboard and Subject Readiness loaded cleanly.
+    - Subjects list loaded without error boundaries.
+    - Mathematics route-aware totals verified: 13 accessible chapters, Pure 1 `0/8`, Statistics 1 `0/5`, locked Pure 3 and Mechanics `0/0`.
+    - Stats workspace loaded cleanly.
+    - Full Papers and Question Practice Logs workspaces loaded cleanly.
+    - Existing paper detail loaded cleanly.
+    - Canonical hostname retention verified.
+    - Zero captured browser console warnings or errors.
+    - No data-changing controls were exercised.
+
 ### Limitations & Verification Boundaries
-- This release introduces no database migrations.
-- Production verification, full automated authentication-flow E2E, and optional live Cambridge verification remain outstanding.
-- v1.3.2 is not yet merged, deployed to Production, Production-verified, tagged, or released.
+- **Unverified Scopes in Production**:
+  - No mission, enrollment, route, target-grade, exam-date, notes-status, confidence, paper, or practice-record mutation was tested in Production.
+  - Cross-user data isolation was not tested in Production.
+  - Full automated authentication-flow E2E and optional live Cambridge verification remain outstanding.
+  - This release introduced no database migrations.
+  - The release notice was restored by resetting only the browser-local dismissal key; no server state changed.
 
 ## [1.3.1] - 2026-10-25
 
