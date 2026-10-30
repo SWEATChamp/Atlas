@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent, act, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, act, cleanup, within } from '@testing-library/react'
 import { renderToString } from 'react-dom/server'
 import ExamDatePicker from '@/components/subjects/exam-date-picker'
 import TargetGradePicker from '@/components/subjects/target-grade-picker'
@@ -170,7 +170,7 @@ describe('Accessibility & Touch Target Semantics (v1.2.0)', () => {
     const radiogroup = screen.getByRole('radiogroup')
     expect(radiogroup).toBeDefined()
 
-    const radios = screen.getAllByRole('radio') as HTMLInputElement[]
+    const radios = within(radiogroup).getAllByRole('radio') as HTMLInputElement[]
     expect(radios).toHaveLength(3)
 
     // All radio options share the name attribute for native browser arrow-key traversal
