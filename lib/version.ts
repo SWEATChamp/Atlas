@@ -7,15 +7,17 @@ export interface ReleaseInfo {
 
 /**
  * Authoritative user-facing application release metadata.
- * releaseDate is finalized only after the release passes production smoke testing.
+ * releaseDate records the intended merge/release date, while deployment
+ * and smoke-verification evidence are tracked separately.
  */
 export const CURRENT_RELEASE: ReleaseInfo = {
-  version: '1.3.2',
-  title: 'Progress Reliability & Recovery',
-  releaseDate: '2026-10-28',
+  version: '1.3.3',
+  title: 'Accessible Setup & Controls',
+  releaseDate: '2026-10-30',
   changes: [
-    'Progress summaries now reflect only chapters available for your current study route.',
-    'Subject-loading failures now show clear errors instead of misleading empty progress.',
-    'Chapter notes and confidence updates now recover reliably from failed or rapid changes.',
+    'Paper combinations can now be selected entirely with the keyboard.',
+    'Dialogs now keep keyboard focus inside as you move between steps.',
+    'Target-grade choices now remain visible and usable on narrow screens.',
+    'Confidence ratings now announce the selected value to assistive technology.',
   ],
 }

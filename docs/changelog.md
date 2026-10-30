@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3] - 2026-10-30
+
+### Fixed
+- Native keyboard-accessible Maths and Further Maths paper-combination controls.
+- Dialog focus recovery and containment after dynamic step changes.
+- Target-grade menu containment at 320px and restored single-row layout at wide viewports.
+- Programmatic selected-state exposure for confidence ratings.
+- Regression coverage for keyboard controls, focus containment, responsive geometry, confidence semantics, and release metadata.
+
+### Verification Evidence
+- Milestone 2 accessibility regression tests passed: 7 of 7 focused accessibility tests passed (`tests/milestone-2-accessibility.test.tsx`).
+- Release-notification and version-sync tests passed: 14 tests across unit, state lifecycle, and rendered UI suites (`tests/version-sync.test.ts`, `tests/release-notification.test.ts`, `tests/release-notification-ui.test.tsx`).
+- Full application suite passed with six intentional skips: 604 passed, 6 skipped across 53 test files (`npm test`).
+- ESLint and TypeScript passed cleanly with zero errors or warnings (`npm run lint`, `npx tsc --noEmit`).
+- Next.js Webpack production build passed with all 13 routes compiled and static pages generated (`npx next build --webpack`).
+- Local Chrome harness verified the target-grade menu at 320px (3×2 wrapped layout fully visible and contained) and 1024px (single 1×6 row at 308px width with matching top coordinates at 942px), as well as release notification dialog and footer presentation.
+- This release requires no database migrations.
+
+### Release and Verification Boundaries
+- v1.3.3 is dated 2026-10-30 because merging to `main` is the intended release event.
+- The application and release metadata are locally prepared.
+- The branch has not yet been pushed or opened as a pull request.
+- v1.3.3 has not yet been merged, Production-deployed, Production-smoke-tested, tagged, or published as a GitHub Release.
+- Those operational claims must be updated only after the corresponding actions succeed.
+- Browser geometry evidence came from the local Chrome harness.
+- Authenticated Preview and Production release-notice/footer verification remain outstanding.
+- No database or student records were changed.
+
 ## [1.3.2] - 2026-10-28
 
 ### Fixed
