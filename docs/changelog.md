@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.3] - 2026-10-30
+## [1.3.3] - 2026-11-04
 
 ### Fixed
 - Native keyboard-accessible Maths and Further Maths paper-combination controls.
@@ -24,14 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - This release requires no database migrations.
 
 ### Release and Verification Boundaries
-- v1.3.3 is dated 2026-10-30 because merging to `main` is the intended release event.
-- The application and release metadata are locally prepared.
-- The branch has not yet been pushed or opened as a pull request.
-- v1.3.3 has not yet been merged, Production-deployed, Production-smoke-tested, tagged, or published as a GitHub Release.
-- Those operational claims must be updated only after the corresponding actions succeed.
+- v1.3.3 is dated 2026-11-04 because merging to `main` is the intended release event.
+- The verification evidence above is local and pre-merge unless explicitly stated otherwise.
+- Production deployment, authenticated Production smoke testing, tag creation, and GitHub Release publication require separate post-merge verification.
 - Browser geometry evidence came from the local Chrome harness.
-- Authenticated Preview and Production release-notice/footer verification remain outstanding.
-- No database or student records were changed.
+- Authenticated Preview and Production release-notice/footer verification were not part of pre-merge verification.
+- No database or student records were changed during pre-merge verification.
 
 ## [1.3.2] - 2026-10-28
 

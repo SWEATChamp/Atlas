@@ -13,7 +13,7 @@ export interface ReleaseInfo {
 export const CURRENT_RELEASE: ReleaseInfo = {
   version: '1.3.3',
   title: 'Accessible Setup & Controls',
-  releaseDate: '2026-10-30',
+  releaseDate: '2026-11-04',
   changes: [
     'Paper combinations can now be selected entirely with the keyboard.',
     'Dialogs now keep keyboard focus inside as you move between steps.',
