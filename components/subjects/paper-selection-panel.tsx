@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useId } from 'react'
 import type { PaperSelectionInput } from '@/types'
 import type { StudyRoute } from '@/types/database'
 
@@ -590,14 +590,17 @@ export function getCompatibleA2StagedCombinations(
   return []
 }
 
+const EMPTY_SELECTIONS: PaperSelectionInput[] = []
+
 export default function PaperSelectionPanel({
   subjectCode,
   route,
-  initialSelections = [],
+  initialSelections = EMPTY_SELECTIONS,
   onChange,
 }: Props) {
   const isElective = isElectiveSubject(subjectCode)
   const combinations = getSubjectCombinations(subjectCode, route)
+  const radioGroupId = useId()
 
   const matched = matchSavedCombination(subjectCode, route, initialSelections)
   const defaultComboId = matched ? matched.id : (isElective ? '' : (combinations[0]?.id ?? ''))
@@ -681,28 +684,50 @@ export default function PaperSelectionPanel({
 
   // Elective subjects (Maths 9709 & Further Maths 9231)
   const subjectName = subjectCode === '9231' ? 'Further Mathematics 9231' : 'Mathematics 9709'
+  const groupName = `paper-combination-${subjectCode || 'subject'}-${radioGroupId}`
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+    <fieldset
+      style={{
+        border: 'none',
+        padding: 0,
+        margin: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+      }}
+    >
+      <legend
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
+          padding: 0,
+          margin: 0,
+          marginBottom: 10,
+        }}
+      >
+        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
           Paper combination ({subjectName})
-        </label>
+        </span>
         {!selectedComboId && (
           <span style={{ fontSize: '0.75rem', color: 'var(--warning)', fontWeight: 600 }}>
             Selection required
           </span>
         )}
-      </div>
+      </legend>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {combinations.map((combo) => {
           const isSelected = selectedComboId === combo.id
+          const inputId = `${groupName}-${combo.id}`
           return (
-            <div
+            <label
               key={combo.id}
-              onClick={() => handleSelectCombo(combo.id)}
+              htmlFor={inputId}
               style={{
+                display: 'block',
                 padding: '12px 14px',
                 borderRadius: 'var(--radius-md)',
                 border: `1.5px solid ${isSelected ? 'var(--primary)' : 'var(--border-subtle)'}`,
@@ -712,29 +737,35 @@ export default function PaperSelectionPanel({
               }}
             >
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                <div
+                <input
+                  type="radio"
+                  id={inputId}
+                  name={groupName}
+                  value={combo.id}
+                  checked={isSelected}
+                  onChange={() => handleSelectCombo(combo.id)}
+                  aria-labelledby={`${inputId}-title`}
+                  aria-describedby={`${inputId}-desc`}
                   style={{
                     width: 18,
                     height: 18,
-                    borderRadius: '50%',
-                    border: `2px solid ${isSelected ? 'var(--primary)' : 'var(--border-muted)'}`,
-                    background: isSelected ? 'var(--primary)' : 'transparent',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
+                    accentColor: 'var(--primary, #5B7FFF)',
+                    cursor: 'pointer',
                     marginTop: 2,
+                    flexShrink: 0,
                   }}
-                >
-                  {isSelected && (
-                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />
-                  )}
-                </div>
+                />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  <div
+                    id={`${inputId}-title`}
+                    style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}
+                  >
                     {combo.label}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2, marginBottom: 8 }}>
+                  <div
+                    id={`${inputId}-desc`}
+                    style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2, marginBottom: 8 }}
+                  >
                     {combo.description}
                   </div>
 
@@ -778,10 +809,10 @@ export default function PaperSelectionPanel({
                   </div>
                 </div>
               </div>
-            </div>
+            </label>
           )
         })}
       </div>
-    </div>
+    </fieldset>
   )
 }

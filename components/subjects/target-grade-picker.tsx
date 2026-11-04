@@ -8,6 +8,10 @@ import { updateTargetGrade } from '@/lib/actions/subjects'
 const GRADES = ['A*', 'A', 'B', 'C', 'D', 'E'] as const
 type Grade = (typeof GRADES)[number]
 
+const MENU_FULL_ROW_WIDTH = 308
+const MENU_WRAPPED_MIN_WIDTH = 158
+const MENU_WRAPPED_MAX_WIDTH = 160
+
 interface Props {
   subjectId: string
   currentGrade: string | null
@@ -20,6 +24,71 @@ export default function TargetGradePicker({ subjectId, currentGrade, color }: Pr
   const [isPending, startTransition] = useTransition()
   const ref = useRef<HTMLDivElement>(null)
   const prefersReduced = useReducedMotion()
+  const [placement, setPlacement] = useState<{
+    left?: number | string
+    right?: number | string
+    maxWidth?: number | string
+  }>({ left: 0 })
+
+  useEffect(() => {
+    if (!open || !ref.current) return
+
+    function computePlacement() {
+      if (!ref.current) return
+      const triggerRect = ref.current.getBoundingClientRect()
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 320
+
+      // Find clipping container boundaries (like containing card with overflow: hidden)
+      let containerLeft = 0
+      let containerRight = viewportWidth
+      let parent = ref.current.parentElement
+
+      while (parent && parent !== document.body) {
+        const style = window.getComputedStyle(parent)
+        const overflow = (style.overflow + style.overflowX + style.overflowY).toLowerCase()
+        if (overflow.includes('hidden') || overflow.includes('clip') || overflow.includes('auto') || overflow.includes('scroll')) {
+          const pRect = parent.getBoundingClientRect()
+          containerLeft = Math.max(containerLeft, pRect.left)
+          containerRight = Math.min(containerRight, pRect.right)
+          break
+        }
+        parent = parent.parentElement
+      }
+
+      // Safe bounds within container and viewport with 8px margin
+      const safeLeft = Math.max(8, containerLeft + 8)
+      const safeRight = Math.min(viewportWidth - 8, containerRight - 8)
+      const availableWidth = Math.max(MENU_WRAPPED_MIN_WIDTH, safeRight - safeLeft)
+
+      const spaceToRight = safeRight - triggerRect.left
+      const spaceToLeft = triggerRect.right - safeLeft
+
+      // Full horizontal row outer width (box-sizing: border-box):
+      // 6 items * 44px (264px) + 5 gaps * 6px (30px) + 12px horizontal padding + 2px borders = 308px
+      // 3-column wrapped layout outer width:
+      // 3 items * 44px (132px) + 2 gaps * 6px (12px) + 12px horizontal padding + 2px borders = 158px
+      if (spaceToRight >= MENU_FULL_ROW_WIDTH) {
+        setPlacement({ left: 0, right: 'auto', maxWidth: MENU_FULL_ROW_WIDTH })
+      } else if (spaceToLeft >= MENU_FULL_ROW_WIDTH) {
+        setPlacement({ right: 0, left: 'auto', maxWidth: MENU_FULL_ROW_WIDTH })
+      } else if (spaceToRight >= MENU_WRAPPED_MIN_WIDTH) {
+        setPlacement({ left: 0, right: 'auto', maxWidth: Math.min(spaceToRight, MENU_WRAPPED_MAX_WIDTH) })
+      } else if (spaceToLeft >= MENU_WRAPPED_MIN_WIDTH) {
+        setPlacement({ right: 0, left: 'auto', maxWidth: Math.min(spaceToLeft, MENU_WRAPPED_MAX_WIDTH) })
+      } else {
+        const leftOffset = safeLeft - triggerRect.left
+        setPlacement({
+          left: leftOffset,
+          right: 'auto',
+          maxWidth: Math.min(availableWidth, MENU_WRAPPED_MAX_WIDTH),
+        })
+      }
+    }
+
+    computePlacement()
+    window.addEventListener('resize', computePlacement)
+    return () => window.removeEventListener('resize', computePlacement)
+  }, [open])
 
   // Close on outside click
   useEffect(() => {
@@ -97,7 +166,11 @@ export default function TargetGradePicker({ subjectId, currentGrade, color }: Pr
             style={{
               position: 'absolute',
               top: 'calc(100% + 8px)',
-              left: 0,
+              left: placement.left ?? 0,
+              right: placement.right ?? 'auto',
+              maxWidth: placement.maxWidth ?? 'min(calc(100vw - 24px), 308px)',
+              width: 'max-content',
+              boxSizing: 'border-box',
               zIndex: 100,
               background: 'var(--bg-elevated)',
               border: '1px solid var(--border-subtle)',
@@ -105,6 +178,7 @@ export default function TargetGradePicker({ subjectId, currentGrade, color }: Pr
               boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
               padding: 6,
               display: 'flex',
+              flexWrap: 'wrap',
               gap: 6,
             }}
           >

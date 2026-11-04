@@ -150,12 +150,15 @@ function ConfidenceStars({
 
   return (
     <div
+      role="group"
+      aria-label="Confidence rating"
       style={{ display: 'flex', gap: 0, alignItems: 'center' }}
       title={value ? `Confidence: ${value}/5 — select same star again to clear` : 'Set confidence (1–5 stars)'}
     >
       {CONFIDENCE_LEVELS.map((item) => {
         const n = item.level
         const isLit = (hovered ?? value ?? 0) >= n
+        const isSelected = value === n
         return (
           <button
             key={n}
@@ -167,6 +170,7 @@ function ConfidenceStars({
             onMouseEnter={() => setHovered(n)}
             onMouseLeave={() => setHovered(null)}
             aria-label={`Rate confidence ${n} of 5: ${item.description}`}
+            aria-pressed={isSelected}
             className="touch-target-btn"
             style={{
               background: 'none',

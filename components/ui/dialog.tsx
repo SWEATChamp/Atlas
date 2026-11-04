@@ -19,6 +19,18 @@ export interface DialogProps {
   overlayStyle?: React.CSSProperties
 }
 
+function getDialogFocusableElements(container: HTMLElement): HTMLElement[] {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+  ).filter((el) => {
+    if (el.getAttribute('aria-hidden') === 'true') return false
+    if (el.style.display === 'none' || el.style.visibility === 'hidden') return false
+    return true
+  })
+}
+
 export function Dialog({
   isOpen,
   onClose,
@@ -88,9 +100,7 @@ export function Dialog({
       if (initialFocusRef?.current) {
         initialFocusRef.current.focus()
       } else if (dialogRef.current) {
-        const focusableElements = dialogRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        )
+        const focusableElements = getDialogFocusableElements(dialogRef.current)
         if (focusableElements.length > 0) {
           focusableElements[0].focus()
         } else {
@@ -108,24 +118,38 @@ export function Dialog({
       }
 
       if (e.key === 'Tab' && dialogRef.current) {
-        const focusableElements = dialogRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        )
+        const focusableElements = getDialogFocusableElements(dialogRef.current)
         if (focusableElements.length === 0) {
           e.preventDefault()
+          dialogRef.current.focus()
           return
         }
 
         const firstElement = focusableElements[0]
         const lastElement = focusableElements[focusableElements.length - 1]
+        const activeElement = document.activeElement as HTMLElement | null
 
+        const isInsideDialog = activeElement ? dialogRef.current.contains(activeElement) : false
+
+        if (!isInsideDialog) {
+          // Focus is outside dialog (e.g. on BODY after step change removed focused element, or on background control)
+          e.preventDefault()
+          if (e.shiftKey) {
+            lastElement.focus()
+          } else {
+            firstElement.focus()
+          }
+          return
+        }
+
+        // Inside dialog wrapping
         if (e.shiftKey) {
-          if (document.activeElement === firstElement) {
+          if (activeElement === firstElement || activeElement === dialogRef.current) {
             e.preventDefault()
             lastElement.focus()
           }
         } else {
-          if (document.activeElement === lastElement) {
+          if (activeElement === lastElement) {
             e.preventDefault()
             firstElement.focus()
           }
@@ -133,10 +157,31 @@ export function Dialog({
       }
     }
 
+    const handleFocusIn = (e: FocusEvent) => {
+      if (!dialogRef.current) return
+      const target = e.target as HTMLElement | null
+      // Redirect focus back into dialog if focus lands on background elements outside dialog (ignoring body/html)
+      if (
+        target &&
+        target !== document.body &&
+        target !== document.documentElement &&
+        !dialogRef.current.contains(target)
+      ) {
+        const focusableElements = getDialogFocusableElements(dialogRef.current)
+        if (focusableElements.length > 0) {
+          focusableElements[0].focus()
+        } else {
+          dialogRef.current.focus()
+        }
+      }
+    }
+
     window.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('focusin', handleFocusIn)
     return () => {
       clearTimeout(focusTimer)
       window.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('focusin', handleFocusIn)
       document.body.style.overflow = originalOverflow
     }
   }, [isOpen, handleClose, initialFocusRef])
