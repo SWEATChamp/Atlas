@@ -23,13 +23,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Local Chrome harness verified the target-grade menu at 320px (3×2 wrapped layout fully visible and contained) and 1024px (single 1×6 row at 308px width with matching top coordinates at 942px), as well as release notification dialog and footer presentation.
 - This release requires no database migrations.
 
-### Release and Verification Boundaries
-- v1.3.3 is dated 2026-11-04 because merging to `main` is the intended release event.
-- The verification evidence above is local and pre-merge unless explicitly stated otherwise.
-- Production deployment, authenticated Production smoke testing, tag creation, and GitHub Release publication require separate post-merge verification.
-- Browser geometry evidence came from the local Chrome harness.
-- Authenticated Preview and Production release-notice/footer verification were not part of pre-merge verification.
-- No database or student records were changed during pre-merge verification.
+### Production deployment
+- PR #38
+- PR head: `9c079572cbdbb94f9a33b57b9cd95b95dea9a001`
+- Merge commit: `93fb20aae43a876cb6d68ef5060a4ecd5ccc9087`
+- Merged on `2026-11-04` at `10:25:41 AM` Singapore time
+- Automatic Vercel Production deployment
+- GitHub deployment record: `7536211733`
+- Deployment URL: `https://atlas-cqa07407e-atlas-726e.vercel.app`
+- Canonical URL: `https://atlas-alpha-vert.vercel.app`
+- Inspector: `https://vercel.com/atlas-726e/atlas/5rucunhpngErYA4R3RD21tA3aSzC`
+- Status: `Ready` / `success`
+- Serving region: `sin1`
+
+### Authenticated read-only Production smoke verification
+The primary orchestrator verified on `2026-11-04`:
+- v1.3.3 release notice, title `Accessible Setup & Controls`, all four highlights, footer, and dismissal remaining closed after reload.
+- Mathematics paper-combination radios were reached by Tab and changed with Arrow keys; changes were cancelled.
+- Further Mathematics paper-combination radios were reached by Tab and changed with Space; changes were cancelled.
+- Dynamic guide progression moved focus to “Got it” inside step 2.
+- Tab and Shift+Tab wrapped inside the dialog.
+- Escape closed the dialog and returned focus to the Guide opener.
+- At a 320px requested viewport, all six grade buttons were fully visible as a 3×2 grid of 44px controls with no horizontal document overflow.
+- At 1024px, all six grade buttons formed one fully visible horizontal row.
+- Confidence controls exposed the labelled `Confidence rating` group, five `aria-pressed` buttons, and the existing 3/5 selection as pressed.
+- Dashboard, Subjects, Mathematics, Further Mathematics, Stats, and Logs loaded on the canonical hostname without error boundaries.
+- Zero browser console warnings or errors were captured.
+- No data-changing controls were submitted and no server-side records were changed.
+
+### Limitations and boundaries
+- No route, paper combination, grade, confidence, notes status, exam date, mission, paper, or practice-record mutation was tested in Production.
+- Cross-user isolation was not tested.
+- Full automated authentication-flow E2E remains outstanding.
+- The in-app browser did not expose the browser-local storage value directly; dismissal persistence was observed through reload behavior and exact storage behavior remains covered by automated tests.
+- v1.3.3 introduced no database migrations.
 
 ## [1.3.2] - 2026-10-28
 
