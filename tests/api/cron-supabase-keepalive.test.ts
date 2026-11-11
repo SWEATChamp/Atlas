@@ -67,6 +67,7 @@ describe('Supabase keep-alive cron', () => {
       ok: true,
       outcome: 'database_pinged',
       checkedAt: '2026-11-11T01:00:00.000Z',
+      queriesCompleted: 3,
     })
     const response = await handleSupabaseKeepAliveRequest(
       new Request('https://atlas.example/api/cron/supabase-keepalive', {
@@ -82,6 +83,7 @@ describe('Supabase keep-alive cron', () => {
       ok: true,
       outcome: 'database_pinged',
       checkedAt: '2026-11-11T01:00:00.000Z',
+      queriesCompleted: 3,
     })
     expect(ping).toHaveBeenCalledOnce()
     expect(consoleInfoSpy).toHaveBeenCalledOnce()
@@ -120,8 +122,8 @@ describe('Supabase keep-alive cron', () => {
     )
   })
 
-  test('uses an anon-scoped GET and never exposes returned row data', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(
+  test('uses three anon-scoped GETs and never exposes returned row data', async () => {
+    const fetchImpl = vi.fn().mockImplementation(async () =>
       new Response(JSON.stringify([{ id: 'private-row-id' }]), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -139,21 +141,23 @@ describe('Supabase keep-alive cron', () => {
       ok: true,
       outcome: 'database_pinged',
       checkedAt: '2026-11-11T01:00:00.000Z',
+      queriesCompleted: 3,
     })
     expect(JSON.stringify(report)).not.toContain('private-row-id')
-    expect(fetchImpl).toHaveBeenCalledOnce()
+    expect(fetchImpl).toHaveBeenCalledTimes(3)
 
-    const [url, init] = fetchImpl.mock.calls[0] as [URL, RequestInit]
-    expect(url.toString()).toBe(
-      'https://atlas-project.supabase.co/rest/v1/subject_papers?select=id&limit=1',
-    )
-    expect(init.method).toBe('GET')
-    expect(init.cache).toBe('no-store')
-    expect(init.headers).toEqual({
-      Accept: 'application/json',
-      apikey: 'public-anon-key',
-      Authorization: 'Bearer public-anon-key',
-    })
+    for (const [url, init] of fetchImpl.mock.calls as [URL, RequestInit][]) {
+      expect(url.toString()).toBe(
+        'https://atlas-project.supabase.co/rest/v1/subject_papers?select=id&limit=1',
+      )
+      expect(init.method).toBe('GET')
+      expect(init.cache).toBe('no-store')
+      expect(init.headers).toEqual({
+        Accept: 'application/json',
+        apikey: 'public-anon-key',
+        Authorization: 'Bearer public-anon-key',
+      })
+    }
   })
 
   test('fails when required Supabase configuration is unavailable', async () => {

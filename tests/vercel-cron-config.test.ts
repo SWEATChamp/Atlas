@@ -26,7 +26,7 @@ describe('Vercel cron configuration', () => {
       },
       {
         path: '/api/cron/supabase-keepalive',
-        schedule: '0 1,9,17 * * *',
+        schedule: '0 1 * * *',
       },
     ])
     expect(config.crons?.some(({ path: cronPath }) =>

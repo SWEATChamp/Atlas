@@ -25,8 +25,8 @@ Atlas uses Vercel for the Next.js application and Supabase for authentication an
 ## v1.3.4 Supabase Activity Keep-Alive
 
 - **Route**: `/api/cron/supabase-keepalive` is a Node.js, force-dynamic, read-only endpoint protected by the existing `CRON_SECRET` bearer check.
-- **Schedule**: `vercel.json` invokes the route at `0 1,9,17 * * *` (UTC), producing three evenly spaced database requests per day. The existing `/api/cron/grade-threshold-discovery` schedule remains unchanged at `0 7 * * *` (UTC), and `/api/cron/grade-thresholds` remains unscheduled.
-- **Database access**: Each authorized invocation sends one anon-scoped `GET` to the existing `subject_papers` catalogue with `select=id&limit=1`. The route never uses `SUPABASE_SERVICE_ROLE_KEY`, never returns row data, and performs no database mutation.
+- **Schedule**: `vercel.json` invokes the route once daily at `0 1 * * *` (UTC), satisfying the Vercel Hobby scheduling limit. The existing `/api/cron/grade-threshold-discovery` schedule remains unchanged at `0 7 * * *` (UTC), and `/api/cron/grade-thresholds` remains unscheduled.
+- **Database access**: Each authorized invocation sends three sequential anon-scoped `GET` requests to the existing `subject_papers` catalogue with `select=id&limit=1`, providing a few daily user queries through one scheduled run. The route never uses `SUPABASE_SERVICE_ROLE_KEY`, never returns row data, and performs no database mutation.
 - **Failure behavior**: Missing or weak cron configuration returns `503`; unauthorized requests return `401`; missing Supabase public configuration returns `503`; and upstream query failures return `502`. Responses are non-cacheable and non-indexable, and logs omit secrets, upstream error text, and row data.
 - **Environment**: No new variable is required. Production must already provide `CRON_SECRET`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 - **Post-deployment gate**: Verify that Vercel registers both cron entries, run one authorized keep-alive invocation, confirm a `200 database_pinged` response and sanitized success log, then observe subsequent scheduled health. Do not inspect or copy secret values.

@@ -9,13 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Protected read-only endpoint `/api/cron/supabase-keepalive` for generating genuine application database activity during otherwise quiet periods.
-- Three evenly spaced Vercel invocations per day (`0 1,9,17 * * *`, UTC), matching Supabase guidance that a few daily user queries are typically enough to avoid inactivity pausing.
+- One Hobby-compatible Vercel invocation per day (`0 1 * * *`, UTC) that performs three minimal sequential reads, matching Supabase guidance that a few daily user queries are typically enough to avoid inactivity pausing.
 - Sanitized structured success/failure logs for operational monitoring without logging credentials, upstream error details, or database rows.
 
 ### Security and data safety
 - Reuses the existing Production-only `CRON_SECRET` bearer authentication and fails closed when the secret is missing, weak, or incorrect.
 - Uses only the existing public Supabase URL and anon key; no service-role credential is required.
-- Performs one `GET` against the anon-readable `subject_papers` catalogue with a one-row limit. It does not insert, update, delete, or expose returned row data.
+- Performs three `GET` requests against the anon-readable `subject_papers` catalogue with a one-row limit. It does not insert, update, delete, or expose returned row data.
 - Returns explicit `503` configuration and `502` query-failure responses with `no-store` and `noindex` headers.
 
 ### Verification Evidence

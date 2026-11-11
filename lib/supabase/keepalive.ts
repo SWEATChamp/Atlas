@@ -8,12 +8,14 @@ const RESPONSE_HEADERS = {
 } as const
 
 const KEEPALIVE_TABLE = 'subject_papers'
+const QUERIES_PER_RUN = 3
 const REQUEST_TIMEOUT_MS = 8_000
 
 export interface SupabaseKeepAliveReport {
   ok: true
   outcome: 'database_pinged'
   checkedAt: string
+  queriesCompleted: number
 }
 
 export class SupabaseKeepAliveConfigurationError extends Error {
@@ -47,7 +49,7 @@ function buildKeepAliveUrl(supabaseUrl: string): URL {
 }
 
 /**
- * Performs one minimal, read-only PostgREST query using the public anon key.
+ * Performs three minimal, read-only PostgREST queries using the public anon key.
  * No row data is returned to the cron caller and no elevated credential is used.
  */
 export async function pingSupabaseDatabase(
@@ -61,28 +63,31 @@ export async function pingSupabaseDatabase(
   }
 
   const fetchImpl = options.fetchImpl ?? fetch
-  const response = await fetchImpl(buildKeepAliveUrl(supabaseUrl), {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-      apikey: anonKey,
-      Authorization: `Bearer ${anonKey}`,
-    },
-    cache: 'no-store',
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  })
+  for (let queryNumber = 0; queryNumber < QUERIES_PER_RUN; queryNumber += 1) {
+    const response = await fetchImpl(buildKeepAliveUrl(supabaseUrl), {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        apikey: anonKey,
+        Authorization: `Bearer ${anonKey}`,
+      },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    })
 
-  if (!response.ok) {
-    throw new Error('Supabase keep-alive query failed')
+    if (!response.ok) {
+      throw new Error('Supabase keep-alive query failed')
+    }
+
+    // Drain the tiny one-row response without retaining or exposing its contents.
+    await response.arrayBuffer()
   }
-
-  // Drain the tiny one-row response without retaining or exposing its contents.
-  await response.arrayBuffer()
 
   return {
     ok: true,
     outcome: 'database_pinged',
     checkedAt: (options.now ?? (() => new Date()))().toISOString(),
+    queriesCompleted: QUERIES_PER_RUN,
   }
 }
 
