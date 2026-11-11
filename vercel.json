@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/grade-threshold-discovery",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/supabase-keepalive",
+      "schedule": "0 1 * * *"
     }
   ]
 }

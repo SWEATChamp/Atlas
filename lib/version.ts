@@ -11,13 +11,12 @@ export interface ReleaseInfo {
  * and smoke-verification evidence are tracked separately.
  */
 export const CURRENT_RELEASE: ReleaseInfo = {
-  version: '1.3.3',
-  title: 'Accessible Setup & Controls',
-  releaseDate: '2026-11-04',
+  version: '1.3.4',
+  title: 'Database Availability Safeguard',
+  releaseDate: '2026-11-11',
   changes: [
-    'Paper combinations can now be selected entirely with the keyboard.',
-    'Dialogs now keep keyboard focus inside as you move between steps.',
-    'Target-grade choices now remain visible and usable on narrow screens.',
-    'Confidence ratings now announce the selected value to assistive technology.',
+    'Atlas now runs lightweight scheduled database checks during quiet periods.',
+    'Keep-alive checks use read-only access and never modify student data.',
+    'Operational failures now return clear, safely logged status information.',
   ],
 }

@@ -46,10 +46,10 @@ describe('Release Notification UI Component', () => {
     store.clear()
   })
 
-  it('renders v1.3.3 notice for user upgrading from v1.3.2 and records dismissal', async () => {
-    // 1. Set atlas_last_seen_release_version to 1.3.2
-    window.localStorage.setItem(STORAGE_KEY_LAST_SEEN_RELEASE, '1.3.2')
-    expect(window.localStorage.getItem(STORAGE_KEY_LAST_SEEN_RELEASE)).toBe('1.3.2')
+  it('renders v1.3.4 notice for user upgrading from v1.3.3 and records dismissal', async () => {
+    // 1. Set atlas_last_seen_release_version to 1.3.3
+    window.localStorage.setItem(STORAGE_KEY_LAST_SEEN_RELEASE, '1.3.3')
+    expect(window.localStorage.getItem(STORAGE_KEY_LAST_SEEN_RELEASE)).toBe('1.3.3')
 
     // 2. Render WhatsNewModal
     render(<WhatsNewModal />)
@@ -62,22 +62,21 @@ describe('Release Notification UI Component', () => {
     })
     expect(dialog).toBeDefined()
 
-    // 4. Verify Badge v1.3.3
+    // 4. Verify Badge v1.3.4
     const badge = screen.getByText(`v${CURRENT_RELEASE.version}`)
     expect(badge).toBeDefined()
-    expect(badge.textContent).toBe('v1.3.3')
+    expect(badge.textContent).toBe('v1.3.4')
 
-    // 5. Verify Title Accessible Setup & Controls
+    // 5. Verify Title Database Availability Safeguard
     const title = screen.getByText(CURRENT_RELEASE.title)
     expect(title).toBeDefined()
-    expect(title.textContent).toBe('Accessible Setup & Controls')
+    expect(title.textContent).toBe('Database Availability Safeguard')
 
-    // 6. Verify All four exact highlights
+    // 6. Verify all three exact highlights
     const expectedHighlights = [
-      'Paper combinations can now be selected entirely with the keyboard.',
-      'Dialogs now keep keyboard focus inside as you move between steps.',
-      'Target-grade choices now remain visible and usable on narrow screens.',
-      'Confidence ratings now announce the selected value to assistive technology.',
+      'Atlas now runs lightweight scheduled database checks during quiet periods.',
+      'Keep-alive checks use read-only access and never modify student data.',
+      'Operational failures now return clear, safely logged status information.',
     ]
 
     for (const highlight of expectedHighlights) {
@@ -90,8 +89,8 @@ describe('Release Notification UI Component', () => {
       fireEvent.click(dismissButton)
     })
 
-    // 8. Confirm that 1.3.3 is stored as the last-seen release
-    expect(window.localStorage.getItem(STORAGE_KEY_LAST_SEEN_RELEASE)).toBe('1.3.3')
+    // 8. Confirm that 1.3.4 is stored as the last-seen release
+    expect(window.localStorage.getItem(STORAGE_KEY_LAST_SEEN_RELEASE)).toBe('1.3.4')
 
     // 9. Confirm dialog is dismissed
     await waitFor(() => {
@@ -99,8 +98,8 @@ describe('Release Notification UI Component', () => {
     })
   })
 
-  it('does not open dialog when user has already dismissed v1.3.3', async () => {
-    window.localStorage.setItem(STORAGE_KEY_LAST_SEEN_RELEASE, '1.3.3')
+  it('does not open dialog when user has already dismissed v1.3.4', async () => {
+    window.localStorage.setItem(STORAGE_KEY_LAST_SEEN_RELEASE, '1.3.4')
     render(<WhatsNewModal />)
 
     // Wait short period to ensure setTimeout(0) resolves

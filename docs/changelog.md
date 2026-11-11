@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.4] - 2026-11-11
+
+### Added
+- Protected read-only endpoint `/api/cron/supabase-keepalive` for generating genuine application database activity during otherwise quiet periods.
+- One Hobby-compatible Vercel invocation per day (`0 1 * * *`, UTC) that performs three minimal sequential reads, matching Supabase guidance that a few daily user queries are typically enough to avoid inactivity pausing.
+- Sanitized structured success/failure logs for operational monitoring without logging credentials, upstream error details, or database rows.
+
+### Security and data safety
+- Reuses the existing Production-only `CRON_SECRET` bearer authentication and fails closed when the secret is missing, weak, or incorrect.
+- Uses only the existing public Supabase URL and anon key; no service-role credential is required.
+- Performs three `GET` requests against the anon-readable `subject_papers` catalogue with a one-row limit. It does not insert, update, delete, or expose returned row data.
+- Returns explicit `503` configuration and `502` query-failure responses with `no-store` and `noindex` headers.
+
+### Verification Evidence
+- Focused keep-alive, schedule, version, release-state, and rendered-notice suites passed: 23 tests across 5 files.
+- Full application suite passed with six intentional live-network skips: 612 passed, 6 skipped across 54 test files (`npm test`).
+- ESLint and TypeScript passed cleanly (`npm run lint`, `npx tsc --noEmit`).
+- Next.js Webpack production build passed and emitted the dynamic `/api/cron/supabase-keepalive` route (`npm run build -- --webpack`).
+- This release requires no database migration and no new environment variable.
+
+### Operational boundaries
+- Local verification did not invoke the hosted Supabase project or change any hosted data.
+- Supabase states that a few daily requests are typically sufficient to avoid Free Plan inactivity pausing, but does not guarantee exclusion from pausing. A paid plan remains the guaranteed option.
+- Production cron registration, the first authorized hosted invocation, and subsequent schedule health require post-deployment verification.
+
 ## [1.3.3] - 2026-11-04
 
 ### Fixed

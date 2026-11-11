@@ -90,6 +90,8 @@ Open [http://localhost:3000](http://localhost:3000).
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase browser key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only Supabase administration key |
+| `CRON_SECRET` | Server-only bearer token for authenticated Vercel cron routes |
+| `GRADE_THRESHOLD_IMPORT_SECRET` | Separate server-only token for the dormant mutating threshold import route |
 | `NEXT_PUBLIC_APP_URL` | Application URL, such as `http://localhost:3000` |
 | `NEXT_PUBLIC_APP_NAME` | Display name for the application |
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID |
