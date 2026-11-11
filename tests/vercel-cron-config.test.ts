@@ -12,7 +12,7 @@ interface VercelCronConfig {
 }
 
 describe('Vercel cron configuration', () => {
-  test('schedules only the discovery-only threshold route once daily', () => {
+  test('schedules discovery and the read-only Supabase keep-alive routes', () => {
     const configPath = path.resolve(__dirname, '..', 'vercel.json')
     const config = JSON.parse(
       fs.readFileSync(configPath, 'utf-8'),
@@ -23,6 +23,10 @@ describe('Vercel cron configuration', () => {
       {
         path: '/api/cron/grade-threshold-discovery',
         schedule: '0 7 * * *',
+      },
+      {
+        path: '/api/cron/supabase-keepalive',
+        schedule: '0 1,9,17 * * *',
       },
     ])
     expect(config.crons?.some(({ path: cronPath }) =>

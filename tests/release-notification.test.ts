@@ -48,6 +48,7 @@ describe('Release Notification State', () => {
     expect(shouldShowReleaseNotification('1.3.1', '1.3.1')).toBe(false)
     expect(shouldShowReleaseNotification('1.3.2', '1.3.2')).toBe(false)
     expect(shouldShowReleaseNotification('1.3.3', '1.3.3')).toBe(false)
+    expect(shouldShowReleaseNotification('1.3.4', '1.3.4')).toBe(false)
   })
 
   it('shows notification when current version is newer than dismissed version', () => {
@@ -59,6 +60,7 @@ describe('Release Notification State', () => {
     expect(shouldShowReleaseNotification('1.3.1', '1.3.0')).toBe(true)
     expect(shouldShowReleaseNotification('1.3.2', '1.3.1')).toBe(true)
     expect(shouldShowReleaseNotification('1.3.3', '1.3.2')).toBe(true)
+    expect(shouldShowReleaseNotification('1.3.4', '1.3.3')).toBe(true)
     expect(shouldShowReleaseNotification('2.0.0', '1.3.0')).toBe(true)
     expect(shouldShowReleaseNotification('2.0.0', '1.3.1')).toBe(true)
     expect(shouldShowReleaseNotification('2.0.0', '1.3.3')).toBe(true)
@@ -140,6 +142,29 @@ describe('Release Notification State', () => {
     const updatedVersion = getDismissedReleaseVersion(mockStorage)
     expect(updatedVersion).toBe('1.3.3')
     expect(shouldShowReleaseNotification('1.3.3', updatedVersion)).toBe(false)
+  })
+
+  it('evaluates release-state lifecycle for users upgrading from 1.3.3 to 1.3.4, returning true initially and false after recording dismissal', () => {
+    const mockStorageData: Record<string, string> = {
+      [STORAGE_KEY_LAST_SEEN_RELEASE]: '1.3.3',
+    }
+    const mockStorage = {
+      getItem: (key: string) => mockStorageData[key] ?? null,
+      setItem: (key: string, value: string) => {
+        mockStorageData[key] = value
+      },
+    } as Storage
+
+    const priorVersion = getDismissedReleaseVersion(mockStorage)
+    expect(priorVersion).toBe('1.3.3')
+    expect(shouldShowReleaseNotification('1.3.4', priorVersion)).toBe(true)
+
+    setDismissedReleaseVersion('1.3.4', mockStorage)
+    expect(mockStorageData[STORAGE_KEY_LAST_SEEN_RELEASE]).toBe('1.3.4')
+
+    const updatedVersion = getDismissedReleaseVersion(mockStorage)
+    expect(updatedVersion).toBe('1.3.4')
+    expect(shouldShowReleaseNotification('1.3.4', updatedVersion)).toBe(false)
   })
 
   it('handles empty or missing current version gracefully', () => {

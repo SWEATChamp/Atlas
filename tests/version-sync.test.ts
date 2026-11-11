@@ -5,17 +5,16 @@ import packageJson from '../package.json'
 describe('Semantic Version Synchronization', () => {
   it('synchronizes package.json version with CURRENT_RELEASE metadata', () => {
     expect(packageJson.version).toBe(CURRENT_RELEASE.version)
-    expect(CURRENT_RELEASE.version).toBe('1.3.3')
-    expect(CURRENT_RELEASE.releaseDate).toBe('2026-11-04')
+    expect(CURRENT_RELEASE.version).toBe('1.3.4')
+    expect(CURRENT_RELEASE.releaseDate).toBe('2026-11-11')
   })
 
   it('contains complete release metadata structure', () => {
-    expect(CURRENT_RELEASE.title).toBe('Accessible Setup & Controls')
+    expect(CURRENT_RELEASE.title).toBe('Database Availability Safeguard')
     expect(CURRENT_RELEASE.changes).toEqual([
-      'Paper combinations can now be selected entirely with the keyboard.',
-      'Dialogs now keep keyboard focus inside as you move between steps.',
-      'Target-grade choices now remain visible and usable on narrow screens.',
-      'Confidence ratings now announce the selected value to assistive technology.',
+      'Atlas now runs lightweight scheduled database checks during quiet periods.',
+      'Keep-alive checks use read-only access and never modify student data.',
+      'Operational failures now return clear, safely logged status information.',
     ])
   })
 })
