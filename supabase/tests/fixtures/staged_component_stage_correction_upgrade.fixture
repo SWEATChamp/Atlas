@@ -1,0 +1,678 @@
+-- =============================================================================
+-- UPGRADE FIXTURE: Staged Component Token Stage Correction (Migration 034)
+--
+-- File: supabase/tests/fixtures/staged_component_stage_correction_upgrade.fixture
+--
+-- Non-.sql upgrade fixture executed explicitly against a disposable database.
+-- Outside supabase/tests/database/*.test.sql to prevent unintended test discovery.
+-- Tests historical 033 baseline with deterministic synthetic pre-034 catalogue data,
+-- snapshots protected rows and student data, applies Migration 034 in-flight
+-- transactionally via \ir, proves exact 40-token correction (16 for 9709, 24 for 9231),
+-- proves second application is a true idempotent no-op, proves fail-closed guards
+-- reject partial states, missing tokens, duplicates, and unallowlisted defects,
+-- verifies complete hash-for-hash invariance of protected catalogue and student data,
+-- and rolls back completely.
+-- =============================================================================
+
+BEGIN;
+
+CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
+SET LOCAL search_path = public, extensions, pg_catalog;
+SET LOCAL TIME ZONE 'UTC';
+SELECT plan(20);
+
+-- ─── SETUP: Test Context & Snapshot Store ─────────────────────────────────────
+CREATE TEMP TABLE m5_ctx (
+  key   TEXT PRIMARY KEY,
+  id    UUID,
+  value JSONB
+);
+GRANT SELECT, INSERT, UPDATE ON m5_ctx TO authenticated, anon;
+
+CREATE FUNCTION pg_temp.ref(p_key TEXT) RETURNS UUID LANGUAGE sql AS $$
+  SELECT id FROM m5_ctx WHERE key = p_key;
+$$;
+
+-- ─── 1. Prove Clean-Database Compatibility on Empty Target Catalogue ───────────
+-- Before any June 2026 threshold publications exist for 9709 or 9231, apply Migration 034
+\ir ../../migrations/20261114000034_staged_component_stage_correction.sql
+
+SELECT lives_ok(
+  'SELECT pg_temp.apply_stage_correction_034()',
+  'Test 1: Migration 034 executes successfully as a genuine no-op on a clean database / empty target catalogue'
+);
+
+-- ─── 2. Build Deterministic Synthetic Pre-034 Catalogue Data ───────────────────
+DO $$
+DECLARE
+  v_run_id        UUID := gen_random_uuid();
+  v_pub_9709      UUID := gen_random_uuid();
+  v_pub_9231      UUID := gen_random_uuid();
+  v_pub_9702      UUID := gen_random_uuid();
+  v_pub_9701      UUID := gen_random_uuid();
+  v_pub_9618      UUID := gen_random_uuid();
+  v_s9709         UUID;
+  v_s9231         UUID;
+  v_s9702         UUID;
+  v_s9701         UUID;
+  v_s9618         UUID;
+  v_combo_id      UUID;
+  r_key           RECORD;
+BEGIN
+  -- Resolve seeded subject IDs
+  SELECT id INTO STRICT v_s9709 FROM public.subjects WHERE code = '9709';
+  SELECT id INTO STRICT v_s9231 FROM public.subjects WHERE code = '9231';
+  SELECT id INTO STRICT v_s9702 FROM public.subjects WHERE code = '9702';
+  SELECT id INTO STRICT v_s9701 FROM public.subjects WHERE code = '9701';
+  SELECT id INTO STRICT v_s9618 FROM public.subjects WHERE code = '9618';
+
+  -- Create single import run with valid terminal status and timestamps
+  INSERT INTO public.grade_threshold_import_runs (
+    id, trigger_kind, parser_version, status, started_at, finished_at, aggregate_summary
+  ) VALUES (
+    v_run_id, 'manual', 'v1', 'succeeded', NOW() - INTERVAL '1 minute', NOW(), '{}'::JSONB
+  );
+
+  -- Create active published June 2026 publications
+  INSERT INTO public.grade_threshold_publications (
+    id, import_run_id, subject_id, exam_year, exam_series, official_index_url, official_pdf_url,
+    source_checksum_sha256, publication_status, is_active, published_at
+  ) VALUES
+    (v_pub_9709, v_run_id, v_s9709, 2026, 'june', 'https://example.invalid/9709', 'https://example.invalid/9709.pdf', decode(repeat('09', 32), 'hex'), 'published', TRUE, NOW()),
+    (v_pub_9231, v_run_id, v_s9231, 2026, 'june', 'https://example.invalid/9231', 'https://example.invalid/9231.pdf', decode(repeat('31', 32), 'hex'), 'published', TRUE, NOW()),
+    (v_pub_9702, v_run_id, v_s9702, 2026, 'june', 'https://example.invalid/9702', 'https://example.invalid/9702.pdf', decode(repeat('02', 32), 'hex'), 'published', TRUE, NOW()),
+    (v_pub_9701, v_run_id, v_s9701, 2026, 'june', 'https://example.invalid/9701', 'https://example.invalid/9701.pdf', decode(repeat('01', 32), 'hex'), 'published', TRUE, NOW()),
+    (v_pub_9618, v_run_id, v_s9618, 2026, 'june', 'https://example.invalid/9618', 'https://example.invalid/9618.pdf', decode(repeat('18', 32), 'hex'), 'published', TRUE, NOW());
+
+  INSERT INTO m5_ctx (key, id) VALUES
+    ('pub.9709', v_pub_9709),
+    ('pub.9231', v_pub_9231),
+    ('pub.9702', v_pub_9702),
+    ('pub.9701', v_pub_9701),
+    ('pub.9618', v_pub_9618);
+
+  -- ─── 2A. Mathematics 9709: 16 Staged Combinations with Defective Component Tokens ─
+  FOR r_key IN (
+    SELECT * FROM (VALUES
+      ('31,41,87', '31', '41', '87'),
+      ('31,41,97', '31', '41', '97'),
+      ('31,51,84', '31', '51', '84'),
+      ('31,51,94', '31', '51', '94'),
+      ('32,42,88', '32', '42', '88'),
+      ('32,42,98', '32', '42', '98'),
+      ('32,52,85', '32', '52', '85'),
+      ('32,52,95', '32', '52', '95'),
+      ('33,43,89', '33', '43', '89'),
+      ('33,43,99', '33', '43', '99'),
+      ('33,53,86', '33', '53', '86'),
+      ('33,53,96', '33', '53', '96'),
+      ('35,45,83', '35', '45', '83'),
+      ('35,45,93', '35', '45', '93'),
+      ('35,55,82', '35', '55', '82'),
+      ('35,55,92', '35', '55', '92')
+    ) AS t(ck, p1, p2, cf)
+  ) LOOP
+    v_combo_id := gen_random_uuid();
+    INSERT INTO public.grade_threshold_combinations (
+      id, publication_id, canonical_key, qualification_level, route_type,
+      maximum_mark, weighting_basis, planner_eligibility, atlas_route_id, review_metadata
+    ) VALUES (
+      v_combo_id, v_pub_9709, r_key.ck, 'a_level', 'staged', 250, 'raw_total', 'unreviewed', NULL, '{}'::JSONB
+    );
+
+    -- Token 1: Pure 3 sitting paper (stage = 'a2')
+    INSERT INTO public.grade_threshold_combination_tokens (
+      combination_id, token_position, raw_token, token_kind, stage, maximum_mark
+    ) VALUES (v_combo_id, 1, r_key.p1, 'component_variant', 'a2', 75);
+
+    -- Token 2: Mechanics/Stats sitting paper (pre-034 defective stage = 'as')
+    INSERT INTO public.grade_threshold_combination_tokens (
+      combination_id, token_position, raw_token, token_kind, stage, maximum_mark
+    ) VALUES (v_combo_id, 2, r_key.p2, 'component_variant', 'as', 50);
+
+    -- Token 3: Carry-forward token (stage = 'as', mapping = 'unreviewed')
+    INSERT INTO public.grade_threshold_combination_tokens (
+      combination_id, token_position, raw_token, token_kind, stage, maximum_mark, carry_forward_mapping_status
+    ) VALUES (v_combo_id, 3, r_key.cf, 'carry_forward', 'as', 125, 'unreviewed');
+  END LOOP;
+
+  -- ─── 2B. Further Mathematics 9231: 24 Staged Combinations with Defective Component Tokens ─
+  FOR r_key IN (
+    SELECT * FROM (VALUES
+      ('21,31,87', '21', '31', '87'),
+      ('21,31,97', '21', '31', '97'),
+      ('21,31,99', '21', '31', '99'),
+      ('21,41,84', '21', '41', '84'),
+      ('21,41,94', '21', '41', '94'),
+      ('21,41,96', '21', '41', '96'),
+      ('22,32,88', '22', '32', '88'),
+      ('22,32,97', '22', '32', '97'),
+      ('22,32,98', '22', '32', '98'),
+      ('22,42,85', '22', '42', '85'),
+      ('22,42,94', '22', '42', '94'),
+      ('22,42,95', '22', '42', '95'),
+      ('23,33,89', '23', '33', '89'),
+      ('23,33,91', '23', '33', '91'),
+      ('23,33,98', '23', '33', '98'),
+      ('23,33,99', '23', '33', '99'),
+      ('23,43,86', '23', '43', '86'),
+      ('23,43,92', '23', '43', '92'),
+      ('23,43,95', '23', '43', '95'),
+      ('23,43,96', '23', '43', '96'),
+      ('24,34,63', '24', '34', '63'),
+      ('24,34,73', '24', '34', '73'),
+      ('24,44,62', '24', '44', '62'),
+      ('24,44,72', '24', '44', '72')
+    ) AS t(ck, p1, p2, cf)
+  ) LOOP
+    v_combo_id := gen_random_uuid();
+    INSERT INTO public.grade_threshold_combinations (
+      id, publication_id, canonical_key, qualification_level, route_type,
+      maximum_mark, weighting_basis, planner_eligibility, atlas_route_id, review_metadata
+    ) VALUES (
+      v_combo_id, v_pub_9231, r_key.ck, 'a_level', 'staged', 250, 'raw_total', 'unreviewed', NULL, '{}'::JSONB
+    );
+
+    -- Token 1: Further Pure 2 sitting paper (stage = 'a2')
+    INSERT INTO public.grade_threshold_combination_tokens (
+      combination_id, token_position, raw_token, token_kind, stage, maximum_mark
+    ) VALUES (v_combo_id, 1, r_key.p1, 'component_variant', 'a2', 75);
+
+    -- Token 2: Further Mech/Stats sitting paper (pre-034 defective stage = 'as')
+    INSERT INTO public.grade_threshold_combination_tokens (
+      combination_id, token_position, raw_token, token_kind, stage, maximum_mark
+    ) VALUES (v_combo_id, 2, r_key.p2, 'component_variant', 'as', 50);
+
+    -- Token 3: Carry-forward token (stage = 'as', mapping = 'unreviewed')
+    INSERT INTO public.grade_threshold_combination_tokens (
+      combination_id, token_position, raw_token, token_kind, stage, maximum_mark, carry_forward_mapping_status
+    ) VALUES (v_combo_id, 3, r_key.cf, 'carry_forward', 'as', 125, 'unreviewed');
+  END LOOP;
+
+  -- ─── 2C. Representative Protected Combinations (Linear, AS-Only, Science) ───
+  -- 9709 Linear full_level (unreviewed planner_eligibility, NULL route ID)
+  v_combo_id := gen_random_uuid();
+  INSERT INTO public.grade_threshold_combinations (
+    id, publication_id, canonical_key, qualification_level, route_type, maximum_mark, weighting_basis, planner_eligibility, atlas_route_id
+  ) VALUES (v_combo_id, v_pub_9709, '11,21,31,41', 'a_level', 'full_level', 250, 'raw_total', 'unreviewed', NULL);
+  INSERT INTO public.grade_threshold_combination_tokens (combination_id, token_position, raw_token, token_kind, stage, maximum_mark) VALUES
+    (v_combo_id, 1, '11', 'component_variant', 'as', 75),
+    (v_combo_id, 2, '21', 'component_variant', 'as', 50),
+    (v_combo_id, 3, '31', 'component_variant', 'a2', 75),
+    (v_combo_id, 4, '41', 'component_variant', 'as', 50);
+
+  -- 9709 AS-only (unreviewed planner_eligibility, NULL route ID)
+  v_combo_id := gen_random_uuid();
+  INSERT INTO public.grade_threshold_combinations (
+    id, publication_id, canonical_key, qualification_level, route_type, maximum_mark, weighting_basis, planner_eligibility, atlas_route_id
+  ) VALUES (v_combo_id, v_pub_9709, '11,21', 'as', 'as_only', 125, 'raw_total', 'unreviewed', NULL);
+  INSERT INTO public.grade_threshold_combination_tokens (combination_id, token_position, raw_token, token_kind, stage, maximum_mark) VALUES
+    (v_combo_id, 1, '11', 'component_variant', 'as', 75),
+    (v_combo_id, 2, '21', 'component_variant', 'as', 50);
+
+  -- 9702 Science Staged Combination (already correctly configured)
+  v_combo_id := gen_random_uuid();
+  INSERT INTO public.grade_threshold_combinations (
+    id, publication_id, canonical_key, qualification_level, route_type, maximum_mark, weighting_basis, planner_eligibility, atlas_route_id
+  ) VALUES (v_combo_id, v_pub_9702, '41,51,87', 'a_level', 'staged', 260, 'raw_total', 'unreviewed', NULL);
+  INSERT INTO public.grade_threshold_combination_tokens (combination_id, token_position, raw_token, token_kind, stage, maximum_mark) VALUES
+    (v_combo_id, 1, '41', 'component_variant', 'a2', 100),
+    (v_combo_id, 2, '51', 'component_variant', 'a2', 30);
+  INSERT INTO public.grade_threshold_combination_tokens (combination_id, token_position, raw_token, token_kind, stage, maximum_mark, carry_forward_mapping_status) VALUES
+    (v_combo_id, 3, '87', 'carry_forward', 'as', 130, 'unreviewed');
+
+  -- 9701 Chemistry Staged Combination
+  v_combo_id := gen_random_uuid();
+  INSERT INTO public.grade_threshold_combinations (
+    id, publication_id, canonical_key, qualification_level, route_type, maximum_mark, weighting_basis, planner_eligibility, atlas_route_id
+  ) VALUES (v_combo_id, v_pub_9701, '41,51,87', 'a_level', 'staged', 260, 'raw_total', 'unreviewed', NULL);
+  INSERT INTO public.grade_threshold_combination_tokens (combination_id, token_position, raw_token, token_kind, stage, maximum_mark) VALUES
+    (v_combo_id, 1, '41', 'component_variant', 'a2', 100),
+    (v_combo_id, 2, '51', 'component_variant', 'a2', 30);
+  INSERT INTO public.grade_threshold_combination_tokens (combination_id, token_position, raw_token, token_kind, stage, maximum_mark, carry_forward_mapping_status) VALUES
+    (v_combo_id, 3, '87', 'carry_forward', 'as', 130, 'unreviewed');
+
+  -- 9618 Computer Science Staged Combination
+  v_combo_id := gen_random_uuid();
+  INSERT INTO public.grade_threshold_combinations (
+    id, publication_id, canonical_key, qualification_level, route_type, maximum_mark, weighting_basis, planner_eligibility, atlas_route_id
+  ) VALUES (v_combo_id, v_pub_9618, '31,41,87', 'a_level', 'staged', 300, 'raw_total', 'unreviewed', NULL);
+  INSERT INTO public.grade_threshold_combination_tokens (combination_id, token_position, raw_token, token_kind, stage, maximum_mark) VALUES
+    (v_combo_id, 1, '31', 'component_variant', 'a2', 75),
+    (v_combo_id, 2, '41', 'component_variant', 'a2', 75);
+  INSERT INTO public.grade_threshold_combination_tokens (combination_id, token_position, raw_token, token_kind, stage, maximum_mark, carry_forward_mapping_status) VALUES
+    (v_combo_id, 3, '87', 'carry_forward', 'as', 150, 'unreviewed');
+END $$;
+
+-- ─── 2D. Create Synthetic Student Data for Preservation Proof ──────────────────
+DO $$
+DECLARE
+  v_uid UUID := gen_random_uuid();
+  v_sid UUID;
+  v_us  UUID;
+  v_ses UUID := gen_random_uuid();
+BEGIN
+  SELECT id INTO STRICT v_sid FROM public.subjects WHERE code = '9709';
+
+  INSERT INTO auth.users (id, email, raw_user_meta_data)
+  VALUES (v_uid, 'm5_student@test.local', '{"full_name": "M5 Student"}'::JSONB);
+
+  UPDATE public.profiles SET timezone = 'UTC' WHERE id = v_uid;
+
+  INSERT INTO public.user_subjects (user_id, subject_id, study_route, current_stage)
+  VALUES (v_uid, v_sid, 'staged', 'as')
+  RETURNING id INTO v_us;
+
+  INSERT INTO public.practice_sessions (
+    id, user_id, subject_id, stage, title, session_date, duration_mins,
+    total_score_raw, total_score_max
+  ) VALUES (
+    v_ses, v_uid, v_sid, 'as', 'Baseline Practice', CURRENT_DATE, 30::SMALLINT, 20, 25
+  );
+
+  INSERT INTO public.practice_session_items (
+    session_id, item_order, marks_obtained, marks_available, provenance_mode
+  ) VALUES (
+    v_ses, 1::SMALLINT, 20, 25, 'none'
+  );
+
+  INSERT INTO m5_ctx (key, id) VALUES
+    ('student.user', v_uid),
+    ('student.enrollment', v_us),
+    ('student.session', v_ses);
+END $$;
+
+-- ─── 3. Snapshot Protected Rows & Tables Before Migration ─────────────────────
+CREATE TEMP TABLE pre_upgrade_snapshots AS
+SELECT
+  -- Hash of protected carry-forward tokens
+  (
+    SELECT md5(COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t.id)::TEXT, ''))
+    FROM public.grade_threshold_combination_tokens t
+    WHERE t.token_kind = 'carry_forward'
+  ) AS cf_tokens_hash,
+
+  -- Hash of AS-only combination tokens
+  (
+    SELECT md5(COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t.id)::TEXT, ''))
+    FROM public.grade_threshold_combination_tokens t
+    JOIN public.grade_threshold_combinations c ON c.id = t.combination_id
+    WHERE c.route_type = 'as_only'
+  ) AS as_only_tokens_hash,
+
+  -- Hash of linear (full_level) combination tokens
+  (
+    SELECT md5(COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t.id)::TEXT, ''))
+    FROM public.grade_threshold_combination_tokens t
+    JOIN public.grade_threshold_combinations c ON c.id = t.combination_id
+    WHERE c.route_type = 'full_level'
+  ) AS linear_tokens_hash,
+
+  -- Hash of Science staged tokens (9702, 9701, 9618)
+  (
+    SELECT md5(COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t.id)::TEXT, ''))
+    FROM public.grade_threshold_combination_tokens t
+    JOIN public.grade_threshold_combinations c ON c.id = t.combination_id
+    JOIN public.grade_threshold_publications p ON p.id = c.publication_id
+    JOIN public.subjects s ON s.id = p.subject_id
+    WHERE s.code IN ('9702', '9701', '9618')
+  ) AS science_tokens_hash,
+
+  -- Hash of combination route and eligibility metadata
+  (
+    SELECT md5(COALESCE(jsonb_agg(jsonb_build_object(
+      'id', c.id, 'eligibility', c.planner_eligibility, 'route_id', c.atlas_route_id, 'review', c.review_metadata
+    ) ORDER BY c.id)::TEXT, ''))
+    FROM public.grade_threshold_combinations c
+  ) AS combinations_metadata_hash,
+
+  -- Hash of publications table
+  (
+    SELECT md5(COALESCE(jsonb_agg(to_jsonb(p) ORDER BY p.id)::TEXT, ''))
+    FROM public.grade_threshold_publications p
+  ) AS publications_hash,
+
+  -- Hash of non-stage columns on target tokens
+  (
+    SELECT md5(COALESCE(jsonb_agg(jsonb_build_object(
+      'id', t.id, 'pos', t.token_position, 'raw', t.raw_token, 'kind', t.token_kind,
+      'max', t.maximum_mark, 'factor', t.weighting_factor, 'cf_status', t.carry_forward_mapping_status
+    ) ORDER BY t.id)::TEXT, ''))
+    FROM public.grade_threshold_combination_tokens t
+    JOIN public.grade_threshold_combinations c ON c.id = t.combination_id
+    JOIN public.grade_threshold_publications p ON p.id = c.publication_id
+    JOIN public.subjects s ON s.id = p.subject_id
+    WHERE s.code IN ('9709', '9231') AND c.route_type = 'staged' AND t.token_kind = 'component_variant' AND t.token_position = 2
+  ) AS target_non_stage_hash,
+
+  -- Hash of student records
+  (
+    SELECT md5(COALESCE(jsonb_agg(jsonb_build_object(
+      'us', to_jsonb(us), 'ps', to_jsonb(ps), 'psi', to_jsonb(psi)
+    ) ORDER BY us.id)::TEXT, ''))
+    FROM public.user_subjects us
+    LEFT JOIN public.practice_sessions ps ON ps.user_id = us.user_id
+    LEFT JOIN public.practice_session_items psi ON psi.session_id = ps.id
+    WHERE us.user_id = pg_temp.ref('student.user')
+  ) AS student_hash;
+
+-- ─── 4. Assert Pre-Upgrade Baseline ───────────────────────────────────────────
+-- Test 2: Exactly 40 staged component variant tokens currently have stage = 'as'
+SELECT is(
+  (
+    SELECT COUNT(*)::INTEGER
+    FROM public.grade_threshold_combination_tokens t
+    JOIN public.grade_threshold_combinations c ON c.id = t.combination_id
+    JOIN public.grade_threshold_publications p ON p.id = c.publication_id
+    JOIN public.subjects s ON s.id = p.subject_id
+    WHERE p.exam_year = 2026 AND p.exam_series = 'june' AND p.publication_status = 'published' AND p.is_active = TRUE
+      AND s.code IN ('9709', '9231') AND c.route_type = 'staged' AND t.token_kind = 'component_variant'
+      AND t.stage = 'as'
+  ),
+  40,
+  'Test 2: Pre-upgrade catalogue state: exactly 40 staged component variant tokens have stage = as'
+);
+
+-- Test 3: Subject split is exactly 16 for 9709 and 24 for 9231
+SELECT is(
+  (
+    SELECT jsonb_build_object(
+      '9709', COUNT(*) FILTER (WHERE s.code = '9709'),
+      '9231', COUNT(*) FILTER (WHERE s.code = '9231')
+    )
+    FROM public.grade_threshold_combination_tokens t
+    JOIN public.grade_threshold_combinations c ON c.id = t.combination_id
+    JOIN public.grade_threshold_publications p ON p.id = c.publication_id
+    JOIN public.subjects s ON s.id = p.subject_id
+    WHERE p.exam_year = 2026 AND p.exam_series = 'june' AND p.publication_status = 'published' AND p.is_active = TRUE
+      AND s.code IN ('9709', '9231') AND c.route_type = 'staged' AND t.token_kind = 'component_variant'
+      AND t.stage = 'as'
+  ),
+  '{"9231": 24, "9709": 16}'::JSONB,
+  'Test 3: Pre-upgrade subject split is exactly 16 for Mathematics 9709 and 24 for Further Mathematics 9231'
+);
+
+-- ─── 5. Apply Migration 034 In-Flight Transactionally via \ir ─────────────────
+\ir ../../migrations/20261114000034_staged_component_stage_correction.sql
+
+-- ─── 6. Verify Post-Upgrade Target Tokens ─────────────────────────────────────
+-- Test 4: Exactly 40 staged component tokens now have stage = 'a2'
+SELECT is(
+  (
+    SELECT COUNT(*)::INTEGER
+    FROM public.grade_threshold_combination_tokens t
+    JOIN public.grade_threshold_combinations c ON c.id = t.combination_id
+    JOIN public.grade_threshold_publications p ON p.id = c.publication_id
+    JOIN public.subjects s ON s.id = p.subject_id
+    WHERE p.exam_year = 2026 AND p.exam_series = 'june' AND p.publication_status = 'published' AND p.is_active = TRUE
+      AND s.code IN ('9709', '9231') AND c.route_type = 'staged' AND t.token_kind = 'component_variant'
+      AND t.token_position = 2
+      AND t.stage = 'a2'
+  ),
+  40,
+  'Test 4: Post-upgrade: all 40 target staged component tokens successfully become stage = a2'
+);
+
+-- Test 5: Post-upgrade subject split remains exactly 16 for 9709 and 24 for 9231
+SELECT is(
+  (
+    SELECT jsonb_build_object(
+      '9709', COUNT(*) FILTER (WHERE s.code = '9709'),
+      '9231', COUNT(*) FILTER (WHERE s.code = '9231')
+    )
+    FROM public.grade_threshold_combination_tokens t
+    JOIN public.grade_threshold_combinations c ON c.id = t.combination_id
+    JOIN public.grade_threshold_publications p ON p.id = c.publication_id
+    JOIN public.subjects s ON s.id = p.subject_id
+    WHERE p.exam_year = 2026 AND p.exam_series = 'june' AND p.publication_status = 'published' AND p.is_active = TRUE
+      AND s.code IN ('9709', '9231') AND c.route_type = 'staged' AND t.token_kind = 'component_variant'
+      AND t.token_position = 2
+      AND t.stage = 'a2'
+  ),
+  '{"9231": 24, "9709": 16}'::JSONB,
+  'Test 5: Post-upgrade subject split remains exactly 16 for 9709 and 24 for 9231'
+);
+
+-- ─── 7. Prove Second Application is a True Idempotent No-Op ───────────────────
+-- Test 6: Re-running the migration function in-flight executes cleanly without altering rows
+SELECT lives_ok(
+  'SELECT pg_temp.apply_stage_correction_034()',
+  'Test 6: Second application of Migration 034 is a true safe idempotent no-op'
+);
+
+-- ─── 8. Complete Fail-Closed Guard Test Matrix via Real Migration Function ────
+-- Test 7: Empty target catalogue guard: executes as clean no-op when no target publications exist
+SAVEPOINT sp_guard_empty;
+DELETE FROM public.grade_threshold_publications WHERE id IN (pg_temp.ref('pub.9709'), pg_temp.ref('pub.9231'));
+SELECT lives_ok(
+  'SELECT pg_temp.apply_stage_correction_034()',
+  'Test 7: Guard cleanly handles empty target catalogue as safe no-op'
+);
+ROLLBACK TO SAVEPOINT sp_guard_empty;
+
+-- Test 8: Partial publication state: exactly 1 target publication exists -> rejected
+SAVEPOINT sp_guard_partial_pub;
+DELETE FROM public.grade_threshold_publications WHERE id = pg_temp.ref('pub.9231');
+SELECT throws_ok(
+  'SELECT pg_temp.apply_stage_correction_034()',
+  'P0001',
+  'Catalogue integrity error: expected exactly 2 target publications (9709 and 9231 for June 2026), found 1.',
+  'Test 8: Guard rejects partial publication state (only 1 of 2 target publications present)'
+);
+ROLLBACK TO SAVEPOINT sp_guard_partial_pub;
+
+-- Test 9: Invalid/NULL stage on an allowlisted target token -> rejected
+SAVEPOINT sp_guard_invalid_stage;
+UPDATE public.grade_threshold_combination_tokens
+SET stage = NULL
+WHERE id = (
+  SELECT t.id
+  FROM public.grade_threshold_combination_tokens t
+  JOIN public.grade_threshold_combinations c ON c.id = t.combination_id
+  JOIN public.grade_threshold_publications p ON p.id = c.publication_id
+  JOIN public.subjects s ON s.id = p.subject_id
+  WHERE s.code = '9709' AND c.canonical_key = '31,41,87' AND t.token_position = 2
+  LIMIT 1
+);
+SELECT throws_ok(
+  'SELECT pg_temp.apply_stage_correction_034()',
+  'P0001',
+  'Token integrity error: found 1 tokens with invalid stage (neither as nor a2).',
+  'Test 9: Guard rejects allowlisted target token with invalid or NULL stage'
+);
+ROLLBACK TO SAVEPOINT sp_guard_invalid_stage;
+
+-- Test 10: Partial pre-applied token state (1 'as' / 39 'a2') -> rejected
+SAVEPOINT sp_guard_partial;
+UPDATE public.grade_threshold_combination_tokens
+SET stage = 'as'
+WHERE id = (
+  SELECT t.id
+  FROM public.grade_threshold_combination_tokens t
+  JOIN public.grade_threshold_combinations c ON c.id = t.combination_id
+  JOIN public.grade_threshold_publications p ON p.id = c.publication_id
+  JOIN public.subjects s ON s.id = p.subject_id
+  WHERE s.code = '9709' AND c.canonical_key = '31,41,87' AND t.token_position = 2
+  LIMIT 1
+);
+SELECT throws_ok(
+  'SELECT pg_temp.apply_stage_correction_034()',
+  'P0001',
+  'Idempotency guard rejected partial state: as_count=1, a2_count=39. Migration requires either exactly 40 as tokens (to apply) or exactly 40 a2 tokens (no-op).',
+  'Test 10: Idempotency guard rejects partial pre-applied token state (1 as / 39 a2)'
+);
+ROLLBACK TO SAVEPOINT sp_guard_partial;
+
+-- Test 11: Missing allowlisted token resolution -> rejected
+SAVEPOINT sp_guard_missing;
+DELETE FROM public.grade_threshold_combination_tokens
+WHERE id = (
+  SELECT t.id
+  FROM public.grade_threshold_combination_tokens t
+  JOIN public.grade_threshold_combinations c ON c.id = t.combination_id
+  JOIN public.grade_threshold_publications p ON p.id = c.publication_id
+  JOIN public.subjects s ON s.id = p.subject_id
+  WHERE s.code = '9709' AND c.canonical_key = '31,41,87' AND t.token_position = 2
+  LIMIT 1
+);
+SELECT throws_ok(
+  'SELECT pg_temp.apply_stage_correction_034()',
+  'P0001',
+  'Catalogue match integrity error: expected 40 distinct tokens matched, found 39 (distinct: 39).',
+  'Test 11: Guard rejects missing allowlisted token resolution'
+);
+ROLLBACK TO SAVEPOINT sp_guard_missing;
+
+-- Test 12: Duplicate token resolution -> rejected
+SAVEPOINT sp_guard_duplicate;
+DO $$
+DECLARE
+  v_dup_combo UUID := gen_random_uuid();
+  v_pub_id    UUID := pg_temp.ref('pub.9709');
+BEGIN
+  ALTER TABLE public.grade_threshold_combinations DROP CONSTRAINT uq_grade_threshold_combination;
+  INSERT INTO public.grade_threshold_combinations (
+    id, publication_id, canonical_key, qualification_level, route_type, maximum_mark, weighting_basis, planner_eligibility
+  ) VALUES (v_dup_combo, v_pub_id, '31,41,87', 'a_level', 'staged', 250, 'raw_total', 'unreviewed');
+
+  INSERT INTO public.grade_threshold_combination_tokens (
+    combination_id, token_position, raw_token, token_kind, stage, maximum_mark
+  ) VALUES (v_dup_combo, 2, '41', 'component_variant', 'a2', 50);
+END $$;
+SELECT throws_ok(
+  'SELECT pg_temp.apply_stage_correction_034()',
+  'P0001',
+  'Catalogue match integrity error: expected 40 distinct tokens matched, found 41 (distinct: 41).',
+  'Test 12: Guard rejects duplicate allowlisted token resolution'
+);
+ROLLBACK TO SAVEPOINT sp_guard_duplicate;
+
+-- Test 13: Unexpected unallowlisted defective token in target publication -> rejected
+SAVEPOINT sp_guard_unallowlisted;
+DO $$
+DECLARE
+  v_extra_combo UUID := gen_random_uuid();
+  v_pub_id      UUID := pg_temp.ref('pub.9709');
+BEGIN
+  INSERT INTO public.grade_threshold_combinations (
+    id, publication_id, canonical_key, qualification_level, route_type, maximum_mark, weighting_basis, planner_eligibility
+  ) VALUES (v_extra_combo, v_pub_id, '99,99,87', 'a_level', 'staged', 250, 'raw_total', 'unreviewed');
+
+  INSERT INTO public.grade_threshold_combination_tokens (
+    combination_id, token_position, raw_token, token_kind, stage, maximum_mark
+  ) VALUES (v_extra_combo, 1, '99', 'component_variant', 'as', 50);
+END $$;
+SELECT throws_ok(
+  'SELECT pg_temp.apply_stage_correction_034()',
+  'P0001',
+  'Allowlist completeness error: found 1 staged component_variant tokens with stage = as outside the allowlist.',
+  'Test 13: Guard rejects unexpected unallowlisted defective token in target publication'
+);
+ROLLBACK TO SAVEPOINT sp_guard_unallowlisted;
+
+-- ─── 9. Prove Invariance of Protected Data (Hash-for-Hash) ────────────────────
+-- Test 14: Carry-forward tokens remain hash-identical and stage = 'as'
+SELECT is(
+  (
+    SELECT md5(COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t.id)::TEXT, ''))
+    FROM public.grade_threshold_combination_tokens t
+    WHERE t.token_kind = 'carry_forward'
+  ),
+  (SELECT cf_tokens_hash FROM pre_upgrade_snapshots),
+  'Test 14: Carry-forward tokens remain hash-identical and stage = as'
+);
+
+-- Test 15: AS-only combination tokens remain hash-identical and stage = 'as'
+SELECT is(
+  (
+    SELECT md5(COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t.id)::TEXT, ''))
+    FROM public.grade_threshold_combination_tokens t
+    JOIN public.grade_threshold_combinations c ON c.id = t.combination_id
+    WHERE c.route_type = 'as_only'
+  ),
+  (SELECT as_only_tokens_hash FROM pre_upgrade_snapshots),
+  'Test 15: AS-only combination tokens remain hash-identical and stage = as'
+);
+
+-- Test 16: Linear (full_level) combination tokens remain hash-identical
+SELECT is(
+  (
+    SELECT md5(COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t.id)::TEXT, ''))
+    FROM public.grade_threshold_combination_tokens t
+    JOIN public.grade_threshold_combinations c ON c.id = t.combination_id
+    WHERE c.route_type = 'full_level'
+  ),
+  (SELECT linear_tokens_hash FROM pre_upgrade_snapshots),
+  'Test 16: Full-level linear combination tokens remain hash-identical'
+);
+
+-- Test 17: Science staged combination tokens remain hash-identical
+SELECT is(
+  (
+    SELECT md5(COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t.id)::TEXT, ''))
+    FROM public.grade_threshold_combination_tokens t
+    JOIN public.grade_threshold_combinations c ON c.id = t.combination_id
+    JOIN public.grade_threshold_publications p ON p.id = c.publication_id
+    JOIN public.subjects s ON s.id = p.subject_id
+    WHERE s.code IN ('9702', '9701', '9618')
+  ),
+  (SELECT science_tokens_hash FROM pre_upgrade_snapshots),
+  'Test 17: Science staged combinations (9702, 9701, 9618) remain hash-identical'
+);
+
+-- Test 18: Combinations planner eligibility, route assignments, and metadata remain hash-identical
+SELECT is(
+  (
+    SELECT md5(COALESCE(jsonb_agg(jsonb_build_object(
+      'id', c.id, 'eligibility', c.planner_eligibility, 'route_id', c.atlas_route_id, 'review', c.review_metadata
+    ) ORDER BY c.id)::TEXT, ''))
+    FROM public.grade_threshold_combinations c
+  ),
+  (SELECT combinations_metadata_hash FROM pre_upgrade_snapshots),
+  'Test 18: Combinations planner eligibility, atlas_route_id, and review_metadata remain hash-identical'
+);
+
+-- Test 19: Publications table and target token non-stage columns remain hash-identical
+SELECT is(
+  jsonb_build_object(
+    'publications', (
+      SELECT md5(COALESCE(jsonb_agg(to_jsonb(p) ORDER BY p.id)::TEXT, ''))
+      FROM public.grade_threshold_publications p
+    ),
+    'target_non_stage', (
+      SELECT md5(COALESCE(jsonb_agg(jsonb_build_object(
+        'id', t.id, 'pos', t.token_position, 'raw', t.raw_token, 'kind', t.token_kind,
+        'max', t.maximum_mark, 'factor', t.weighting_factor, 'cf_status', t.carry_forward_mapping_status
+      ) ORDER BY t.id)::TEXT, ''))
+      FROM public.grade_threshold_combination_tokens t
+      JOIN public.grade_threshold_combinations c ON c.id = t.combination_id
+      JOIN public.grade_threshold_publications p ON p.id = c.publication_id
+      JOIN public.subjects s ON s.id = p.subject_id
+      WHERE s.code IN ('9709', '9231') AND c.route_type = 'staged' AND t.token_kind = 'component_variant' AND t.token_position = 2
+    )
+  ),
+  jsonb_build_object(
+    'publications', (SELECT publications_hash FROM pre_upgrade_snapshots),
+    'target_non_stage', (SELECT target_non_stage_hash FROM pre_upgrade_snapshots)
+  ),
+  'Test 19: Publications table and target token non-stage columns remain hash-identical'
+);
+
+-- Test 20: Student records remain hash-identical
+SELECT is(
+  (
+    SELECT md5(COALESCE(jsonb_agg(jsonb_build_object(
+      'us', to_jsonb(us), 'ps', to_jsonb(ps), 'psi', to_jsonb(psi)
+    ) ORDER BY us.id)::TEXT, ''))
+    FROM public.user_subjects us
+    LEFT JOIN public.practice_sessions ps ON ps.user_id = us.user_id
+    LEFT JOIN public.practice_session_items psi ON psi.session_id = ps.id
+    WHERE us.user_id = pg_temp.ref('student.user')
+  ),
+  (SELECT student_hash FROM pre_upgrade_snapshots),
+  'Test 20: Student records (user_subjects, practice_sessions, practice_session_items) remain hash-identical'
+);
+
+SELECT * FROM finish();
+-- Complete transactional rollback
+ROLLBACK;

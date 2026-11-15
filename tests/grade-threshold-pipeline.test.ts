@@ -10,6 +10,8 @@ import {
   type CreateImportRunParams,
   type ExistingPublicationInfo,
   type GradeThresholdPersistence,
+  type PdfExtraction,
+  type PdfTextItem,
   type RecordImportIssueParams,
   type StagedCombinationParams,
   type StagedPublicationBundleParams,
@@ -98,9 +100,18 @@ class InMemoryGradeThresholdPersistence implements GradeThresholdPersistence {
         { id: 'p-9709-1', paperNumber: 1, defaultStage: 'as' },
         { id: 'p-9709-2', paperNumber: 2, defaultStage: 'as' },
         { id: 'p-9709-3', paperNumber: 3, defaultStage: 'a2' },
-        { id: 'p-9709-4', paperNumber: 4, defaultStage: 'a2' },
-        { id: 'p-9709-5', paperNumber: 5, defaultStage: 'a2' },
+        { id: 'p-9709-4', paperNumber: 4, defaultStage: 'as' },
+        { id: 'p-9709-5', paperNumber: 5, defaultStage: 'as' },
         { id: 'p-9709-6', paperNumber: 6, defaultStage: 'a2' },
+      ],
+    ],
+    [
+      'subj-9231',
+      [
+        { id: 'p-9231-1', paperNumber: 1, defaultStage: 'as' },
+        { id: 'p-9231-2', paperNumber: 2, defaultStage: 'a2' },
+        { id: 'p-9231-3', paperNumber: 3, defaultStage: 'as' },
+        { id: 'p-9231-4', paperNumber: 4, defaultStage: 'as' },
       ],
     ],
   ])
@@ -1227,5 +1238,355 @@ describe('grade threshold import pipeline', () => {
     // All 3 revisions remain in storage intact
     expect(persistence.publications).toHaveLength(3)
     expect(persistence.publications.map((p) => p.revisionNumber)).toEqual([1, 2, 3])
+  })
+})
+
+describe('Milestone 5 Slice 1: staged component-token stage assignment', () => {
+  const validPdfBytes = new TextEncoder().encode('%PDF-1.5 synthetic content')
+  const validChecksum = sha256Hex(validPdfBytes)
+
+  const makePdfLine = (page: number, y: number, tokens: readonly string[]): PdfTextItem[] =>
+    tokens.map((text, index) => ({ page, text, x: 40 + index * 70, y, width: 60, height: 10 }))
+
+  test('correctly imports staged sitting components as a2 and preserves carry-forward as for Mathematics 9709', async () => {
+    const persistence = new InMemoryGradeThresholdPersistence()
+
+    const mathsSource: CambridgeThresholdSource = {
+      syllabusCode: '9709',
+      syllabusName: 'Mathematics',
+      qualificationTitle: 'Cambridge International AS & A Level Mathematics (9709)',
+      year: 2026,
+      series: 'june',
+      indexUrl: 'https://example.invalid/june-2026/',
+      pdfUrl: 'https://www.cambridgeinternational.org/Images/maths-test.pdf',
+      expectedChecksumSha256: validChecksum,
+      expectedIdentityLines: [
+        'Grade thresholds – June 2026',
+        'Cambridge International AS & A Level Mathematics (9709)',
+        'Component grade thresholds for syllabus 9709 (Mathematics) in the June 2026 exam series.',
+      ],
+      carryForwardTokens: ['82', '83', '92', '93'],
+      carryForwardTokenBasis: 'reviewed-structural-mapping',
+      expectedStructure: {
+        pageCount: 3,
+        rowCounts: { component: 6, 'a-level-linear': 1, 'a-level-staged': 2, 'as-level': 1 },
+      },
+      goldenFixtures: [
+        { kind: 'component', component: '15', maximumMark: 75, thresholds: { A: 60, B: 50, C: 40, D: 30, E: 20 } },
+        { kind: 'combination', section: 'a-level-staged', combination: '35, 45, 83', maximumMark: 250, thresholds: { 'A*': 220, A: 200, B: 180, C: 160, D: 140, E: 120 } },
+      ],
+    }
+
+    const mathsExtraction: PdfExtraction = {
+      pageCount: 3,
+      items: [
+        ...makePdfLine(1, 780, ['Grade thresholds – June 2026']),
+        ...makePdfLine(1, 760, ['Cambridge International AS & A Level Mathematics (9709)']),
+        ...makePdfLine(1, 740, ['Component grade thresholds']),
+        ...makePdfLine(1, 720, ['Component grade thresholds for syllabus 9709 (Mathematics) in the June 2026 exam series.']),
+        ...makePdfLine(1, 700, ['Component', 'Maximum raw', 'mark A B C D E']),
+        ...makePdfLine(1, 680, ['Component', '15', '75', '60', '50', '40', '30', '20']),
+        ...makePdfLine(1, 660, ['Component', '25', '50', '40', '35', '30', '25', '20']),
+        ...makePdfLine(1, 640, ['Component', '35', '75', '58', '48', '38', '28', '18']),
+        ...makePdfLine(1, 620, ['Component', '45', '50', '40', '34', '28', '22', '16']),
+        ...makePdfLine(1, 600, ['Component', '55', '50', '41', '35', '29', '23', '17']),
+        ...makePdfLine(1, 580, ['Component', '65', '50', '39', '33', '27', '21', '15']),
+        ...makePdfLine(1, 540, ['Cambridge International A Level (linear assessment)']),
+        ...makePdfLine(1, 520, ['Combination of', 'components', 'Maximum weighted', 'mark', 'A* A B C D E']),
+        ...makePdfLine(1, 500, ['15, 35, 45, 55', '250', '220', '200', '180', '160', '140', '120']),
+        ...makePdfLine(2, 780, ['Grade thresholds continued']),
+        ...makePdfLine(2, 760, ['Cambridge International AS & A Level Mathematics (9709)']),
+        ...makePdfLine(2, 720, ['Cambridge International A Level (staged assessment)']),
+        ...makePdfLine(2, 700, ['Combination of', 'components', 'Maximum weighted', 'mark', 'A* A B C D E']),
+        ...makePdfLine(2, 680, ['35, 45, 83', '250', '220', '200', '180', '160', '140', '120']),
+        ...makePdfLine(2, 660, ['35, 55, 82', '250', '219', '199', '179', '159', '139', '119']),
+        ...makePdfLine(3, 780, ['Grade thresholds continued']),
+        ...makePdfLine(3, 760, ['Cambridge International AS & A Level Mathematics (9709)']),
+        ...makePdfLine(3, 720, ['Cambridge International AS Level']),
+        ...makePdfLine(3, 700, ['Combination of', 'components', 'Maximum weighted', 'mark', 'a b c d e']),
+        ...makePdfLine(3, 680, ['15, 45', '125', '100', '80', '60', '40', '20']),
+      ],
+    }
+
+    const result = await runGradeThresholdImportPipeline({
+      triggerKind: 'manual',
+      persistence,
+      sources: [mathsSource],
+      includeWeighting: false,
+      downloadPdf: vi.fn(async () => ({ bytes: validPdfBytes, contentType: 'application/pdf' })),
+      extractPdfText: vi.fn(async () => mathsExtraction),
+    })
+
+    expect(result.status).toBe('succeeded')
+
+    // Find the staged combination 35, 45, 83
+    const combo35_45_83 = persistence.combinations.find((c) => c.params.canonicalKey === '35,45,83')
+    expect(combo35_45_83).toBeDefined()
+    expect(combo35_45_83?.params.routeType).toBe('staged')
+    expect(combo35_45_83?.params.plannerEligibility).toBe('unreviewed') // Req 8 & 12
+    expect(combo35_45_83?.params.atlasRouteId).toBeNull() // Req 9
+
+    const tokens35_45_83 = combo35_45_83!.params.tokens
+    expect(tokens35_45_83).toHaveLength(3)
+
+    // Token 35: existing A2-default paper remains a2 (Req 3)
+    const token35 = tokens35_45_83.find((t) => t.rawToken === '35')!
+    expect(token35.tokenKind).toBe('component_variant')
+    expect(token35.stage).toBe('a2')
+
+    // Token 45: catalogue defaultStage is 'as', but in a-level-staged it becomes a2 (Req 1)
+    const token45 = tokens35_45_83.find((t) => t.rawToken === '45')!
+    expect(token45.tokenKind).toBe('component_variant')
+    expect(token45.stage).toBe('a2')
+
+    // Token 83: carry_forward token remains as (Req 4)
+    const token83 = tokens35_45_83.find((t) => t.rawToken === '83')!
+    expect(token83.tokenKind).toBe('carry_forward')
+    expect(token83.stage).toBe('as')
+    expect(token83.carryForwardMappingStatus).toBe('unreviewed') // Req 10
+
+    // Find the staged combination 35, 55, 82
+    const combo35_55_82 = persistence.combinations.find((c) => c.params.canonicalKey === '35,55,82')
+    expect(combo35_55_82).toBeDefined()
+    const tokens35_55_82 = combo35_55_82!.params.tokens
+
+    // Token 55: catalogue defaultStage is 'as', but in a-level-staged it becomes a2 (Req 1)
+    const token55 = tokens35_55_82.find((t) => t.rawToken === '55')!
+    expect(token55.tokenKind).toBe('component_variant')
+    expect(token55.stage).toBe('a2')
+
+    // Token 82: carry_forward token remains as (Req 4)
+    const token82 = tokens35_55_82.find((t) => t.rawToken === '82')!
+    expect(token82.tokenKind).toBe('carry_forward')
+    expect(token82.stage).toBe('as')
+
+    // Check full-level linear combination 15, 35, 45, 55 (Req 6: full-level behavior is unchanged)
+    const linearCombo = persistence.combinations.find((c) => c.params.canonicalKey === '15,35,45,55')
+    expect(linearCombo).toBeDefined()
+    const linearTokens = linearCombo!.params.tokens
+    expect(linearTokens.find((t) => t.rawToken === '15')?.stage).toBe('as') // P1 defaultStage: as
+    expect(linearTokens.find((t) => t.rawToken === '35')?.stage).toBe('a2') // P3 defaultStage: a2
+    expect(linearTokens.find((t) => t.rawToken === '45')?.stage).toBe('as') // P4 defaultStage: as (preserved in linear)
+    expect(linearTokens.find((t) => t.rawToken === '55')?.stage).toBe('as') // P5 defaultStage: as (preserved in linear)
+
+    // Check AS-only combination 15, 45 (Req 5: AS-only components remain as)
+    const asCombo = persistence.combinations.find((c) => c.params.canonicalKey === '15,45')
+    expect(asCombo).toBeDefined()
+    expect(asCombo?.params.routeType).toBe('as_only')
+    for (const t of asCombo!.params.tokens) {
+      expect(t.stage).toBe('as')
+    }
+  })
+
+  test('correctly imports staged Further Mathematics 9231 components with defaultStage as into a2', async () => {
+    const persistence = new InMemoryGradeThresholdPersistence()
+
+    const fmathSource: CambridgeThresholdSource = {
+      syllabusCode: '9231',
+      syllabusName: 'Further Mathematics',
+      qualificationTitle: 'Cambridge International AS & A Level Further Mathematics (9231)',
+      year: 2026,
+      series: 'june',
+      indexUrl: 'https://example.invalid/june-2026/',
+      pdfUrl: 'https://www.cambridgeinternational.org/Images/fmath-test.pdf',
+      expectedChecksumSha256: validChecksum,
+      expectedIdentityLines: [
+        'Grade thresholds – June 2026',
+        'Cambridge International AS & A Level Further Mathematics (9231)',
+        'Component grade thresholds for syllabus 9231 (Further Mathematics) in the June 2026 exam series.',
+      ],
+      carryForwardTokens: ['62', '63', '72', '73'],
+      carryForwardTokenBasis: 'reviewed-structural-mapping',
+      expectedStructure: {
+        pageCount: 3,
+        rowCounts: { component: 4, 'a-level-linear': 1, 'a-level-staged': 2, 'as-level': 1 },
+      },
+      goldenFixtures: [
+        { kind: 'component', component: '14', maximumMark: 75, thresholds: { A: 60, B: 50, C: 40, D: 30, E: 20 } },
+        { kind: 'combination', section: 'a-level-staged', combination: '24, 34, 63', maximumMark: 250, thresholds: { 'A*': 220, A: 200, B: 180, C: 160, D: 140, E: 120 } },
+      ],
+    }
+
+    const fmathExtraction: PdfExtraction = {
+      pageCount: 3,
+      items: [
+        ...makePdfLine(1, 780, ['Grade thresholds – June 2026']),
+        ...makePdfLine(1, 760, ['Cambridge International AS & A Level Further Mathematics (9231)']),
+        ...makePdfLine(1, 740, ['Component grade thresholds']),
+        ...makePdfLine(1, 720, ['Component grade thresholds for syllabus 9231 (Further Mathematics) in the June 2026 exam series.']),
+        ...makePdfLine(1, 700, ['Component', 'Maximum raw', 'mark A B C D E']),
+        ...makePdfLine(1, 680, ['Component', '14', '75', '60', '50', '40', '30', '20']),
+        ...makePdfLine(1, 660, ['Component', '24', '75', '58', '48', '38', '28', '18']),
+        ...makePdfLine(1, 640, ['Component', '34', '50', '40', '34', '28', '22', '16']),
+        ...makePdfLine(1, 620, ['Component', '44', '50', '41', '35', '29', '23', '17']),
+        ...makePdfLine(1, 540, ['Cambridge International A Level (linear assessment)']),
+        ...makePdfLine(1, 520, ['Combination of', 'components', 'Maximum weighted', 'mark', 'A* A B C D E']),
+        ...makePdfLine(1, 500, ['14, 24, 34, 44', '250', '220', '200', '180', '160', '140', '120']),
+        ...makePdfLine(2, 780, ['Grade thresholds continued']),
+        ...makePdfLine(2, 760, ['Cambridge International AS & A Level Further Mathematics (9231)']),
+        ...makePdfLine(2, 720, ['Cambridge International A Level (staged assessment)']),
+        ...makePdfLine(2, 700, ['Combination of', 'components', 'Maximum weighted', 'mark', 'A* A B C D E']),
+        ...makePdfLine(2, 680, ['24, 34, 63', '250', '220', '200', '180', '160', '140', '120']),
+        ...makePdfLine(2, 660, ['24, 44, 62', '250', '219', '199', '179', '159', '139', '119']),
+        ...makePdfLine(3, 780, ['Grade thresholds continued']),
+        ...makePdfLine(3, 760, ['Cambridge International AS & A Level Further Mathematics (9231)']),
+        ...makePdfLine(3, 720, ['Cambridge International AS Level']),
+        ...makePdfLine(3, 700, ['Combination of', 'components', 'Maximum weighted', 'mark', 'a b c d e']),
+        ...makePdfLine(3, 680, ['14, 34', '125', '100', '80', '60', '40', '20']),
+      ],
+    }
+
+    const result = await runGradeThresholdImportPipeline({
+      triggerKind: 'manual',
+      persistence,
+      sources: [fmathSource],
+      includeWeighting: false,
+      downloadPdf: vi.fn(async () => ({ bytes: validPdfBytes, contentType: 'application/pdf' })),
+      extractPdfText: vi.fn(async () => fmathExtraction),
+    })
+
+    expect(result.status).toBe('succeeded')
+
+    // Find combination 24, 34, 63
+    const combo24_34_63 = persistence.combinations.find((c) => c.params.canonicalKey === '24,34,63')
+    expect(combo24_34_63).toBeDefined()
+    const tokens24_34_63 = combo24_34_63!.params.tokens
+
+    // Token 24: Paper 2 (defaultStage 'a2') remains a2 (Req 3)
+    const token24 = tokens24_34_63.find((t) => t.rawToken === '24')!
+    expect(token24.stage).toBe('a2')
+
+    // Token 34: Paper 3 (defaultStage 'as') becomes a2 in staged assessment (Req 2)
+    const token34 = tokens24_34_63.find((t) => t.rawToken === '34')!
+    expect(token34.stage).toBe('a2')
+
+    // Token 63: carry_forward token remains as (Req 4)
+    const token63 = tokens24_34_63.find((t) => t.rawToken === '63')!
+    expect(token63.tokenKind).toBe('carry_forward')
+    expect(token63.stage).toBe('as')
+
+    // Find combination 24, 44, 62
+    const combo24_44_62 = persistence.combinations.find((c) => c.params.canonicalKey === '24,44,62')
+    expect(combo24_44_62).toBeDefined()
+    const tokens24_44_62 = combo24_44_62!.params.tokens
+
+    // Token 44: Paper 4 (defaultStage 'as') becomes a2 in staged assessment (Req 2)
+    const token44 = tokens24_44_62.find((t) => t.rawToken === '44')!
+    expect(token44.stage).toBe('a2')
+
+    // Token 62: carry_forward token remains as (Req 4)
+    const token62 = tokens24_44_62.find((t) => t.rawToken === '62')!
+    expect(token62.tokenKind).toBe('carry_forward')
+    expect(token62.stage).toBe('as')
+
+    // Verify combinations remain unreviewed and not planner-eligible (Req 8, 9, 12)
+    expect(combo24_34_63?.params.plannerEligibility).toBe('unreviewed')
+    expect(combo24_34_63?.params.atlasRouteId).toBeNull()
+    expect(combo24_44_62?.params.plannerEligibility).toBe('unreviewed')
+    expect(combo24_44_62?.params.atlasRouteId).toBeNull()
+  })
+
+  test('unresolved tokens do not acquire an a2 stage, and no digit heuristics are used', async () => {
+    const persistence = new InMemoryGradeThresholdPersistence()
+
+    // Test source where '99' is NOT in carryForwardTokens, so it is classified as 'unresolved'
+    const sourceWithUnresolved: CambridgeThresholdSource = {
+      ...SYNTHETIC_SOURCE,
+      pdfUrl: 'https://www.cambridgeinternational.org/Images/unresolved-test.pdf',
+      expectedChecksumSha256: validChecksum,
+      carryForwardTokens: ['87'], // 99 is omitted from carryForwardTokens!
+    }
+
+    await runGradeThresholdImportPipeline({
+      triggerKind: 'manual',
+      persistence,
+      sources: [sourceWithUnresolved],
+      includeWeighting: false,
+      downloadPdf: vi.fn(async () => ({ bytes: validPdfBytes, contentType: 'application/pdf' })),
+      extractPdfText: vi.fn(async () => validCoordinateExtraction()),
+    })
+
+    // Staging occurs even if unresolved token validation flags an issue
+    const combo32_42_99 = persistence.combinations.find((c) => c.params.canonicalKey === '32,42,99')
+    expect(combo32_42_99).toBeDefined()
+
+    // Unresolved token '99' must NOT acquire an a2 stage (Req 7)
+    const token99 = combo32_42_99!.params.tokens.find((t) => t.rawToken === '99')!
+    expect(token99.tokenKind).toBe('unresolved')
+    expect(token99.stage).toBeNull()
+
+    // Sitting component variants 32 and 42 receive stage a2 (Req 11)
+    const comp32 = combo32_42_99!.params.tokens.find((t) => t.rawToken === '32')!
+    expect(comp32.tokenKind).toBe('component_variant')
+    expect(comp32.stage).toBe('a2')
+
+    const comp42 = combo32_42_99!.params.tokens.find((t) => t.rawToken === '42')!
+    expect(comp42.tokenKind).toBe('component_variant')
+    expect(comp42.stage).toBe('a2')
+
+    // Combination 31, 41, 87 has carry-forward token '87'
+    const combo31_41_87 = persistence.combinations.find((c) => c.params.canonicalKey === '31,41,87')
+    expect(combo31_41_87).toBeDefined()
+    const token87 = combo31_41_87!.params.tokens.find((t) => t.rawToken === '87')!
+    expect(token87.tokenKind).toBe('carry_forward')
+    expect(token87.stage).toBe('as')
+  })
+
+  test('special tokens do not acquire an a2 stage in staged assessment', async () => {
+    const persistence = new InMemoryGradeThresholdPersistence()
+    const parser = await import('../lib/grade-thresholds/parser')
+
+    const originalParse = parser.parseCambridgeThresholdPdf
+    vi.spyOn(parser, 'parseCambridgeThresholdPdf').mockImplementation(async (bytes, source, options) => {
+      const parsed = await originalParse(bytes, source, options)
+      if (parsed.status === 'parsed') {
+        const stagedRow = parsed.publication.rows.find((r) => r.kind === 'combination' && r.section === 'a-level-staged')
+        if (stagedRow && stagedRow.kind === 'combination') {
+          return {
+            ...parsed,
+            publication: {
+              ...parsed.publication,
+              rows: parsed.publication.rows.map((r) =>
+                r === stagedRow
+                  ? {
+                      ...r,
+                      components: [
+                        ...r.components,
+                        { raw: 'SPEC', kind: 'special' as const },
+                      ],
+                    }
+                  : r,
+              ),
+            },
+          }
+        }
+      }
+      return parsed
+    })
+
+    const testSourceWithChecksum: CambridgeThresholdSource = {
+      ...SYNTHETIC_SOURCE,
+      pdfUrl: 'https://www.cambridgeinternational.org/Images/test-special.pdf',
+      expectedChecksumSha256: validChecksum,
+    }
+
+    await runGradeThresholdImportPipeline({
+      triggerKind: 'manual',
+      persistence,
+      sources: [testSourceWithChecksum],
+      includeWeighting: false,
+      downloadPdf: vi.fn(async () => ({ bytes: validPdfBytes, contentType: 'application/pdf' })),
+      extractPdfText: vi.fn(async () => validCoordinateExtraction()),
+    })
+
+    const specialCombo = persistence.combinations.find((c) =>
+      c.params.tokens.some((t) => t.rawToken === 'SPEC'),
+    )
+    expect(specialCombo).toBeDefined()
+    const specToken = specialCombo!.params.tokens.find((t) => t.rawToken === 'SPEC')!
+    expect(specToken.tokenKind).toBe('special')
+    expect(specToken.stage).toBeNull() // Req 7: Special tokens do not acquire an a2 stage
+
+    vi.restoreAllMocks()
   })
 })
