@@ -9,11 +9,13 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { getSubjectDetail } from '@/lib/actions/subjects'
+import { getTargetGradePlan } from '@/lib/actions/target-planner'
 import ChapterGroups from '@/components/subjects/chapter-groups'
 import StageReadinessPanel from '@/components/subjects/stage-readiness-panel'
 import TargetGradePicker from '@/components/subjects/target-grade-picker'
 import ExamDatePicker from '@/components/subjects/exam-date-picker'
 import RouteSelectionBanner from '@/components/subjects/route-selection-banner'
+import TargetGradePlanner from '@/components/subjects/target-grade-planner'
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Calculator, Sigma, Zap, FlaskConical, Leaf, Code2, TrendingUp,
@@ -37,7 +39,10 @@ export default async function SubjectDetailPage({
   params: Promise<{ subjectId: string }>
 }) {
   const { subjectId } = await params
-  const data = await getSubjectDetail(subjectId)
+  const [data, initialTargetPlan] = await Promise.all([
+    getSubjectDetail(subjectId),
+    getTargetGradePlan(subjectId),
+  ])
   if (!data) notFound()
 
   const {
@@ -178,6 +183,18 @@ export default async function SubjectDetailPage({
           />
         </div>
       </div>
+
+      {/* Target-Grade Marks Planner */}
+      <TargetGradePlanner
+        key={`${subject.id}-${enrollment?.study_route ?? 'no-route'}-${enrollment?.target_grade ?? 'no-grade'}-${enrollment?.exam_date ?? 'no-date'}-${
+          initialTargetPlan.status === 'available' || initialTargetPlan.status === 'missing-weighting' || initialTargetPlan.status === 'impossible-target'
+            ? initialTargetPlan.summary.provenance.publicationId
+            : initialTargetPlan.status
+        }`}
+        subjectId={subject.id}
+        subjectColor={subject.color_hex}
+        initialResult={initialTargetPlan}
+      />
 
       {/* Chapter groups */}
       <ChapterGroups
