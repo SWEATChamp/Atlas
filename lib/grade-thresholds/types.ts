@@ -174,3 +174,190 @@ export interface ThresholdParseOptions {
   readonly contentType: string
   readonly extract: (bytes: Uint8Array) => Promise<PdfExtraction>
 }
+
+// ─── Milestone 5 Slice 2B: Carry-Forward Evidence Contracts ──────────────────
+
+/**
+ * Reusable non-empty readonly tuple type ensuring at least one element.
+ */
+export type NonEmptyReadonlyArray<T> = readonly [T, ...T[]]
+
+/**
+ * Official document source provenance for syllabus entry option
+ * and carry-forward evidence documents.
+ */
+export interface OfficialDocumentSourceProvenance {
+  readonly documentTitle: string
+  readonly issuer: string
+  readonly sourceUrl: string
+  readonly checksumSha256: string
+  readonly pageLocator: string
+  readonly publicationOrEffectiveDate?: string
+  readonly reviewerIdentity: string
+  readonly reviewTimestamp: string
+  readonly evidenceVersion: string
+}
+
+/**
+ * Explicit examination-session identity for sitting and carried-from sessions.
+ * Never infer series or session from raw token characters or digits.
+ */
+export interface ExamSessionIdentity {
+  readonly year: number
+  readonly series: CambridgeSeries
+  readonly qualificationTitle: string
+  readonly syllabusCode: string
+}
+
+/**
+ * Confirmed territory scope modeled as explicit alternatives with non-empty lists:
+ * - administrative-zone scope with a non-empty zone list;
+ * - territory scope with a non-empty territory list;
+ * - explicitly documented global scope.
+ * Cannot consist of two empty arrays.
+ */
+export type ConfirmedTerritoryScope =
+  | {
+      readonly scopeBasis: 'administrative_zone'
+      readonly administrativeZones: NonEmptyReadonlyArray<string>
+      readonly includedTerritories?: readonly string[]
+      readonly scopeDeclaration: string
+      readonly notes?: string
+    }
+  | {
+      readonly scopeBasis: 'territory'
+      readonly includedTerritories: NonEmptyReadonlyArray<string>
+      readonly administrativeZones?: readonly string[]
+      readonly scopeDeclaration: string
+      readonly notes?: string
+    }
+  | {
+      readonly scopeBasis: 'global'
+      readonly scopeDeclaration: string
+      readonly notes?: string
+    }
+
+/**
+ * Explicit territory and administrative scope for source evidence.
+ * Describes only what the evidence source covers; does not evaluate student-specific state.
+ */
+export type TerritoryScope =
+  | ({ readonly status: 'confirmed' } & ConfirmedTerritoryScope)
+  | {
+      readonly status: 'unresolved'
+      readonly reportedZonesOrTerritories?: readonly string[]
+      readonly reason: string
+    }
+  | {
+      readonly status: 'unsupported'
+      readonly reason: string
+    }
+
+/**
+ * Discriminated union representing the review and authorization state
+ * of a carry-forward evidence record.
+ */
+export type CarryForwardEvidenceRecord =
+  | {
+      readonly status: 'confirmed'
+      readonly id: string
+      readonly syllabusCode: string
+      readonly entryOptionCode: string
+      readonly combinationKey: string
+      readonly rawCarryForwardToken: string
+      readonly sittingSession: ExamSessionIdentity
+      readonly carriedFromSession: ExamSessionIdentity
+      readonly sittingComponents: NonEmptyReadonlyArray<string>
+      readonly carriedAsComponents: NonEmptyReadonlyArray<string>
+      readonly applicablePaperVariants?: NonEmptyReadonlyArray<string>
+      readonly territoryScope: Extract<TerritoryScope, { readonly status: 'confirmed' }>
+      readonly provenance: OfficialDocumentSourceProvenance
+      readonly authorization: {
+        readonly authorizedBy: string
+        readonly authorizedAt: string
+        readonly notes?: string
+      }
+    }
+  | {
+      readonly status: 'unresolved'
+      readonly id: string
+      readonly syllabusCode: string
+      readonly entryOptionCode: string
+      readonly combinationKey: string
+      readonly rawCarryForwardToken: string
+      readonly sittingSession: ExamSessionIdentity
+      readonly candidateCarriedFromSessions?: readonly ExamSessionIdentity[]
+      readonly territoryScope: Extract<TerritoryScope, { readonly status: 'unresolved' }> | null
+      readonly unresolvedReasons: readonly string[]
+      readonly provisionalProvenance?: Partial<OfficialDocumentSourceProvenance>
+    }
+  | {
+      readonly status: 'ambiguous'
+      readonly id: string
+      readonly syllabusCode: string
+      readonly entryOptionCode: string
+      readonly combinationKey: string
+      readonly rawCarryForwardToken: string
+      readonly sittingSession: ExamSessionIdentity
+      readonly candidateMappings: readonly {
+        readonly candidateId: string
+        readonly carriedFromSession: ExamSessionIdentity
+        readonly carriedAsComponents: readonly string[]
+        readonly sourceProvenance: Partial<OfficialDocumentSourceProvenance>
+        readonly ambiguityDetail: string
+      }[]
+      readonly ambiguityReason: string
+    }
+  | {
+      readonly status: 'unsupported'
+      readonly id: string
+      readonly syllabusCode: string
+      readonly entryOptionCode: string
+      readonly combinationKey: string
+      readonly rawCarryForwardToken: string
+      readonly sittingSession: ExamSessionIdentity
+      readonly unsupportedReason: string
+      readonly territoryScope?: Extract<TerritoryScope, { readonly status: 'unsupported' }>
+      readonly documentedAlternative?: string
+    }
+  | {
+      readonly status: 'rejected'
+      readonly id: string
+      readonly syllabusCode: string
+      readonly entryOptionCode: string
+      readonly combinationKey: string
+      readonly rawCarryForwardToken: string
+      readonly sittingSession: ExamSessionIdentity
+      readonly rejectionReason: string
+      readonly rejectedBy: string
+      readonly rejectedAt: string
+      readonly auditProvenance?: Partial<OfficialDocumentSourceProvenance>
+    }
+  | {
+      readonly status: 'no_evidence'
+      readonly syllabusCode: string
+      readonly entryOptionCode?: string
+      readonly combinationKey: string
+      readonly rawCarryForwardToken: string
+      readonly sittingSession: ExamSessionIdentity
+      readonly explanation: string
+    }
+
+/**
+ * Reusable type alias for verified, confirmed carry-forward evidence records.
+ */
+export type ConfirmedCarryForwardEvidenceRecord = Extract<
+  CarryForwardEvidenceRecord,
+  { readonly status: 'confirmed' }
+>
+
+/**
+ * Group of carry-forward option mappings for a syllabus and sitting session.
+ * Preserves every mapping independently without collapsing records by token value.
+ */
+export interface CarryForwardOptionGroup {
+  readonly groupId: string
+  readonly syllabusCode: string
+  readonly sittingSession: ExamSessionIdentity
+  readonly mappings: readonly CarryForwardEvidenceRecord[]
+}

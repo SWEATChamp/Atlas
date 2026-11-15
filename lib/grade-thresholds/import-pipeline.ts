@@ -674,14 +674,18 @@ export async function runGradeThresholdImportPipeline(
             stage = 'as'
           } else if (tokenKind === 'carry_forward') {
             stage = 'as'
-          } else if (tokenKind === 'component_variant') {
+          } else if (
+            row.section === 'a-level-staged' &&
+            tokenKind === 'component_variant'
+          ) {
+            stage = 'a2'
+          } else if (
+            row.section === 'a-level-linear' &&
+            tokenKind === 'component_variant'
+          ) {
             const paperNum = parseInt(c.raw[0], 10)
             const paper = !isNaN(paperNum) ? await persistence.getSubjectPaper(subject.id, paperNum) : null
-            if (row.section === 'a-level-staged') {
-              stage = paper?.defaultStage === 'a2' ? 'a2' : (paper?.defaultStage ?? 'a2')
-            } else if (row.section === 'a-level-linear') {
-              stage = paper?.defaultStage ?? null
-            }
+            stage = paper?.defaultStage ?? null
           }
 
           // Real maximum mark: from variant if component_variant, or from weighting entry
