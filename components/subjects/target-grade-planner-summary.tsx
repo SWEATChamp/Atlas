@@ -448,8 +448,9 @@ export default function TargetGradePlannerSummary({
                 Remaining A2 Requirement:
               </div>
               <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                {stagedBreakdown.remainingA2Required} / {stagedBreakdown.a2MaximumWeightedMark}{' '}
-                marks
+                {stagedBreakdown.a2MaximumWeightedMark !== null
+                  ? `${stagedBreakdown.remainingA2Required} / ${stagedBreakdown.a2MaximumWeightedMark} marks`
+                  : `${stagedBreakdown.remainingA2Required} marks (A2 capacity unavailable)`}
               </div>
             </div>
 
@@ -459,14 +460,19 @@ export default function TargetGradePlannerSummary({
                 style={{
                   fontSize: '0.875rem',
                   fontWeight: 600,
-                  color: stagedBreakdown.isMathematicallyPossible
-                    ? 'var(--success)'
-                    : 'var(--danger)',
+                  color:
+                    stagedBreakdown.isMathematicallyPossible === true
+                      ? 'var(--success)'
+                      : stagedBreakdown.isMathematicallyPossible === false
+                      ? 'var(--danger)'
+                      : 'var(--text-muted)',
                 }}
               >
-                {stagedBreakdown.isMathematicallyPossible
+                {stagedBreakdown.isMathematicallyPossible === true
                   ? 'Mathematically viable'
-                  : 'Exceeds A2 maximum'}
+                  : stagedBreakdown.isMathematicallyPossible === false
+                  ? 'Exceeds A2 maximum'
+                  : 'Capacity check unavailable'}
               </div>
             </div>
           </div>

@@ -2619,4 +2619,196 @@ describe('Milestone 5: Target-Grade Marks Planner', () => {
     expect(evaluateGradeFromThresholds(60, tiedALevel, 'a_level')).toBe('A*')
     expect(evaluateGradeFromThresholds(45, tiedAsLevel, 'as')).toBe('a')
   })
+
+  // ─── 53. Staged A* pure evaluation with nullable A2 capacity ───────────────
+  it('evaluates staged A* with unavailable A2 capacity when a2MaximumWeightedMark is null', () => {
+    // Official combined target 227, unknown A2 capacity
+    const breakdown = evaluateStagedAStar({
+      officialCombinedTarget: weightedMark(227),
+      a2MaximumWeightedMark: null,
+    })
+
+    expect(breakdown.kind).toBe('estimated_halfway')
+    if (breakdown.kind === 'estimated_halfway') {
+      expect(breakdown.estimatedAsContribution).toBe(114)
+      expect(breakdown.remainingA2Required).toBe(113)
+      expect(breakdown.a2MaximumWeightedMark).toBeNull()
+      expect(breakdown.isMathematicallyPossible).toBeNull()
+    }
+  })
+
+  it('evaluates verified official weighted AS mark with unavailable A2 capacity when a2MaximumWeightedMark is null', () => {
+    const verifiedContribution: VerifiedOfficialWeightedAsContribution = {
+      kind: 'verified_official_weighted_as_mark',
+      weightedMark: weightedMark(118),
+      maxWeightedMark: weightedMark(125),
+    }
+
+    const breakdown = evaluateStagedAStar({
+      officialCombinedTarget: weightedMark(230),
+      a2MaximumWeightedMark: null,
+      verifiedAsContribution: verifiedContribution,
+    })
+
+    expect(breakdown.kind).toBe('verified_official')
+    if (breakdown.kind === 'verified_official') {
+      expect(breakdown.officialWeightedAsContribution).toBe(118)
+      expect(breakdown.remainingA2Required).toBe(112)
+      expect(breakdown.a2MaximumWeightedMark).toBeNull()
+      expect(breakdown.isMathematicallyPossible).toBeNull()
+    }
+  })
+
+  // ─── 54. UI rendering of Staged A* breakdown: unknown vs known capacity ────
+  it('renders Staged A* breakdown with unavailable A2 capacity without "/ 0 marks" or "Exceeds A2 maximum"', () => {
+    const summaryWithUnknownCapacity: SubjectLevelPlanSummary = {
+      subjectId: 'sub-chem',
+      subjectName: 'Chemistry',
+      subjectCode: '9701',
+      colorHex: '#10b981',
+      studyRoute: 'staged',
+      targetGrade: 'A*',
+      officialCombinedTarget: weightedMark(227),
+      combinedMaximumMark: weightedMark(260),
+      estimatedCombinedMark: null,
+      marksStillNeeded: null,
+      latestComparableGrade: null,
+      rollingPredictedGrade: null,
+      stagedBreakdown: {
+        kind: 'estimated_halfway',
+        estimatedAsContribution: weightedMark(114),
+        remainingA2Required: weightedMark(113),
+        a2MaximumWeightedMark: null,
+        isMathematicallyPossible: null,
+      },
+      provenance: {
+        publicationId: 'pub-2026',
+        examYear: 2026,
+        examSeries: 'june',
+        officialIndexUrl: 'https://example.com',
+        officialPdfUrl: 'https://example.com/pdf',
+        officialPublishedOn: '2026-06-20',
+        publishedAt: '2026-06-20T00:00:00Z',
+        isFallback: false,
+        intendedYear: 2026,
+        intendedSeries: 'june',
+      },
+      perPaperAllocationEligible: false,
+      safetyMargin: { type: 'none' },
+      adjustedCombinedTarget: null,
+      resolvedOptionCode: 'S3',
+      isOptionResolved: true,
+    }
+
+    const { container } = render(
+      <TargetGradePlannerSummary summary={summaryWithUnknownCapacity} onSelectSafetyMargin={vi.fn()} />
+    )
+
+    // Displays AS estimate and remaining A2 marks
+    expect(within(container).getByText('114 marks')).toBeTruthy()
+    expect(within(container).getByText('113 marks (A2 capacity unavailable)')).toBeTruthy()
+    expect(within(container).getByText('Capacity check unavailable')).toBeTruthy()
+
+    // Must NEVER display "/ 0 marks" or false impossibility
+    expect(container.textContent).not.toContain('/ 0 marks')
+    expect(container.textContent).not.toContain('Exceeds A2 maximum')
+  })
+
+  it('renders Staged A* breakdown with viable capacity correctly', () => {
+    const summaryViable: SubjectLevelPlanSummary = {
+      subjectId: 'sub-chem',
+      subjectName: 'Chemistry',
+      subjectCode: '9701',
+      colorHex: '#10b981',
+      studyRoute: 'staged',
+      targetGrade: 'A*',
+      officialCombinedTarget: weightedMark(227),
+      combinedMaximumMark: weightedMark(260),
+      estimatedCombinedMark: null,
+      marksStillNeeded: null,
+      latestComparableGrade: null,
+      rollingPredictedGrade: null,
+      stagedBreakdown: {
+        kind: 'estimated_halfway',
+        estimatedAsContribution: weightedMark(114),
+        remainingA2Required: weightedMark(113),
+        a2MaximumWeightedMark: weightedMark(125),
+        isMathematicallyPossible: true,
+      },
+      provenance: {
+        publicationId: 'pub-2026',
+        examYear: 2026,
+        examSeries: 'june',
+        officialIndexUrl: 'https://example.com',
+        officialPdfUrl: 'https://example.com/pdf',
+        officialPublishedOn: '2026-06-20',
+        publishedAt: '2026-06-20T00:00:00Z',
+        isFallback: false,
+        intendedYear: 2026,
+        intendedSeries: 'june',
+      },
+      perPaperAllocationEligible: true,
+      safetyMargin: { type: 'none' },
+      adjustedCombinedTarget: null,
+      resolvedOptionCode: 'S3',
+      isOptionResolved: true,
+    }
+
+    const { container } = render(
+      <TargetGradePlannerSummary summary={summaryViable} onSelectSafetyMargin={vi.fn()} />
+    )
+
+    expect(within(container).getByText('114 marks')).toBeTruthy()
+    expect(within(container).getByText('113 / 125 marks')).toBeTruthy()
+    expect(within(container).getByText('Mathematically viable')).toBeTruthy()
+  })
+
+  it('renders Staged A* breakdown with exceeded capacity correctly', () => {
+    const summaryExceeded: SubjectLevelPlanSummary = {
+      subjectId: 'sub-chem',
+      subjectName: 'Chemistry',
+      subjectCode: '9701',
+      colorHex: '#10b981',
+      studyRoute: 'staged',
+      targetGrade: 'A*',
+      officialCombinedTarget: weightedMark(227),
+      combinedMaximumMark: weightedMark(260),
+      estimatedCombinedMark: null,
+      marksStillNeeded: null,
+      latestComparableGrade: null,
+      rollingPredictedGrade: null,
+      stagedBreakdown: {
+        kind: 'estimated_halfway',
+        estimatedAsContribution: weightedMark(114),
+        remainingA2Required: weightedMark(113),
+        a2MaximumWeightedMark: weightedMark(100),
+        isMathematicallyPossible: false,
+      },
+      provenance: {
+        publicationId: 'pub-2026',
+        examYear: 2026,
+        examSeries: 'june',
+        officialIndexUrl: 'https://example.com',
+        officialPdfUrl: 'https://example.com/pdf',
+        officialPublishedOn: '2026-06-20',
+        publishedAt: '2026-06-20T00:00:00Z',
+        isFallback: false,
+        intendedYear: 2026,
+        intendedSeries: 'june',
+      },
+      perPaperAllocationEligible: false,
+      safetyMargin: { type: 'none' },
+      adjustedCombinedTarget: null,
+      resolvedOptionCode: 'S3',
+      isOptionResolved: true,
+    }
+
+    const { container } = render(
+      <TargetGradePlannerSummary summary={summaryExceeded} onSelectSafetyMargin={vi.fn()} />
+    )
+
+    expect(within(container).getByText('114 marks')).toBeTruthy()
+    expect(within(container).getByText('113 / 100 marks')).toBeTruthy()
+    expect(within(container).getByText('Exceeds A2 maximum')).toBeTruthy()
+  })
 })

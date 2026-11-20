@@ -1117,11 +1117,20 @@ export const getTargetGradePlan = cache(
       )
 
       // Calculate A2 maximum weighted capacity
-      let a2MaxWeightedCapacity = 0
-      for (const c of planningComponents) {
-        if (c.officialWeightingFactor && c.rawMaximumMark) {
-          a2MaxWeightedCapacity += c.officialWeightingFactor * c.rawMaximumMark
+      // Only compute capacity when ALL required components have both official weighting and raw maximum marks
+      const allComponentsHaveWeightingAndMax =
+        planningComponents.length > 0 &&
+        planningComponents.every(
+          (c) => c.officialWeightingFactor !== null && c.rawMaximumMark !== null
+        )
+
+      let a2MaxWeightedCapacity: number | null = null
+      if (allComponentsHaveWeightingAndMax) {
+        let capacitySum = 0
+        for (const c of planningComponents) {
+          capacitySum += c.officialWeightingFactor! * c.rawMaximumMark!
         }
+        a2MaxWeightedCapacity = capacitySum
       }
 
       let asEstimatedContribution = 0
@@ -1131,7 +1140,8 @@ export const getTargetGradePlan = cache(
         // Model AS carry-forward as one planning contribution: ceil(combined target / 2) ONLY for Staged A*
         const breakdown = evaluateStagedAStar({
           officialCombinedTarget,
-          a2MaximumWeightedMark: weightedMark(a2MaxWeightedCapacity),
+          a2MaximumWeightedMark:
+            a2MaxWeightedCapacity !== null ? weightedMark(a2MaxWeightedCapacity) : null,
         })
         stagedBreakdown = breakdown
         asEstimatedContribution =
@@ -1179,7 +1189,7 @@ export const getTargetGradePlan = cache(
             ? (adjustedCombinedTarget as number) - asEstimatedContribution
             : (adjustedCombinedTarget as number)
 
-          if (marginBase > a2MaxWeightedCapacity) {
+          if (a2MaxWeightedCapacity !== null && marginBase > a2MaxWeightedCapacity) {
             safetyMarginImpossible = true
             safetyMarginImpossibleReason = `Safety margin target (${adjustedCombinedTarget}) exceeds total combination capacity.`
             targetToAllocateWithMargin = targetToAllocate
@@ -1205,7 +1215,7 @@ export const getTargetGradePlan = cache(
       let baseAllocation: ReturnType<typeof allocateComponentMarks> | null = null
       let marginAllocation: ReturnType<typeof allocateComponentMarks> | null = null
 
-      if (isAllocationEligible) {
+      if (isAllocationEligible && a2MaxWeightedCapacity !== null) {
         baseAllocation = allocateComponentMarks({
           targetCombinedMark: targetToAllocate,
           combinationMaxMark: weightedMark(a2MaxWeightedCapacity),
@@ -1226,7 +1236,9 @@ export const getTargetGradePlan = cache(
         isAllocationEligible &&
         baseAllocation !== null &&
         (!baseAllocation.isMathematicallyPossible ||
-          (isStagedRoute && remainingA2Required > a2MaxWeightedCapacity))
+          (isStagedRoute &&
+            a2MaxWeightedCapacity !== null &&
+            remainingA2Required > a2MaxWeightedCapacity))
 
       // Assemble PaperPlanResults
       const paperPlans: PaperPlanResult[] = []
@@ -1396,6 +1408,57 @@ export const getTargetGradePlan = cache(
         safetyMarginImpossibleReason,
       }
 
+      // Check for missing required threshold/maximum source data
+      const hasMissingOrInvalidMax =
+        combinedMaximumMark === null ||
+        (combinedMaximumMark as number) <= 0 ||
+        planningComponents.some(
+          (c) =>
+            c.targetVariantCode !== null &&
+            !paperVariantErrors.get(c.subjectPaperId)?.includes('not available') &&
+            (c.rawMaximumMark === null || (c.rawMaximumMark as number) <= 0)
+        )
+
+      const hasMissingFloor = planningComponents.some(
+        (c) =>
+          c.targetVariantCode !== null &&
+          !paperVariantErrors.get(c.subjectPaperId)?.includes('not available') &&
+          (c.targetGradeFloorMark === null || (c.targetGradeFloorMark as number) < 0)
+      )
+
+      const hasMissingOverallTarget =
+        officialCombinedTarget === null || (officialCombinedTarget as number) < 0
+
+      // Precedence: Threshold/Maximum unavailable takes precedence over missing-weighting and impossible-target.
+      // The partial-result exception (status: 'missing-weighting') applies ONLY when weighting is the sole missing requirement.
+      if (
+        resolvedCombination !== null &&
+        (hasMissingOrInvalidMax || hasMissingFloor || hasMissingOverallTarget)
+      ) {
+        if (hasMissingOrInvalidMax) {
+          return {
+            status: 'threshold-unavailable',
+            message:
+              'Official Cambridge maximum mark data is unavailable for one or more components of this option combination.',
+            reason: 'Official maximum mark missing or invalid',
+          }
+        }
+        if (hasMissingFloor) {
+          return {
+            status: 'threshold-unavailable',
+            message: `Official Cambridge threshold mark for grade ${componentFloorGrade} is unavailable for one or more components.`,
+            reason: `Official component threshold mark for grade ${componentFloorGrade} is missing`,
+          }
+        }
+        return {
+          status: 'threshold-unavailable',
+          message:
+            overallThresholdUnavailableReason ??
+            `Official Cambridge threshold mark for grade ${enrollment.target_grade} is unavailable for option ${resolvedCombination.canonical_key}.`,
+          reason: `Official combination threshold mark missing for grade ${enrollment.target_grade}`,
+        }
+      }
+
       // Check impossible target
       if (isTargetImpossible && baseAllocation) {
         return {
@@ -1404,7 +1467,9 @@ export const getTargetGradePlan = cache(
           message: 'The requested target grade is mathematically impossible for this combination.',
           reason:
             baseAllocation.impossibleReason ??
-            `Target exceeds available capacity of ${a2MaxWeightedCapacity} marks.`,
+            (a2MaxWeightedCapacity !== null
+              ? `Target exceeds available capacity of ${a2MaxWeightedCapacity} marks.`
+              : 'Target exceeds combination capacity.'),
         }
       }
 

@@ -1897,13 +1897,10 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
       selectedVariants: { [paper1Id]: '12' },
     })
 
-    expect(plan.status).toBe('available')
-    if (plan.status === 'available') {
-      const p1 = plan.paperPlans[0]
-      // Never defaults to 0
-      expect(p1.benchmarkFloorMark).toBeNull()
-      expect(p1.requiredMark).toBeNull()
-      expect(p1.isAllocationAvailable).toBe(false)
+    expect(plan.status).toBe('threshold-unavailable')
+    if (plan.status === 'threshold-unavailable') {
+      expect(plan.reason).toContain('Official component threshold mark for grade A is missing')
+      expect(plan.message).toContain('Official Cambridge threshold mark for grade A is unavailable')
     }
   })
 
@@ -3708,14 +3705,10 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
       selectedVariants: { [paper1Id]: '12' },
     })
 
-    expect(plan.status).toBe('available')
-    if (plan.status === 'available') {
-      const paperPlan = plan.paperPlans[0]
-      // Source kind MUST be null, not 'official_exact'
-      expect(paperPlan.sourceKind).toBeNull()
-      expect(paperPlan.benchmarkFloorMark).toBeNull()
-      expect(paperPlan.variantError).toContain('Official threshold mark for grade A is missing')
-      expect(paperPlan.isAllocationAvailable).toBe(false)
+    expect(plan.status).toBe('threshold-unavailable')
+    if (plan.status === 'threshold-unavailable') {
+      expect(plan.reason).toContain('Official component threshold mark for grade A is missing')
+      expect(plan.message).toContain('Official Cambridge threshold mark for grade A is unavailable')
     }
   })
 
@@ -4947,11 +4940,11 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
                   is_active: true,
                 },
                 grade_threshold_component_marks: [
-                  { grade: 'a', threshold_mark: 60 },
-                  { grade: 'b', threshold_mark: 50 },
-                  { grade: 'c', threshold_mark: 40 },
-                  { grade: 'd', threshold_mark: 30 },
-                  { grade: 'e', threshold_mark: 20 },
+                  { grade: 'A', threshold_mark: 60 },
+                  { grade: 'B', threshold_mark: 50 },
+                  { grade: 'C', threshold_mark: 40 },
+                  { grade: 'D', threshold_mark: 30 },
+                  { grade: 'E', threshold_mark: 20 },
                 ],
               },
             ],
@@ -5411,11 +5404,11 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
                   is_active: true,
                 },
                 grade_threshold_component_marks: [
-                  { grade: 'a', threshold_mark: 60 },
-                  { grade: 'b', threshold_mark: 50 },
-                  { grade: 'c', threshold_mark: 40 },
-                  { grade: 'd', threshold_mark: 30 },
-                  { grade: 'e', threshold_mark: 20 },
+                  { grade: 'A', threshold_mark: 60 },
+                  { grade: 'B', threshold_mark: 50 },
+                  { grade: 'C', threshold_mark: 40 },
+                  { grade: 'D', threshold_mark: 30 },
+                  { grade: 'E', threshold_mark: 20 },
                 ],
               },
             ],
@@ -5673,6 +5666,1082 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
       // Matching A-Level combination grades score of 65 (between 60 and 70) as grade 'A'
       expect(plan.summary.latestComparableGrade).toBe('A')
       expect(queriedTokensCombIds.flat()).toContain(matchingHistCombId)
+    }
+  })
+
+  // ─── 22. Staged A* missing-weighting and capacity-availability regressions ──
+  it('preserves 227 target, 114 AS estimate, and 113 A2 remaining with null capacity/viability and missing-weighting status when component weighting is missing', async () => {
+    const pubId = 'pub-chem-2026'
+    const routeId = 'route-staged-chem'
+    const combId = 'comb-staged-s3'
+    const paper1Id = 'p1-chem-as'
+    const paper4Id = 'p4-chem-a2'
+
+    mockFrom.mockImplementation((table: string) => {
+      const builder: MockQueryBuilder = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        single: vi.fn().mockImplementation(() => {
+          if (table === 'subjects') {
+            return Promise.resolve({
+              data: { id: subjectId, name: 'Chemistry', code: '9701', color_hex: '#10b981' },
+              error: null,
+            })
+          }
+          if (table === 'user_subjects') {
+            return Promise.resolve({
+              data: {
+                id: 'us-staged-chem',
+                user_id: currentUserId,
+                subject_id: subjectId,
+                study_route: 'staged',
+                target_grade: 'A*',
+                exam_date: '2026-06-01',
+              },
+              error: null,
+            })
+          }
+          return Promise.resolve({ data: null, error: null })
+        }),
+        range: vi.fn().mockResolvedValue({ data: [], error: null }),
+      }
+
+      if (table === 'subject_paper_selections') {
+        builder.then = (r) =>
+          r({
+            data: [
+              { user_subject_id: 'us-staged-chem', subject_paper_id: paper1Id, stage: 'as' },
+              { user_subject_id: 'us-staged-chem', subject_paper_id: paper4Id, stage: 'a2' },
+            ],
+            error: null,
+          })
+      } else if (table === 'subject_valid_routes') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                id: routeId,
+                subject_id: subjectId,
+                route: 'staged',
+                subject_route_papers: [
+                  { subject_paper_id: paper1Id, stage: 'as' },
+                  { subject_paper_id: paper4Id, stage: 'a2' },
+                ],
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'subject_papers') {
+        builder.then = (r) =>
+          r({
+            data: [
+              { id: paper1Id, subject_id: subjectId, paper_number: 1, name: 'Paper 1 (AS)' },
+              { id: paper4Id, subject_id: subjectId, paper_number: 4, name: 'Paper 4 (A2)' },
+            ],
+            error: null,
+          })
+      } else if (table === 'grade_threshold_publications') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                id: pubId,
+                subject_id: subjectId,
+                exam_year: 2026,
+                exam_series: 'june',
+                publication_status: 'published',
+                is_active: true,
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'published_grade_threshold_combinations') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                id: combId,
+                publication_id: pubId,
+                canonical_key: 'S3',
+                route_type: 'staged',
+                qualification_level: 'a_level',
+                maximum_mark: 260,
+                per_paper_allocation_eligible: true,
+                atlas_route_id: routeId,
+                planner_eligibility: 'eligible',
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'grade_threshold_combination_marks') {
+        builder.then = (r) =>
+          r({
+            data: [{ combination_id: combId, grade: 'A*', threshold_mark: 227 }],
+            error: null,
+          })
+      } else if (table === 'grade_threshold_combination_tokens') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                combination_id: combId,
+                token_position: 1,
+                token_kind: 'carry_forward',
+                stage: 'as',
+                weighting_factor: 1.0,
+                carry_forward_mapping_status: 'approved',
+              },
+              {
+                combination_id: combId,
+                token_position: 2,
+                token_kind: 'component_variant',
+                stage: 'a2',
+                weighting_factor: null, // MISSING WEIGHTING FACTOR
+                resolved_component_variant_id: 'var-42',
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'grade_threshold_component_variants') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                id: 'var-42',
+                publication_id: pubId,
+                component_code: '42',
+                raw_maximum_mark: 100,
+                subject_paper_id: paper4Id,
+                grade_threshold_component_marks: [{ grade: 'A', threshold_mark: 60 }],
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'published_grade_threshold_variant_benchmarks') {
+        builder.then = (r) =>
+          r({
+            data: [],
+            error: null,
+          })
+      }
+
+      return builder
+    })
+
+    const plan = await getTargetGradePlan(subjectId, {
+      selectedVariants: { [paper4Id]: '42' },
+    })
+
+    // Returns missing-weighting status, NOT impossible-target
+    expect(plan.status).toBe('missing-weighting')
+    if (plan.status === 'missing-weighting') {
+      expect(plan.summary.officialCombinedTarget).toBe(227)
+      expect(plan.summary.stagedBreakdown).not.toBeNull()
+      expect(plan.summary.stagedBreakdown?.kind).toBe('estimated_halfway')
+
+      if (plan.summary.stagedBreakdown?.kind === 'estimated_halfway') {
+        expect(plan.summary.stagedBreakdown.estimatedAsContribution).toBe(114) // ceil(227 / 2)
+        expect(plan.summary.stagedBreakdown.remainingA2Required).toBe(113)      // 227 - 114
+        // Capacity and viability explicitly unavailable: null, never 0 or false
+        expect(plan.summary.stagedBreakdown.a2MaximumWeightedMark).toBeNull()
+        expect(plan.summary.stagedBreakdown.isMathematicallyPossible).toBeNull()
+      }
+
+      // Per-paper allocation disabled and no paper targets invented
+      expect(plan.summary.perPaperAllocationEligible).toBe(false)
+      expect(plan.paperPlans.length).toBe(1)
+      expect(plan.paperPlans[0].isAllocationAvailable).toBe(false)
+      expect(plan.paperPlans[0].requiredMark).toBeNull()
+    }
+  })
+
+  it('produces unknown capacity rather than false impossibility when raw maximum mark is missing on staged route', async () => {
+    const pubId = 'pub-chem-2026'
+    const routeId = 'route-staged-chem'
+    const combId = 'comb-staged-s3'
+    const paper1Id = 'p1-chem-as'
+    const paper4Id = 'p4-chem-a2'
+
+    mockFrom.mockImplementation((table: string) => {
+      const builder: MockQueryBuilder = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        single: vi.fn().mockImplementation(() => {
+          if (table === 'subjects') {
+            return Promise.resolve({
+              data: { id: subjectId, name: 'Chemistry', code: '9701', color_hex: '#10b981' },
+              error: null,
+            })
+          }
+          if (table === 'user_subjects') {
+            return Promise.resolve({
+              data: {
+                id: 'us-staged-chem',
+                user_id: currentUserId,
+                subject_id: subjectId,
+                study_route: 'staged',
+                target_grade: 'A*',
+                exam_date: '2026-06-01',
+              },
+              error: null,
+            })
+          }
+          return Promise.resolve({ data: null, error: null })
+        }),
+        range: vi.fn().mockResolvedValue({ data: [], error: null }),
+      }
+
+      if (table === 'subject_paper_selections') {
+        builder.then = (r) =>
+          r({
+            data: [
+              { user_subject_id: 'us-staged-chem', subject_paper_id: paper1Id, stage: 'as' },
+              { user_subject_id: 'us-staged-chem', subject_paper_id: paper4Id, stage: 'a2' },
+            ],
+            error: null,
+          })
+      } else if (table === 'subject_valid_routes') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                id: routeId,
+                subject_id: subjectId,
+                route: 'staged',
+                subject_route_papers: [
+                  { subject_paper_id: paper1Id, stage: 'as' },
+                  { subject_paper_id: paper4Id, stage: 'a2' },
+                ],
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'subject_papers') {
+        builder.then = (r) =>
+          r({
+            data: [
+              { id: paper1Id, subject_id: subjectId, paper_number: 1, name: 'Paper 1 (AS)' },
+              { id: paper4Id, subject_id: subjectId, paper_number: 4, name: 'Paper 4 (A2)' },
+            ],
+            error: null,
+          })
+      } else if (table === 'grade_threshold_publications') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                id: pubId,
+                subject_id: subjectId,
+                exam_year: 2026,
+                exam_series: 'june',
+                publication_status: 'published',
+                is_active: true,
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'published_grade_threshold_combinations') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                id: combId,
+                publication_id: pubId,
+                canonical_key: 'S3',
+                route_type: 'staged',
+                qualification_level: 'a_level',
+                maximum_mark: 260,
+                per_paper_allocation_eligible: true,
+                atlas_route_id: routeId,
+                planner_eligibility: 'eligible',
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'grade_threshold_combination_marks') {
+        builder.then = (r) =>
+          r({
+            data: [{ combination_id: combId, grade: 'A*', threshold_mark: 227 }],
+            error: null,
+          })
+      } else if (table === 'grade_threshold_combination_tokens') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                combination_id: combId,
+                token_position: 1,
+                token_kind: 'carry_forward',
+                stage: 'as',
+                weighting_factor: 1.0,
+                carry_forward_mapping_status: 'approved',
+              },
+              {
+                combination_id: combId,
+                token_position: 2,
+                token_kind: 'component_variant',
+                stage: 'a2',
+                weighting_factor: 1.0, // Weighting is present
+                resolved_component_variant_id: 'var-42',
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'grade_threshold_component_variants') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                id: 'var-42',
+                publication_id: pubId,
+                component_code: '42',
+                raw_maximum_mark: null, // MISSING RAW MAXIMUM MARK
+                subject_paper_id: paper4Id,
+                grade_threshold_component_marks: [{ grade: 'A', threshold_mark: 60 }],
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'published_grade_threshold_variant_benchmarks') {
+        builder.then = (r) =>
+          r({
+            data: [],
+            error: null,
+          })
+      }
+
+      return builder
+    })
+
+    const plan = await getTargetGradePlan(subjectId, {
+      selectedVariants: { [paper4Id]: '42' },
+    })
+
+    // Returns threshold-unavailable, NOT available, missing-weighting, or impossible-target
+    expect(plan.status).toBe('threshold-unavailable')
+    expect(plan.status).not.toBe('available')
+    expect(plan.status).not.toBe('missing-weighting')
+    expect(plan.status).not.toBe('impossible-target')
+    if (plan.status === 'threshold-unavailable') {
+      expect(plan.message).toContain('Official Cambridge maximum mark data is unavailable')
+      expect(plan.reason).toContain('Official maximum mark missing or invalid')
+    }
+  })
+
+  it('returns threshold-unavailable reporting grade A floor when component threshold is missing on staged A* route', async () => {
+    const pubId = 'pub-chem-2026'
+    const routeId = 'route-staged-chem'
+    const combId = 'comb-staged-s3'
+    const paper1Id = 'p1-chem-as'
+    const paper4Id = 'p4-chem-a2'
+
+    mockFrom.mockImplementation((table: string) => {
+      const builder: MockQueryBuilder = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        single: vi.fn().mockImplementation(() => {
+          if (table === 'subjects') {
+            return Promise.resolve({
+              data: { id: subjectId, name: 'Chemistry', code: '9701', color_hex: '#10b981' },
+              error: null,
+            })
+          }
+          if (table === 'user_subjects') {
+            return Promise.resolve({
+              data: {
+                id: 'us-staged-chem',
+                user_id: currentUserId,
+                subject_id: subjectId,
+                study_route: 'staged',
+                target_grade: 'A*',
+                exam_date: '2026-06-01',
+              },
+              error: null,
+            })
+          }
+          return Promise.resolve({ data: null, error: null })
+        }),
+        range: vi.fn().mockResolvedValue({ data: [], error: null }),
+      }
+
+      if (table === 'subject_paper_selections') {
+        builder.then = (r) =>
+          r({
+            data: [
+              { user_subject_id: 'us-staged-chem', subject_paper_id: paper1Id, stage: 'as' },
+              { user_subject_id: 'us-staged-chem', subject_paper_id: paper4Id, stage: 'a2' },
+            ],
+            error: null,
+          })
+      } else if (table === 'subject_valid_routes') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                id: routeId,
+                subject_id: subjectId,
+                route: 'staged',
+                subject_route_papers: [
+                  { subject_paper_id: paper1Id, stage: 'as' },
+                  { subject_paper_id: paper4Id, stage: 'a2' },
+                ],
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'subject_papers') {
+        builder.then = (r) =>
+          r({
+            data: [
+              { id: paper1Id, subject_id: subjectId, paper_number: 1, name: 'Paper 1 (AS)' },
+              { id: paper4Id, subject_id: subjectId, paper_number: 4, name: 'Paper 4 (A2)' },
+            ],
+            error: null,
+          })
+      } else if (table === 'grade_threshold_publications') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                id: pubId,
+                subject_id: subjectId,
+                exam_year: 2026,
+                exam_series: 'june',
+                publication_status: 'published',
+                is_active: true,
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'published_grade_threshold_combinations') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                id: combId,
+                publication_id: pubId,
+                canonical_key: 'S3',
+                route_type: 'staged',
+                qualification_level: 'a_level',
+                maximum_mark: 260,
+                per_paper_allocation_eligible: true,
+                atlas_route_id: routeId,
+                planner_eligibility: 'eligible',
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'grade_threshold_combination_marks') {
+        builder.then = (r) =>
+          r({
+            data: [{ combination_id: combId, grade: 'A*', threshold_mark: 227 }],
+            error: null,
+          })
+      } else if (table === 'grade_threshold_combination_tokens') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                combination_id: combId,
+                token_position: 1,
+                token_kind: 'carry_forward',
+                stage: 'as',
+                weighting_factor: 1.0,
+                carry_forward_mapping_status: 'approved',
+              },
+              {
+                combination_id: combId,
+                token_position: 2,
+                token_kind: 'component_variant',
+                stage: 'a2',
+                weighting_factor: 1.0,
+                resolved_component_variant_id: 'var-42',
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'grade_threshold_component_variants') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                id: 'var-42',
+                publication_id: pubId,
+                component_code: '42',
+                raw_maximum_mark: 125, // Valid raw maximum
+                subject_paper_id: paper4Id,
+                grade_threshold_component_marks: [], // MISSING FLOOR MARK FOR GRADE A
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'published_grade_threshold_variant_benchmarks') {
+        builder.then = (r) =>
+          r({
+            data: [],
+            error: null,
+          })
+      }
+
+      return builder
+    })
+
+    const plan = await getTargetGradePlan(subjectId, {
+      selectedVariants: { [paper4Id]: '42' },
+    })
+
+    // Returns threshold-unavailable reporting grade A floor, NOT grade A*
+    expect(plan.status).toBe('threshold-unavailable')
+    if (plan.status === 'threshold-unavailable') {
+      expect(plan.message).toContain('grade A')
+      expect(plan.message).not.toContain('grade A*')
+      expect(plan.reason).toContain('grade A')
+      expect(plan.reason).not.toContain('grade A*')
+    }
+  })
+
+  it('threshold-unavailable takes precedence when weighting and raw maximum mark are both missing', async () => {
+    const pubId = 'pub-chem-2026'
+    const routeId = 'route-staged-chem'
+    const combId = 'comb-staged-s3'
+    const paper1Id = 'p1-chem-as'
+    const paper4Id = 'p4-chem-a2'
+
+    mockFrom.mockImplementation((table: string) => {
+      const builder: MockQueryBuilder = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        single: vi.fn().mockImplementation(() => {
+          if (table === 'subjects') {
+            return Promise.resolve({
+              data: { id: subjectId, name: 'Chemistry', code: '9701', color_hex: '#10b981' },
+              error: null,
+            })
+          }
+          if (table === 'user_subjects') {
+            return Promise.resolve({
+              data: {
+                id: 'us-staged-chem',
+                user_id: currentUserId,
+                subject_id: subjectId,
+                study_route: 'staged',
+                target_grade: 'A*',
+                exam_date: '2026-06-01',
+              },
+              error: null,
+            })
+          }
+          return Promise.resolve({ data: null, error: null })
+        }),
+        range: vi.fn().mockResolvedValue({ data: [], error: null }),
+      }
+
+      if (table === 'subject_paper_selections') {
+        builder.then = (r) =>
+          r({
+            data: [
+              { user_subject_id: 'us-staged-chem', subject_paper_id: paper1Id, stage: 'as' },
+              { user_subject_id: 'us-staged-chem', subject_paper_id: paper4Id, stage: 'a2' },
+            ],
+            error: null,
+          })
+      } else if (table === 'subject_valid_routes') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                id: routeId,
+                subject_id: subjectId,
+                route: 'staged',
+                subject_route_papers: [
+                  { subject_paper_id: paper1Id, stage: 'as' },
+                  { subject_paper_id: paper4Id, stage: 'a2' },
+                ],
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'subject_papers') {
+        builder.then = (r) =>
+          r({
+            data: [
+              { id: paper1Id, subject_id: subjectId, paper_number: 1, name: 'Paper 1 (AS)' },
+              { id: paper4Id, subject_id: subjectId, paper_number: 4, name: 'Paper 4 (A2)' },
+            ],
+            error: null,
+          })
+      } else if (table === 'grade_threshold_publications') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                id: pubId,
+                subject_id: subjectId,
+                exam_year: 2026,
+                exam_series: 'june',
+                publication_status: 'published',
+                is_active: true,
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'published_grade_threshold_combinations') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                id: combId,
+                publication_id: pubId,
+                canonical_key: 'S3',
+                route_type: 'staged',
+                qualification_level: 'a_level',
+                maximum_mark: 260,
+                per_paper_allocation_eligible: true,
+                atlas_route_id: routeId,
+                planner_eligibility: 'eligible',
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'grade_threshold_combination_marks') {
+        builder.then = (r) =>
+          r({
+            data: [{ combination_id: combId, grade: 'A*', threshold_mark: 227 }],
+            error: null,
+          })
+      } else if (table === 'grade_threshold_combination_tokens') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                combination_id: combId,
+                token_position: 1,
+                token_kind: 'carry_forward',
+                stage: 'as',
+                weighting_factor: null, // MISSING WEIGHTING
+                carry_forward_mapping_status: 'approved',
+              },
+              {
+                combination_id: combId,
+                token_position: 2,
+                token_kind: 'component_variant',
+                stage: 'a2',
+                weighting_factor: null, // MISSING WEIGHTING
+                resolved_component_variant_id: 'var-42',
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'grade_threshold_component_variants') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                id: 'var-42',
+                publication_id: pubId,
+                component_code: '42',
+                raw_maximum_mark: null, // MISSING RAW MAXIMUM TOO
+                subject_paper_id: paper4Id,
+                grade_threshold_component_marks: [{ grade: 'A', threshold_mark: 60 }],
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'published_grade_threshold_variant_benchmarks') {
+        builder.then = (r) =>
+          r({
+            data: [],
+            error: null,
+          })
+      }
+
+      return builder
+    })
+
+    const plan = await getTargetGradePlan(subjectId, {
+      selectedVariants: { [paper4Id]: '42' },
+    })
+
+    // Precedence: threshold-unavailable takes precedence over missing-weighting
+    expect(plan.status).toBe('threshold-unavailable')
+    expect(plan.status).not.toBe('missing-weighting')
+    if (plan.status === 'threshold-unavailable') {
+      expect(plan.message).toContain('Official Cambridge maximum mark data is unavailable')
+      expect(plan.reason).toContain('Official maximum mark missing or invalid')
+    }
+  })
+
+  it('threshold-unavailable takes precedence when weighting and component floor are both missing, without returning available plan or zero capacity', async () => {
+    const pubId = 'pub-chem-2026'
+    const routeId = 'route-staged-chem'
+    const combId = 'comb-staged-s3'
+    const paper1Id = 'p1-chem-as'
+    const paper4Id = 'p4-chem-a2'
+
+    mockFrom.mockImplementation((table: string) => {
+      const builder: MockQueryBuilder = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        single: vi.fn().mockImplementation(() => {
+          if (table === 'subjects') {
+            return Promise.resolve({
+              data: { id: subjectId, name: 'Chemistry', code: '9701', color_hex: '#10b981' },
+              error: null,
+            })
+          }
+          if (table === 'user_subjects') {
+            return Promise.resolve({
+              data: {
+                id: 'us-staged-chem',
+                user_id: currentUserId,
+                subject_id: subjectId,
+                study_route: 'staged',
+                target_grade: 'A*',
+                exam_date: '2026-06-01',
+              },
+              error: null,
+            })
+          }
+          return Promise.resolve({ data: null, error: null })
+        }),
+        range: vi.fn().mockResolvedValue({ data: [], error: null }),
+      }
+
+      if (table === 'subject_paper_selections') {
+        builder.then = (r) =>
+          r({
+            data: [
+              { user_subject_id: 'us-staged-chem', subject_paper_id: paper1Id, stage: 'as' },
+              { user_subject_id: 'us-staged-chem', subject_paper_id: paper4Id, stage: 'a2' },
+            ],
+            error: null,
+          })
+      } else if (table === 'subject_valid_routes') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                id: routeId,
+                subject_id: subjectId,
+                route: 'staged',
+                subject_route_papers: [
+                  { subject_paper_id: paper1Id, stage: 'as' },
+                  { subject_paper_id: paper4Id, stage: 'a2' },
+                ],
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'subject_papers') {
+        builder.then = (r) =>
+          r({
+            data: [
+              { id: paper1Id, subject_id: subjectId, paper_number: 1, name: 'Paper 1 (AS)' },
+              { id: paper4Id, subject_id: subjectId, paper_number: 4, name: 'Paper 4 (A2)' },
+            ],
+            error: null,
+          })
+      } else if (table === 'grade_threshold_publications') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                id: pubId,
+                subject_id: subjectId,
+                exam_year: 2026,
+                exam_series: 'june',
+                publication_status: 'published',
+                is_active: true,
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'published_grade_threshold_combinations') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                id: combId,
+                publication_id: pubId,
+                canonical_key: 'S3',
+                route_type: 'staged',
+                qualification_level: 'a_level',
+                maximum_mark: 260,
+                per_paper_allocation_eligible: true,
+                atlas_route_id: routeId,
+                planner_eligibility: 'eligible',
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'grade_threshold_combination_marks') {
+        builder.then = (r) =>
+          r({
+            data: [{ combination_id: combId, grade: 'A*', threshold_mark: 227 }],
+            error: null,
+          })
+      } else if (table === 'grade_threshold_combination_tokens') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                combination_id: combId,
+                token_position: 1,
+                token_kind: 'carry_forward',
+                stage: 'as',
+                weighting_factor: null, // MISSING WEIGHTING
+                carry_forward_mapping_status: 'approved',
+              },
+              {
+                combination_id: combId,
+                token_position: 2,
+                token_kind: 'component_variant',
+                stage: 'a2',
+                weighting_factor: null, // MISSING WEIGHTING
+                resolved_component_variant_id: 'var-42',
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'grade_threshold_component_variants') {
+        builder.then = (r) =>
+          r({
+            data: [
+              {
+                id: 'var-42',
+                publication_id: pubId,
+                component_code: '42',
+                raw_maximum_mark: 125,
+                subject_paper_id: paper4Id,
+                grade_threshold_component_marks: [], // MISSING COMPONENT FLOOR TOO
+              },
+            ],
+            error: null,
+          })
+      } else if (table === 'published_grade_threshold_variant_benchmarks') {
+        builder.then = (r) =>
+          r({
+            data: [],
+            error: null,
+          })
+      }
+
+      return builder
+    })
+
+    const plan = await getTargetGradePlan(subjectId, {
+      selectedVariants: { [paper4Id]: '42' },
+    })
+
+    // Precedence: threshold-unavailable takes precedence over missing-weighting
+    expect(plan.status).toBe('threshold-unavailable')
+    expect(plan.status).not.toBe('missing-weighting')
+    expect(plan.status).not.toBe('available')
+    if (plan.status === 'threshold-unavailable') {
+      expect(plan.message).toContain('Official Cambridge threshold mark for grade A is unavailable')
+      expect(plan.reason).toContain('Official component threshold mark for grade A is missing')
+      // No calculated plan, summary, or capacity exposed
+      expect((plan as Record<string, unknown>).summary).toBeUndefined()
+      expect((plan as Record<string, unknown>).paperPlans).toBeUndefined()
+    }
+  })
+
+  it('correctly handles fully weighted viable and impossible staged A* routes', async () => {
+    const pubId = 'pub-chem-2026'
+    const routeId = 'route-staged-chem'
+    const combId = 'comb-staged-s3'
+    const paper1Id = 'p1-chem-as'
+    const paper4Id = 'p4-chem-a2'
+
+    const createMock = (rawMax: number) => {
+      return (table: string) => {
+        const builder: MockQueryBuilder = {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockReturnThis(),
+          order: vi.fn().mockReturnThis(),
+          single: vi.fn().mockImplementation(() => {
+            if (table === 'subjects') {
+              return Promise.resolve({
+                data: { id: subjectId, name: 'Chemistry', code: '9701', color_hex: '#10b981' },
+                error: null,
+              })
+            }
+            if (table === 'user_subjects') {
+              return Promise.resolve({
+                data: {
+                  id: 'us-staged-chem',
+                  user_id: currentUserId,
+                  subject_id: subjectId,
+                  study_route: 'staged',
+                  target_grade: 'A*',
+                  exam_date: '2026-06-01',
+                },
+                error: null,
+              })
+            }
+            return Promise.resolve({ data: null, error: null })
+          }),
+          range: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }
+
+        if (table === 'subject_paper_selections') {
+          builder.then = (r) =>
+            r({
+              data: [
+                { user_subject_id: 'us-staged-chem', subject_paper_id: paper1Id, stage: 'as' },
+                { user_subject_id: 'us-staged-chem', subject_paper_id: paper4Id, stage: 'a2' },
+              ],
+              error: null,
+            })
+        } else if (table === 'subject_valid_routes') {
+          builder.then = (r) =>
+            r({
+              data: [
+                {
+                  id: routeId,
+                  subject_id: subjectId,
+                  route: 'staged',
+                  subject_route_papers: [
+                    { subject_paper_id: paper1Id, stage: 'as' },
+                    { subject_paper_id: paper4Id, stage: 'a2' },
+                  ],
+                },
+              ],
+              error: null,
+            })
+        } else if (table === 'subject_papers') {
+          builder.then = (r) =>
+            r({
+              data: [
+                { id: paper1Id, subject_id: subjectId, paper_number: 1, name: 'Paper 1 (AS)' },
+                { id: paper4Id, subject_id: subjectId, paper_number: 4, name: 'Paper 4 (A2)' },
+              ],
+              error: null,
+            })
+        } else if (table === 'grade_threshold_publications') {
+          builder.then = (r) =>
+            r({
+              data: [
+                {
+                  id: pubId,
+                  subject_id: subjectId,
+                  exam_year: 2026,
+                  exam_series: 'june',
+                  publication_status: 'published',
+                  is_active: true,
+                },
+              ],
+              error: null,
+            })
+        } else if (table === 'published_grade_threshold_combinations') {
+          builder.then = (r) =>
+            r({
+              data: [
+                {
+                  id: combId,
+                  publication_id: pubId,
+                  canonical_key: 'S3',
+                  route_type: 'staged',
+                  qualification_level: 'a_level',
+                  maximum_mark: 260,
+                  per_paper_allocation_eligible: true,
+                  atlas_route_id: routeId,
+                  planner_eligibility: 'eligible',
+                },
+              ],
+              error: null,
+            })
+        } else if (table === 'grade_threshold_combination_marks') {
+          builder.then = (r) =>
+            r({
+              data: [{ combination_id: combId, grade: 'A*', threshold_mark: 227 }],
+              error: null,
+            })
+        } else if (table === 'grade_threshold_combination_tokens') {
+          builder.then = (r) =>
+            r({
+              data: [
+                {
+                  combination_id: combId,
+                  token_position: 1,
+                  token_kind: 'carry_forward',
+                  stage: 'as',
+                  weighting_factor: 1.0,
+                  carry_forward_mapping_status: 'approved',
+                },
+                {
+                  combination_id: combId,
+                  token_position: 2,
+                  token_kind: 'component_variant',
+                  stage: 'a2',
+                  weighting_factor: 1.0,
+                  resolved_component_variant_id: 'var-42',
+                },
+              ],
+              error: null,
+            })
+        } else if (table === 'grade_threshold_component_variants') {
+          builder.then = (r) =>
+            r({
+              data: [
+                {
+                  id: 'var-42',
+                  publication_id: pubId,
+                  component_code: '42',
+                  raw_maximum_mark: rawMax,
+                  subject_paper_id: paper4Id,
+                  grade_threshold_component_marks: [{ grade: 'A', threshold_mark: 60 }],
+                },
+              ],
+              error: null,
+            })
+        } else if (table === 'published_grade_threshold_variant_benchmarks') {
+          builder.then = (r) =>
+            r({
+              data: [],
+              error: null,
+            })
+        }
+
+        return builder
+      }
+    }
+
+    // 1. Viable route (capacity 125 >= remaining 113)
+    mockFrom.mockImplementation(createMock(125))
+    const viablePlan = await getTargetGradePlan(subjectId, {
+      selectedVariants: { [paper4Id]: '42' },
+    })
+
+    expect(viablePlan.status).toBe('available')
+    if (viablePlan.status === 'available') {
+      expect(viablePlan.summary.stagedBreakdown?.a2MaximumWeightedMark).toBe(125)
+      expect(viablePlan.summary.stagedBreakdown?.isMathematicallyPossible).toBe(true)
+      expect(viablePlan.summary.perPaperAllocationEligible).toBe(true)
+    }
+
+    // 2. Impossible route (capacity 100 < remaining 113)
+    mockFrom.mockImplementation(createMock(100))
+    const impossiblePlan = await getTargetGradePlan(subjectId, {
+      selectedVariants: { [paper4Id]: '42' },
+    })
+
+    expect(impossiblePlan.status).toBe('impossible-target')
+    if (impossiblePlan.status === 'impossible-target') {
+      expect(impossiblePlan.summary.stagedBreakdown?.a2MaximumWeightedMark).toBe(100)
+      expect(impossiblePlan.summary.stagedBreakdown?.isMathematicallyPossible).toBe(false)
+      expect(impossiblePlan.reason).toContain('exceeds the maximum possible score')
     }
   })
 })

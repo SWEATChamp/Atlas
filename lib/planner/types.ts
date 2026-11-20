@@ -152,8 +152,8 @@ export interface StagedAStarEstimateContribution {
   readonly kind: 'estimated_halfway'
   readonly estimatedAsContribution: WeightedMark // ceil(T / 2)
   readonly remainingA2Required: WeightedMark // T - estimatedAsContribution
-  readonly a2MaximumWeightedMark: WeightedMark
-  readonly isMathematicallyPossible: boolean
+  readonly a2MaximumWeightedMark: WeightedMark | null
+  readonly isMathematicallyPossible: boolean | null
 }
 
 export interface VerifiedOfficialWeightedAsContribution {
@@ -166,8 +166,8 @@ export interface StagedAStarVerifiedContribution {
   readonly kind: 'verified_official'
   readonly officialWeightedAsContribution: WeightedMark
   readonly remainingA2Required: WeightedMark
-  readonly a2MaximumWeightedMark: WeightedMark
-  readonly isMathematicallyPossible: boolean
+  readonly a2MaximumWeightedMark: WeightedMark | null
+  readonly isMathematicallyPossible: boolean | null
 }
 
 export type StagedAStarBreakdown =

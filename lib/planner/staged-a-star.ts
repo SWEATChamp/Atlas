@@ -28,7 +28,7 @@ import {
 
 export interface EvaluateStagedAStarParams {
   readonly officialCombinedTarget: WeightedMark
-  readonly a2MaximumWeightedMark: WeightedMark
+  readonly a2MaximumWeightedMark: WeightedMark | null
   readonly verifiedAsContribution?: VerifiedOfficialWeightedAsContribution | null
 }
 
@@ -45,7 +45,8 @@ export function evaluateStagedAStar(
     const remainingA2Required = weightedMark(
       Math.max(0, officialCombinedTarget - contribution)
     )
-    const isMathematicallyPossible = remainingA2Required <= a2MaximumWeightedMark
+    const isMathematicallyPossible =
+      a2MaximumWeightedMark !== null ? remainingA2Required <= a2MaximumWeightedMark : null
 
     const result: StagedAStarVerifiedContribution = {
       kind: 'verified_official',
@@ -62,7 +63,8 @@ export function evaluateStagedAStar(
   const remainingA2Required = weightedMark(
     Math.max(0, officialCombinedTarget - estimatedAsContribution)
   )
-  const isMathematicallyPossible = remainingA2Required <= a2MaximumWeightedMark
+  const isMathematicallyPossible =
+    a2MaximumWeightedMark !== null ? remainingA2Required <= a2MaximumWeightedMark : null
 
   const result: StagedAStarEstimateContribution = {
     kind: 'estimated_halfway',
