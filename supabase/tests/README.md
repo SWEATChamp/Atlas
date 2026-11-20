@@ -81,6 +81,57 @@ Testing must proceed strictly in forward migration order using schema-specific f
    - Enforces hardened fail-closed reapplication pre-checks: permits an idempotent no-op only when existing document and all ten mappings match every expected non-timestamp field; rejects any altered metadata, altered lifecycle state, substituted rows, missing rows, extra rows, or orphaned mappings with atomic rollback.
    - Leaves seeded evidence records persisted in the database for downstream review and linking while catalogue data remains count/hash invariant.
 
+12. **Milestone 5 Target Grade Planner Preflight Verification**:
+   - Run `database/milestone_5_planner_preflight.test.sql` using psql with `ON_ERROR_STOP=1` (65 planned assertions).
+   - Operates strictly on a uniquely isolated disposable local database migrated through Migration 036. Never run on hosted Preview, Production, or any valuable database.
+   - Proves migration ledger ends at Migration 036 (`20261116000036`).
+   - Asserts pre-seeding baseline state: Migration 036 evidence remains unreviewed and inactive, 0 bridge links exist, published carry-forward view has 0 rows, and Math Option DC planner eligibility fails closed.
+   - Validates authentic publication provenance: all 3 publications reference the common June 2026 grade-threshold index (`https://www.cambridgeinternational.org/.../grade-threshold-tables/june-2026/`) and exact Cambridge PDF endpoints with verified SHA-256 checksums (Chem 9701: `761525...pdf` / `3ecf1e...`; Phys 9702: `761526...pdf` / `211cfe...`; Math 9709: `761530...pdf` / `1b277a...`).
+   - Validates authentic weighting provenance: all 3 weighting-source rows reference the single official document *Syllabus component weighting factors: November 2025, March 2026 and June 2026* (`206341-syllabus-component-weighting-factors.pdf`, SHA-256 `d96f96e5d8847470fd7291f75aa01184b3c0cff7075b5010968e16d94218ada9`), with exact locators populated on `grade_threshold_weighting_entries` (9701: p. 85, rows 32, 36, 41; 9702: p. 86, rows 32, 36, 41, 47; p. 87, row 12; 9709: p. 89, rows 31, 40; p. 90, row 12).
+   - Validates authentic June 2026 component marks across all 65 component mark rows with traceable `source_row_metadata` (9701/12: `25..11`, 9701/22: `37..12`, 9701/33: `22..10`; 9702/12: `30..15`, 9702/22: `40..17`, 9702/33: `33..20`, 9702/42: `62..21`, 9702/52: `20..8`; 9709/35: `55..16`, 9709/55: `45..13`, 9709/11: `59..15`, 9709/12: `61..10`, 9709/13: `61..13`).
+   - Validates Math Pure 1 Grade A benchmark group ceiling average: `CEIL((59 + 61 + 61) / 3.0) = 61`.
+   - Validates fail-closed safety guardrails against the actual fixture routine `pg_temp.apply_m5_planner_preflight_fixture()`:
+     - Interrupted-run detection: schema `_fixture_m5_preview` raises `55000`.
+     - Catalogue collision detection: pre-existing import run ID raises `23505`.
+     - Synthetic identity collision detection: pre-existing synthetic `auth.users` ID raises `23505`.
+   - Executes `fixtures/milestone_5_planner_preflight.fixture` to assemble the authentic June 2026 planner scenario: exactly 135 rows across 13 tables (1 import run, 3 publications, 3 weighting sources, 11 weighting entries, 13 component variants, 65 component marks, 1 benchmark group, 3 benchmark members, 3 combinations, 11 combination tokens, 17 combination marks, 1 carry-forward bridge link, and 3 Chem past paper attempts for User 1).
+   - Validates temporary evidence promotion (`review_status = 'approved'`, `evidence_status = 'confirmed'`) and bridge link establishment to Math Option DC token 82.
+   - Proves published view eligibility: `published_grade_threshold_carry_forward_mappings` exposes exactly 1 row, and `published_grade_threshold_combinations` exposes Chem S3, Phys AY, and Math DC with `per_paper_allocation_eligible = TRUE`.
+   - Validates positive owner route configuration and updates as User 2, and enforces strict cross-user RLS isolation (cross-user mutations update 0 rows, `configure_subject_route` on another user raises `42501 Unauthorized`, and direct reads return 0 rows).
+   - Proves owner scoping of historical past paper attempts (scores 27, 39, 22).
+   - Ends with a complete transactional rollback, followed by post-run zero-delta audit proving 0 residual rows across all 13 tables, 0 residual users, evidence records unreviewed and inactive, and published views empty. Repeatable across multiple runs.
+
+13. **Milestone 5 Durable Catalogue & Reversible Hosted-Smoke Verification (Gate 3)**:
+   - Run `database/milestone_5_catalogue_and_smoke.test.sql` using psql with `ON_ERROR_STOP=1` (78 planned assertions, ending with standard `finish()`).
+   - Operates strictly on a uniquely isolated disposable local database migrated through Migration 036. Never run on hosted Preview, Production, or any valuable database without explicit gate authorization.
+   - Proves Option A durable catalogue architecture: seeds the authentic 131-row June 2026 Cambridge catalogue across 11 tables (`seeds/catalogue/june_2026_m5_catalogue.sql`) and confirms retention through smoke teardown.
+   - Validates exact catalogue integrity via `fixtures/catalogue/milestone_5_catalogue_validator.sql` implementing bidirectional typed `EXCEPT` comparisons returning `(total_catalogue_delta INT, total_catalogue_rows INT)`. Confirms `delta = 0` and `rows = 131`.
+   - Proves detection of 7 negative catalogue mutations (missing row, extra row, component mark drift, weighting factor drift, invalid FK reference, token metadata corruption, unexpected scope) with complete rollback safety.
+   - Validates fail-closed safety guardrails for `fixtures/milestone_5_hosted_smoke/bootstrap.sql`:
+     - Interrupted-run detection: schema `_m5_smoke_snapshot` raises `55000` fail-closed.
+     - Dynamic user resolution: missing user IDs raise `P0002`, identical user IDs raise `P0001`, non-existent IDs raise `P0002`.
+   - Proves pre-existing user state preservation & restoration across 7 snapshotted tables (`_m5_smoke_snapshot`):
+     - Pre-existing Chemistry 9701 staged/A2 enrollment with non-null `a2_unlocked_at` and `a2_unlock_method`.
+     - Pre-existing paper selections with original IDs, stages, component names, and timestamps.
+     - Pre-existing A2 chapter and pending daily mission.
+     - Pre-existing archived Physics 9702 enrollment (re-activated during bootstrap, fully re-archived during teardown).
+     - Pre-existing untouched Biology 9700 enrollment (zero `updated_at` timestamp drift across both cycles).
+     - Unrelated user data preservation (User 3 remains 100% untouched).
+   - Proves bootstrap route conversion: mutates User 1 Chemistry to `as_only`, clears A2 unlock metadata, replaces paper selections, and skips inaccessible A2 chapter missions via `cancel_inaccessible_missions`.
+   - Executes `fixtures/milestone_5_hosted_smoke/assertions.sql` confirming scenario readiness and strict cross-user RLS isolation under `authenticated` role.
+   - Proves teardown fail-closed guard: an induced restoration mismatch (e.g. mutated `document_title`) raises `P0004` and preserves `_m5_smoke_snapshot` for post-incident inspection.
+   - Proves complete teardown restoration via `fixtures/milestone_5_hosted_smoke/teardown.sql`:
+     - Removes smoke-created past paper attempts, bridge links, and application rows child-before-parent.
+     - Restores original `subject_paper_selections` rows with exact IDs, component names, paper numbers, stages, and timestamps.
+     - Restores all mutable `user_subjects` fields (`target_grade`, `study_route`, `current_stage`, `a2_unlocked_at`, `a2_unlock_method`, `is_archived`).
+     - Restricts `user_subjects` updates using null-safe `IS DISTINCT FROM` comparisons, preventing unnecessary updates and eliminating `updated_at` trigger drift on untouched enrollments.
+     - Restores `daily_missions` changed by `cancel_inaccessible_missions` back to pending with NULL skip metadata.
+     - Enforces scoped bidirectional before/after equality across all snapshotted tables before dropping `_m5_smoke_snapshot`.
+     - Compares all 12 non-`updated_at` columns of `user_subjects` bidirectionally (`id, user_id, subject_id, exam_date, target_grade, priority, is_archived, created_at, study_route, current_stage, a2_unlocked_at, a2_unlock_method`). The single excluded column is `updated_at`, which fires the BEFORE UPDATE trigger `set_user_subjects_updated_at()` only on legitimately mutated rows.
+     - Retains the authentic 131-row durable catalogue under Option A.
+   - Proves full lifecycle repeatability across two complete consecutive bootstrap-assertions-teardown cycles.
+   - Verified post-teardown using read-only query `fixtures/milestone_5_hosted_smoke/verify_post_teardown.sql`.
+
 ## Guardrails
 
 - Historical fixtures (`.fixture`) deliberately use a non-`.sql` extension so standard SQL test runners do not execute older expectations against later schemas.
