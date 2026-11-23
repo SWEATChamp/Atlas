@@ -46,10 +46,10 @@ describe('Release Notification UI Component', () => {
     store.clear()
   })
 
-  it('renders v1.3.4 notice for user upgrading from v1.3.3 and records dismissal', async () => {
-    // 1. Set atlas_last_seen_release_version to 1.3.3
-    window.localStorage.setItem(STORAGE_KEY_LAST_SEEN_RELEASE, '1.3.3')
-    expect(window.localStorage.getItem(STORAGE_KEY_LAST_SEEN_RELEASE)).toBe('1.3.3')
+  it('renders v1.5.0 notice for user upgrading from v1.3.4 and records dismissal', async () => {
+    // 1. Set atlas_last_seen_release_version to 1.3.4
+    window.localStorage.setItem(STORAGE_KEY_LAST_SEEN_RELEASE, '1.3.4')
+    expect(window.localStorage.getItem(STORAGE_KEY_LAST_SEEN_RELEASE)).toBe('1.3.4')
 
     // 2. Render WhatsNewModal
     render(<WhatsNewModal />)
@@ -62,21 +62,23 @@ describe('Release Notification UI Component', () => {
     })
     expect(dialog).toBeDefined()
 
-    // 4. Verify Badge v1.3.4
+    // 4. Verify Badge v1.5.0
     const badge = screen.getByText(`v${CURRENT_RELEASE.version}`)
     expect(badge).toBeDefined()
-    expect(badge.textContent).toBe('v1.3.4')
+    expect(badge.textContent).toBe('v1.5.0')
 
-    // 5. Verify Title Database Availability Safeguard
+    // 5. Verify Title Target-Grade Marks Planner
     const title = screen.getByText(CURRENT_RELEASE.title)
     expect(title).toBeDefined()
-    expect(title.textContent).toBe('Database Availability Safeguard')
+    expect(title.textContent).toBe('Target-Grade Marks Planner')
 
-    // 6. Verify all three exact highlights
+    // 6. Verify all five exact highlights
     const expectedHighlights = [
-      'Atlas now runs lightweight scheduled database checks during quiet periods.',
-      'Keep-alive checks use read-only access and never modify student data.',
-      'Operational failures now return clear, safely logged status information.',
+      'Paper-by-paper target marks derived from verified official Cambridge threshold and weighting evidence.',
+      'Exact-variant targets for known papers, alongside clearly disclosed Atlas variant estimates.',
+      'Full-paper performance comparisons, recency-weighted planning, safety margins, and staged A* contribution handling.',
+      'Fail-closed reliability: unavailable routes, unweighted combinations, or missing threshold data fail safe without guessing.',
+      'Predicted grades isolate verified full-paper attempts and strictly exclude standalone question practice.',
     ]
 
     for (const highlight of expectedHighlights) {
@@ -89,8 +91,8 @@ describe('Release Notification UI Component', () => {
       fireEvent.click(dismissButton)
     })
 
-    // 8. Confirm that 1.3.4 is stored as the last-seen release
-    expect(window.localStorage.getItem(STORAGE_KEY_LAST_SEEN_RELEASE)).toBe('1.3.4')
+    // 8. Confirm that 1.5.0 is stored as the last-seen release
+    expect(window.localStorage.getItem(STORAGE_KEY_LAST_SEEN_RELEASE)).toBe('1.5.0')
 
     // 9. Confirm dialog is dismissed
     await waitFor(() => {
@@ -98,8 +100,8 @@ describe('Release Notification UI Component', () => {
     })
   })
 
-  it('does not open dialog when user has already dismissed v1.3.4', async () => {
-    window.localStorage.setItem(STORAGE_KEY_LAST_SEEN_RELEASE, '1.3.4')
+  it('does not open dialog when user has already dismissed v1.5.0', async () => {
+    window.localStorage.setItem(STORAGE_KEY_LAST_SEEN_RELEASE, '1.5.0')
     render(<WhatsNewModal />)
 
     // Wait short period to ensure setTimeout(0) resolves

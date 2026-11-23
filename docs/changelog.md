@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-11-23
+
+### Added
+- **Target-Grade Marks Planner**:
+  - Interactive target-grade planner summary component (`components/subjects/target-grade-planner-summary.tsx`) on subject detail views with paper-by-paper target breakdowns, student performance comparisons, and clear disclosures.
+  - Robust server action (`lib/actions/target-planner.ts`) reading student route, stage, target grade, full-paper attempt history, and official Cambridge threshold/weighting data.
+  - Staged A* search solver (`lib/planner/staged-a-star.ts`) allocating component target marks that strictly satisfy combined threshold targets while honoring component maxima and boundary constraints.
+  - Type definitions and domain contracts (`lib/planner/types.ts`) guaranteeing type-safe interaction across planner actions and UI components.
+- **Official Cambridge Threshold and Weighting Evidence**:
+  - Paper-by-paper target marks derived from verified official Cambridge threshold and component weighting evidence.
+  - Support for exact-variant targets when the student's paper variant is known, alongside clearly disclosed Atlas variant estimates (`(estimated)` badge and footnote disclosure) when the variant is unknown.
+  - Staged A* contribution handling for A-Level qualifications, computing required A2 marks from official combined target and weighted AS contribution, with early warning for impossible targets exceeding available A2 maxima.
+  - Safety-margin target recommendations providing a structured buffer against exam-day variance.
+  - Performance comparisons contrasting required targets against recent and lifetime full-paper practice averages.
+- **Full-Paper Isolation & Fail-Closed Guarantees**:
+  - Predicted grades and paper performance baselines strictly isolate verified full-paper attempts and exclude standalone question practice at the data-query boundary.
+  - Fail-closed operational reliability: unconfigured routes, unweighted combinations, or missing threshold data return clear, non-guessing statuses without fabricating targets.
+- **Database Migrations and Catalogue Foundation**:
+  - Migration 034 (`supabase/migrations/20261114000034_staged_component_stage_correction.sql`): controlled forward-only stage correction for staged 9709/9231 component tokens; safe no-op on an empty target catalogue, and fail-closed on inconsistent populated catalogues.
+  - Migration 035 (`supabase/migrations/20261115000035_carry_forward_evidence_contracts.sql`): adds carry-forward evidence documents, normalized mappings, bridge links, lifecycle rules, immutability protections, least-privilege access, and published views.
+  - Migration 036 (`supabase/migrations/20261116000036_seed_china_zone5_carry_forward_evidence.sql`): idempotently seeds one inactive, unreviewed China Zone 5 evidence document and ten unreviewed 9709/9231 mappings; creates no bridge links and grants no planner eligibility.
+  - Durable June 2026 catalogue seed (`supabase/seeds/catalogue/june_2026_m5_catalogue.sql`): 131 rows across 11 catalogue tables providing official threshold and component weighting evidence for Chemistry 9701, Physics 9702, and Mathematics 9709 only (Further Mathematics 9231 and Computer Science 9618 are not seeded and remain fail-closed). Migration 036 carry-forward evidence remains inactive and unreviewed until separately approved, linked, and made eligible.
+  - Local-only pgTAP test suites: `supabase/tests/database/milestone_5_planner_preflight.test.sql` and `supabase/tests/database/milestone_5_catalogue_and_smoke.test.sql`.
+  - Catalogue validator fixture: `supabase/tests/fixtures/catalogue/milestone_5_catalogue_validator.sql`.
+  - Hosted-safe reversible operator fixtures: `supabase/tests/fixtures/milestone_5_hosted_smoke/bootstrap.sql`, `supabase/tests/fixtures/milestone_5_hosted_smoke/assertions.sql`, `supabase/tests/fixtures/milestone_5_hosted_smoke/teardown.sql`, and `supabase/tests/fixtures/milestone_5_hosted_smoke/verify_post_teardown.sql`.
+
+### Verification Evidence
+- **Database Test Suite**: 1,273 pgTAP assertions across 25 database test suites and historical upgrade fixtures executed against a disposable PostgreSQL container with zero `not ok` lines.
+- **Focused Planner Tests**: 95 tests across `tests/target-planner.test.tsx` and `tests/target-planner-action.test.ts` passing.
+- **Application Test Suite**: 721 tests passing, 6 intentional skips across 57 test files (`npm test`).
+- **Code Hygiene**:
+  - TypeScript type check passed cleanly with zero errors (`npx tsc --noEmit`).
+  - ESLint passed cleanly with zero errors or warnings (`npm run lint`).
+  - Next.js Webpack production build succeeded with all routes compiled (`npm run build -- --webpack`).
+  - Whitespace check passed cleanly (`git diff --check`).
+
+### Recovery and Rollback Considerations
+- Migration 034 is a controlled forward-only data correction modifying existing staged component tokens.
+- Migration 035 adds schema contracts.
+- Migration 036 persists inactive evidence records but is idempotent and fail-closed.
+- Reversibility of the hosted smoke workflow (`supabase/tests/fixtures/milestone_5_hosted_smoke/teardown.sql`) confirms zero persistent student test artifacts, but does not make schema migrations automatically reversible.
+- A verified off-site logical backup is strictly required prior to any hosted database mutation.
+
+### Operational Limitations and Boundaries
+- Local release candidate in preparation; Migrations 034–036 were previously applied and verified in an isolated hosted test project, but no hosted operations occurred during this release-documentation gate.
+- Production has not been shown to contain Migrations 034–036 or the durable catalogue.
+- Hosted Supabase migrations, Vercel preview/production deployments, git commit, push, PR merge, and tag creation are strictly withheld pending explicit separate gate authorizations.
+
 ## [1.3.4] - 2026-11-11
 
 ### Added

@@ -20,7 +20,106 @@ Atlas uses Vercel for the Next.js application and Supabase for authentication an
 - v1.3.1 (Stats Layout & UI Stability) was merged to `main` via PR #34 at merge commit `5526fbf4f0590a183fcf1bfa63a70fa6391fadd8` on 2026-10-25 and deployed to Vercel production (`dpl_3NVYwUMWRomp6ESfA8RrK43JVBuo`, Ready in `sin1`) on `https://atlas-alpha-vert.vercel.app`. On 2026-10-26, the primary orchestrator completed authenticated read-only Production smoke testing: version/footer and release notification display 1.3.1, persistent notification dismissal, navigation between /stats and /logs passed without console errors, subject switching operates cleanly, both logging dialogs open without submission, Mathematics paper default is selected, legacy /past-papers listing redirect cleanly preserved the selected subject, 0px heading movement and 0px document overflow at 313px cold switch, and zero console errors or warnings were captured. Explicit operational limitations are preserved: record creation/editing/deletion/tagging, populated question history, pagination, cross-user isolation, and wider Production viewport checks remain unexercised in Production (earlier Preview measurements retain their attribution to commit `5fcd07d`). This is an application-only release requiring zero database migrations.
 - v1.3.2 (Progress Reliability & Recovery) was merged to `main` via PR #35 at merge commit `020b374335850e0544d8549b1d65043c98c3a5c8` (PR head `cc17e5b0a61c36e40f01a3526f697cd94efae2eb`) on 2026-10-28 at 10:43:44 AM Singapore time and automatically deployed to Vercel Production (GitHub Deployment record `7375775851`, status `success`, Ready in `sin1`) at `https://atlas-a47e6z3in-atlas-726e.vercel.app` (canonical: `https://atlas-alpha-vert.vercel.app`, inspector: `https://vercel.com/atlas-726e/atlas/6QRpoU3rd6VY1PSiMo81fE4SMd2z`). On 2026-10-29 Singapore time, authenticated read-only Production smoke verification was completed: v1.3.2 release notice (title and all three bullets), footer version, Dashboard and Subject Readiness, Subjects list, Mathematics route-aware totals (13 accessible chapters, Pure 1 0/8, Statistics 1 0/5, locked Pure 3 and Mechanics 0/0), Stats, Full Papers and Question Practice Logs workspaces, existing paper detail, and canonical hostname retention were verified with zero captured console warnings or errors and no data-changing controls exercised. Explicit operational limitations are preserved: no mission, enrollment, route, target-grade, exam-date, notes-status, confidence, paper, or practice-record mutation was tested in Production; cross-user isolation was not tested in Production; full automated authentication-flow E2E and optional live Cambridge verification remain outstanding; the release notice was restored by resetting only the browser-local dismissal key with no server state changed; and this release required zero database migrations.
 - v1.3.3 (Accessible Setup & Controls) was merged to `main` via PR #38 at merge commit `93fb20aae43a876cb6d68ef5060a4ecd5ccc9087` (PR head `9c079572cbdbb94f9a33b57b9cd95b95dea9a001`) on 2026-11-04 at 10:25:41 AM Singapore time and automatically deployed to Vercel Production (GitHub Deployment record `7536211733`, status `success`, Ready in `sin1`) at `https://atlas-cqa07407e-atlas-726e.vercel.app` (canonical: `https://atlas-alpha-vert.vercel.app`, inspector: `https://vercel.com/atlas-726e/atlas/5rucunhpngErYA4R3RD21tA3aSzC`). On 2026-11-04 Singapore time, the primary orchestrator completed authenticated read-only Production smoke verification: v1.3.3 release notice (title `Accessible Setup & Controls`, all four highlights, footer, and dismissal remaining closed after reload), Mathematics paper-combination radios reached by Tab and changed with Arrow keys (changes cancelled), Further Mathematics paper-combination radios reached by Tab and changed with Space (changes cancelled), dynamic guide progression moving focus to “Got it” inside step 2, Tab and Shift+Tab wrapping inside the dialog, Escape closing the dialog and returning focus to the Guide opener, fully visible 3×2 grid of 44px grade controls at 320px requested viewport with no horizontal document overflow, fully visible 1×6 horizontal row of grade buttons at 1024px, confidence controls exposing the labelled `Confidence rating` group with five `aria-pressed` buttons and existing 3/5 selection pressed, and Dashboard, Subjects, Mathematics, Further Mathematics, Stats, and Logs loading on the canonical hostname without error boundaries were verified with zero captured browser console warnings or errors and no data-changing controls submitted or server-side records changed. Explicit operational limitations are preserved: no route, paper combination, grade, confidence, notes status, exam date, mission, paper, or practice-record mutation was tested in Production; cross-user isolation was not tested; full automated authentication-flow E2E remains outstanding; the in-app browser did not expose the browser-local storage value directly (dismissal persistence was observed through reload behavior and exact storage behavior remains covered by automated tests); and v1.3.3 introduced no database migrations.
+- Milestone 5 / v1.5.0 (Target-Grade Marks Planner) is prepared as a verified local release candidate on branch `codex/milestone-5-target-grade-planner`. Core staged A* solver, server action, UI summary component, Migrations 034–036, June 2026 catalogue seed (`supabase/seeds/catalogue/june_2026_m5_catalogue.sql`), local pgTAP suites, and reversible operator smoke test fixtures (`supabase/tests/fixtures/milestone_5_hosted_smoke/`) are fully verified locally across 1,273 pgTAP database assertions (disposable container) and 721 application tests (`npm test`). Migrations 034–036 were previously applied and verified in an isolated hosted test project; however, no hosted operations occurred during this release-documentation gate. Production has not been shown to contain Migrations 034–036 or the durable catalogue. Hosted database migration, catalogue seeding, Vercel deployment, merge to `main`, and release tagging remain unexecuted pending explicit gate authorizations.
 - Do not rerun Migrations 024–026. Any further production correction must use a reviewed forward-only migration.
+
+## Milestone 5 / v1.5.0 Target-Grade Marks Planner Release Procedure
+
+The Milestone 5 Target-Grade Marks Planner release delivers paper-by-paper target allocation, official Cambridge threshold and component weighting integration, staged A* contribution handling, and fail-closed planners.
+
+### Database Migrations and Catalogue Scope
+
+1. **Migration 034** (`supabase/migrations/20261114000034_staged_component_stage_correction.sql`):
+   - Controlled forward-only stage correction for staged Mathematics 9709 and Further Mathematics 9231 component tokens.
+   - Safe no-op on an empty target catalogue, and fail-closed on inconsistent or incomplete populated catalogues.
+   - This is a controlled data correction modifying existing staged tokens, not an additive-only schema change.
+
+2. **Migration 035** (`supabase/migrations/20261115000035_carry_forward_evidence_contracts.sql`):
+   - Adds carry-forward evidence documents, normalized mappings, bridge links, lifecycle checks, immutability protections, least-privilege grants, and published views.
+
+3. **Migration 036** (`supabase/migrations/20261116000036_seed_china_zone5_carry_forward_evidence.sql`):
+   - Idempotently seeds one inactive, unreviewed China Zone 5 evidence document and ten unreviewed mappings for 9709 and 9231.
+   - Creates no bridge links and grants no planner eligibility; fail-closed by default until separately reviewed, approved, linked, and made eligible.
+
+4. **Durable Catalogue Seed** (`supabase/seeds/catalogue/june_2026_m5_catalogue.sql`):
+   - Scope: exactly 131 rows across 11 catalogue tables providing official threshold and component weighting evidence for Chemistry 9701, Physics 9702, and Mathematics 9709 only.
+   - Further Mathematics 9231 and Computer Science 9618 are not seeded in this file and remain fail-closed.
+   - Unseeded or ineligible paper combinations return clear unavailable statuses without guessing or fabricating targets.
+   - Migration 036 carry-forward evidence remains inactive and unreviewed until separately reviewed, approved, linked, and made eligible.
+
+### Verification Paths & Testing Guardrails
+
+- **Local-Only pgTAP Test Suites**:
+  - `supabase/tests/database/milestone_5_planner_preflight.test.sql`
+  - `supabase/tests/database/milestone_5_catalogue_and_smoke.test.sql`
+  - *Strict Guardrail*: These test suites are designed for local disposable PostgreSQL test containers only. Operators must **NEVER** run pgTAP suites, historical fixtures, or `milestone_5_planner_preflight.test.sql` against hosted Preview, Production, or any valuable database.
+
+- **Catalogue Validator Fixture**:
+  - `supabase/tests/fixtures/catalogue/milestone_5_catalogue_validator.sql`
+  - Verifies exact table row counts and schema integrity across the 11 catalogue tables.
+
+- **Hosted-Safe Reversible Operator Fixtures**:
+  - `supabase/tests/fixtures/milestone_5_hosted_smoke/bootstrap.sql`
+  - `supabase/tests/fixtures/milestone_5_hosted_smoke/assertions.sql`
+  - `supabase/tests/fixtures/milestone_5_hosted_smoke/teardown.sql`
+  - `supabase/tests/fixtures/milestone_5_hosted_smoke/verify_post_teardown.sql`
+  - Hosted smoke verification must use **ONLY** these separately reviewed operator-safe scripts. The harness requires dynamic user resolution, strict row ownership isolation, comprehensive teardown, and post-teardown equality checks ensuring zero persistent student test artifacts.
+
+### Recovery and Rollback Realities
+
+- Migration 034 is a forward-only data correction that updates existing staged component tokens.
+- Migration 035 introduces schema contracts and views.
+- Migration 036 persists inactive evidence records idempotently.
+- *Rollback Boundary*: The reversibility of the operator smoke workflow (`teardown.sql`) guarantees that smoke test data is completely cleaned up; however, it does **not** make database migrations automatically reversible.
+- Operators must obtain and verify an off-site logical database backup before applying any schema or catalogue changes to a hosted database.
+
+### Separated External Approval Gates & Release Sequence
+
+Every external operation requires separate explicit authorization:
+
+1. **Gate 1: Local Candidate Verification & Release Commit**
+   - Verify working tree, version metadata (`1.5.0`), and all 16 candidate files against Gate 4 manifest.
+   - Run local application tests (`npm test`), TypeScript check (`npx tsc --noEmit`), lint (`npm run lint`), and Next.js Webpack production build (`npm run build -- --webpack`).
+   - Create local release candidate commit only under explicit user authorization. Do not push.
+
+2. **Gate 2: Target Test/Preview Database Preparation**
+   - Verify off-site logical backup of the selected target database.
+   - Inspect the target's remote migration ledger (`supabase migration list --linked`). Do not assume the ledger ends at Migration 033; determine pending migrations from inspection.
+   - Execute a non-applying migration dry-run.
+   - Apply pending migrations (Migrations 034–036) only upon explicit authorization.
+   - Apply durable catalogue seed (`supabase/seeds/catalogue/june_2026_m5_catalogue.sql`) and run catalogue validator fixture.
+
+3. **Gate 3: Feature Branch Push & PR Update**
+   - Push branch `codex/milestone-5-target-grade-planner` to remote only upon explicit authorization.
+   - Update draft PR #41 with the release candidate commits.
+
+4. **Gate 4: Vercel Preview Deployment & Smoke Verification**
+   - Confirm Vercel Preview deployment builds and reaches `Ready`.
+   - Perform authenticated Preview smoke testing: verify `v1.5.0` release notification modal (title `Target-Grade Marks Planner`, badge `v1.5.0`, 5 highlights, persistent dismissal) and subject detail planner summary.
+   - Run hosted-safe reversible smoke fixtures (`bootstrap.sql`, `assertions.sql`, `teardown.sql`, `verify_post_teardown.sql`) on the test database.
+
+5. **Gate 5: Production Database Readiness & Migration**
+   - Create and verify an off-site logical backup of Production.
+   - Inspect Production migration ledger and verify pending migrations.
+   - Execute non-applying migration dry-run.
+   - Apply Migrations 034–036 upon explicit authorization.
+   - Apply durable catalogue seed (`supabase/seeds/catalogue/june_2026_m5_catalogue.sql`) and run catalogue validator fixture.
+
+6. **Gate 6: Merge PR #41 & Application Production Deployment**
+   - Merge the approved PR head into `main` only upon explicit authorization.
+   - Automatic Vercel Production deployment builds and deploys the matching v1.5.0 application.
+   - Confirm deployment reaches `Ready` in Singapore (`sin1`).
+
+7. **Gate 7: Production Smoke Testing**
+   - Execute authenticated read-only smoke checks on Production: verify `v1.5.0` notification modal, footer version, and planner UI across enrolled subjects without modifying student data.
+
+8. **Gate 8: Tagging & Release Publication**
+   - Identify the verified Production merge SHA on `origin/main`.
+   - Create annotated git tag `v1.5.0` targeting the exact merge SHA only upon explicit authorization.
+   - Publish GitHub Release for `v1.5.0`.
+
+9. **Gate 9: Post-Release Cleanup**
+   - Local worktree and backup cleanup remain a separately authorized gate.
 
 ## v1.3.4 Supabase Activity Keep-Alive
 

@@ -27,8 +27,8 @@
 | Security Hardening / Migration 029 Least-Privilege Grants | Applied and hosted-verified on 2026-09-30; 23/23 rollback-only pgTAP assertions passed; PR #25 merged at `d89e9a2`; Production deployment `dpl_6sSfNEtgKQyfVpPGaShxk2YXWMen` verified Ready in `sin1` |
 | Milestone 3: Official Grade-Threshold Foundation | Complete baseline; Migration 027 and June 2026 publications present in Singapore; publication discovery merged (PR #16, PR #18, PR #20); PR #30 activated daily discovery schedule (`0 7 * * *` UTC) on Vercel deployment `dpl_5x3V5hGMkf8vbRwYgtyMjqsiVhg4`; first authorized production run verified with sanitized structured log and outcome `no_change`; mutating endpoint remains dormant |
 | Milestone 4: Paper & Question-Practice Logging and Analytics | Migrations 031–033 applied to Production database (`uvprmojmscndtwgkvjbi`) on 2026-10-21 (33 migrations in ledger, no 030, 0 pending); PR #32 merged at `d277d40` and Vercel Production deployment `dpl_xkMhwRSLJXVoxcWdoWcLT4CYfp2h` Ready in `sin1` (Gate 4); signed-in read-only production smoke checks completed on 2026-10-21 (Gate 5; narrow widths observed at 449–455px; untested mobile/mutation/pagination limits preserved); release closeout in progress |
-| Milestone 5: Target-Grade Marks Planner | Planned; product rules documented, depends on Milestone 3 official thresholds and Milestone 4 practice logging |
-| Release-candidate checks | 201 database tests and 134 unit tests pass; type check, lint, production build, and whitespace checks pass |
+| Milestone 5: Target-Grade Marks Planner | Local release candidate in preparation (v1.5.0); core solver, server action, UI summary, Migrations 034–036, durable catalogue, and reversible test harness verified locally; hosted migrations and deployment pending approval |
+| Release-candidate checks | 1,273 database assertions (disposable container) and 721 application tests (6 skips) pass; type check, lint, webpack build, and whitespace checks pass |
 | Google Docs integration | Not started |
 
 ## Phase 0: Foundation (Complete)
@@ -231,23 +231,38 @@ The Milestone 4 feature implementation and database Migrations 031, 032, and 033
 - [ ] Gate 6: Complete release closeout, tag v1.3.0 targeting the final verified Production merge SHA, and publish GitHub Release.
 - [ ] Deferred to v1.3.1: Minor cosmetic refinements on Stats and Logs pages.
 
-### Milestone 5: Target-Grade Marks Planner (Planned)
+### Milestone 5: Target-Grade Marks Planner (Local Release Candidate in Preparation - v1.5.0)
 
-- [ ] Select the latest applicable official threshold using subject, route, stage, paper combination, year, and March/June/November series mapping.
-- [ ] Use an exact official component threshold when the student's variant is known.
-- [ ] When a variant is unknown, calculate a clearly labelled Atlas paper estimate from the ceiling of the approved compatible variant average, such as Mathematics 9709 Paper 1 variants 11, 12, and 13.
-- [ ] Include every compatible full-paper attempt in each grade-prediction paper baseline, normalize safely against its recorded maximum where necessary, and apply gradual recency weighting while keeping lifetime average, weighted baseline, attempt count, variability, and trend distinct.
-- [ ] Exclude standalone question practice from predicted grades and official threshold comparisons at the data-query boundary.
-- [ ] Present A* only as an official combined threshold; individual-paper A* allocations remain explicitly labelled Atlas estimates.
-- [ ] Use the averaged component A benchmark as the starting point for an A* paper allocation, then distribute the additional marks required by the official combined A* threshold.
-- [ ] For staged A*, use `ceil(official combined target / 2)` as the estimated AS contribution until a compatible official weighted AS mark replaces it.
-- [ ] Calculate remaining A2 marks as `official combined target - official weighted AS contribution`, then detect targets exceeding the available A2 maximum.
-- [ ] Keep raw marks, weighted marks, grades, percentages, and PUMs distinct throughout storage, calculation, and presentation.
-- [ ] Retain and apply component weighting only where an official Cambridge source supports it; never infer a missing weighting.
-- [ ] Permit a validated official overall combination benchmark without component weighting, but make its per-paper allocation unavailable until trustworthy weighting exists.
-- [ ] When allocation is eligible, round only at final display and recheck the rounded allocation against the combined target.
-- [ ] Display required marks, student latest and average paper comparisons, safety-margin targets, subject-level predictions, source provenance, included variants, latest-publication fallback, and official-versus-estimated disclosures.
-- [ ] Add calculation, staged-route, variant-grouping, recency-weighting, threshold-boundary, prediction-isolation, and missing-data failure tests.
+> **Implementation Status (Local Release Candidate v1.5.0):**
+> - Core planner engine implemented: staged A* solver (`lib/planner/staged-a-star.ts`), server action (`lib/actions/target-planner.ts`), and subject detail UI summary (`components/subjects/target-grade-planner-summary.tsx`).
+> - Official Cambridge threshold and weighting database foundation created: Migration 034 (controlled stage correction for 9709/9231), Migration 035 (carry-forward evidence contracts and schema rules), and Migration 036 (idempotent seed of inactive China Zone 5 evidence document and 10 unreviewed mappings).
+> - Durable June 2026 catalogue seed (`supabase/seeds/catalogue/june_2026_m5_catalogue.sql`): 131 rows across 11 tables covering Chemistry 9701, Physics 9702, and Mathematics 9709 only (Further Mathematics 9231 and Computer Science 9618 are not seeded and remain fail-closed; Migration 036 carry-forward evidence remains inactive and unreviewed).
+> - Local-only pgTAP test suites (`supabase/tests/database/milestone_5_planner_preflight.test.sql`, `supabase/tests/database/milestone_5_catalogue_and_smoke.test.sql`), catalogue validator (`supabase/tests/fixtures/catalogue/milestone_5_catalogue_validator.sql`), and hosted-safe reversible operator fixtures (`supabase/tests/fixtures/milestone_5_hosted_smoke/`).
+> - Local verification complete: 1,273 pgTAP database assertions (disposable container), 95 focused planner tests, 721 application tests (`npm test`), clean typecheck, lint, webpack production build, and whitespace checks.
+> - Migrations 034–036 were previously applied to an isolated hosted test project; however, Production has not been shown to contain Migrations 034–036 or the durable catalogue.
+> - Hosted database migrations, catalogue seeding, Vercel preview/production deployments, PR merge, and release tagging remain unexecuted pending separate gate authorizations.
+
+- [x] Select the latest applicable official threshold using subject, route, stage, paper combination, year, and March/June/November series mapping.
+- [x] Use an exact official component threshold when the student's variant is known.
+- [x] When a variant is unknown, calculate a clearly labelled Atlas paper estimate from the ceiling of the approved compatible variant average, such as Mathematics 9709 Paper 1 variants 11, 12, and 13.
+- [x] Include every compatible full-paper attempt in each grade-prediction paper baseline, normalize safely against its recorded maximum where necessary, and apply gradual recency weighting while keeping lifetime average, weighted baseline, attempt count, variability, and trend distinct.
+- [x] Exclude standalone question practice from predicted grades and official threshold comparisons at the data-query boundary.
+- [x] Present A* only as an official combined threshold; individual-paper A* allocations remain explicitly labelled Atlas estimates.
+- [x] Use the averaged component A benchmark as the starting point for an A* paper allocation, then distribute the additional marks required by the official combined A* threshold.
+- [x] For staged A*, use `ceil(official combined target / 2)` as the estimated AS contribution until a compatible official weighted AS mark replaces it.
+- [x] Calculate remaining A2 marks as `official combined target - official weighted AS contribution`, then detect targets exceeding the available A2 maximum.
+- [x] Keep raw marks, weighted marks, grades, percentages, and PUMs distinct throughout storage, calculation, and presentation.
+- [x] Retain and apply component weighting only where an official Cambridge source supports it; never infer a missing weighting.
+- [x] Permit a validated official overall combination benchmark without component weighting, but make its per-paper allocation unavailable until trustworthy weighting exists.
+- [x] When allocation is eligible, round only at final display and recheck the rounded allocation against the combined target.
+- [x] Display required marks, student latest and average paper comparisons, safety-margin targets, subject-level predictions, source provenance, included variants, latest-publication fallback, and official-versus-estimated disclosures.
+- [x] Add calculation, staged-route, variant-grouping, recency-weighting, threshold-boundary, prediction-isolation, and missing-data failure tests.
+- [ ] Separately authorized target database preparation, backup, and ledger inspection.
+- [ ] Separately authorized branch push and PR #41 update.
+- [ ] Vercel Preview verification and authenticated Preview smoke testing.
+- [ ] Production database readiness, backup, dry-run, migration application (034–036), and catalogue seeding.
+- [ ] Merge PR #41 to `main`, verify Production deployment, and perform authenticated Production smoke testing.
+- [ ] Create annotated tag `v1.5.0` targeting verified Production merge SHA and publish GitHub Release.
 
 ## Phase 4: Mission Engine & Dashboard
 - [x] Implement `generate_daily_missions` algorithm
