@@ -6746,7 +6746,7 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
   })
 
   // ─── 11. Five-subject June 2026 completeness: 9231 Further Maths & 9618 CS ─
-  it('computes eligible AS and full-level paper-by-paper gap plans for Further Mathematics 9231 and Computer Science 9618', async () => {
+  it('resolves the exact Preview routes for Mathematics 9709, Further Mathematics 9231, and Computer Science 9618', async () => {
     const createSubjectMock = (cfg: {
       subjectId: string
       subjectName: string
@@ -6947,6 +6947,130 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
         return builder
       }
     }
+
+    const expectExactRoutePlan = async (
+      cfg: Parameters<typeof createSubjectMock>[0],
+      selectedVariants: Record<string, string>,
+      expectedTarget: number,
+    ) => {
+      mockFrom.mockImplementation(createSubjectMock(cfg))
+      const plan = await getTargetGradePlan(cfg.subjectId, { selectedVariants })
+
+      expect(plan.status).toBe('available')
+      if (plan.status === 'available') {
+        expect(plan.summary.targetGrade).toBe(cfg.targetGrade)
+        expect(plan.summary.officialCombinedTarget).toBe(expectedTarget)
+        expect(plan.summary.combinedMaximumMark).toBe(cfg.combMax)
+        expect(plan.paperPlans).toHaveLength(cfg.papers.length)
+        expect(plan.paperPlans.every((paper) => paper.sourceKind === 'official_exact')).toBe(true)
+      }
+    }
+
+    const mathsMechStatsPapers = [
+      { id: 'sp-9709-1', num: 1, name: 'Pure Mathematics 1', stage: 'as' as const, code: '11', rawMax: 75, rawA: 59, weight: 1 },
+      { id: 'sp-9709-4', num: 4, name: 'Mechanics', stage: 'as' as const, code: '41', rawMax: 50, rawA: 43, weight: 1 },
+      { id: 'sp-9709-3', num: 3, name: 'Pure Mathematics 3', stage: 'a2' as const, code: '31', rawMax: 75, rawA: 56, weight: 1 },
+      { id: 'sp-9709-5', num: 5, name: 'Probability & Statistics 1', stage: 'a2' as const, code: '51', rawMax: 50, rawA: 39, weight: 1 },
+    ]
+    const mathsMechStatsVariants = {
+      'sp-9709-1': '11',
+      'sp-9709-4': '41',
+      'sp-9709-3': '31',
+      'sp-9709-5': '51',
+    }
+
+    for (const [targetGrade, targetThreshold, caseSuffix] of [
+      ['A', 197, 'a'],
+      ['A*', 223, 'astar'],
+    ] as const) {
+      await expectExactRoutePlan(
+        {
+          subjectId: `subj-9709-full-mech-stats-${caseSuffix}`,
+          subjectName: 'Mathematics',
+          subjectCode: '9709',
+          routeId: '18efca50-e2e0-5817-bfe3-1e0182181c7c',
+          studyRoute: 'full_level',
+          targetGrade,
+          combId: '9125185a-c846-50f4-8467-796c765668a4',
+          canonicalKey: '11,31,41,51',
+          qualificationLevel: 'a_level',
+          combMax: 250,
+          targetThreshold,
+          papers: mathsMechStatsPapers,
+          attempts: [],
+        },
+        mathsMechStatsVariants,
+        targetThreshold,
+      )
+    }
+
+    const furtherMathsFullPapers = [
+      { id: 'sp-9231-1', num: 1, name: 'Further Pure Mathematics 1', stage: 'as' as const, code: '11', rawMax: 75, rawA: 51, weight: 1 },
+      { id: 'sp-9231-3', num: 3, name: 'Further Mechanics', stage: 'as' as const, code: '31', rawMax: 50, rawA: 28, weight: 1 },
+      { id: 'sp-9231-2', num: 2, name: 'Further Pure Mathematics 2', stage: 'a2' as const, code: '21', rawMax: 75, rawA: 63, weight: 1 },
+      { id: 'sp-9231-4', num: 4, name: 'Further Probability & Statistics', stage: 'a2' as const, code: '41', rawMax: 50, rawA: 39, weight: 1 },
+    ]
+    const furtherMathsFullVariants = {
+      'sp-9231-1': '11',
+      'sp-9231-3': '31',
+      'sp-9231-2': '21',
+      'sp-9231-4': '41',
+    }
+
+    for (const [targetGrade, targetThreshold, caseSuffix] of [
+      ['A', 181, 'a'],
+      ['A*', 214, 'astar'],
+    ] as const) {
+      await expectExactRoutePlan(
+        {
+          subjectId: `subj-9231-full-all-${caseSuffix}`,
+          subjectName: 'Further Mathematics',
+          subjectCode: '9231',
+          routeId: '6e8c9d70-78cb-57f9-ae2f-d11708e83bc2',
+          studyRoute: 'full_level',
+          targetGrade,
+          combId: '4fa6bbed-d4a8-59fc-b9e7-b5971609a5d6',
+          canonicalKey: '11,21,31,41',
+          qualificationLevel: 'a_level',
+          combMax: 250,
+          targetThreshold,
+          papers: furtherMathsFullPapers,
+          attempts: [],
+        },
+        furtherMathsFullVariants,
+        targetThreshold,
+      )
+    }
+
+    await expectExactRoutePlan(
+      {
+        subjectId: 'subj-9709-full-stats-double',
+        subjectName: 'Mathematics',
+        subjectCode: '9709',
+        routeId: '5bc2f026-3e82-5745-93b7-a616db077215',
+        studyRoute: 'full_level',
+        targetGrade: 'A*',
+        combId: 'e531d6d6-687d-5ea8-8fed-23f8a944b0a1',
+        canonicalKey: '11,31,51,61',
+        qualificationLevel: 'a_level',
+        combMax: 250,
+        targetThreshold: 222,
+        papers: [
+          { id: 'sp-9709-1', num: 1, name: 'Pure Mathematics 1', stage: 'as', code: '11', rawMax: 75, rawA: 59, weight: 1 },
+          { id: 'sp-9709-5', num: 5, name: 'Probability & Statistics 1', stage: 'as', code: '51', rawMax: 50, rawA: 39, weight: 1 },
+          { id: 'sp-9709-3', num: 3, name: 'Pure Mathematics 3', stage: 'a2', code: '31', rawMax: 75, rawA: 56, weight: 1 },
+          { id: 'sp-9709-6', num: 6, name: 'Probability & Statistics 2', stage: 'a2', code: '61', rawMax: 50, rawA: 40, weight: 1 },
+        ],
+        attempts: [],
+      },
+      {
+        'sp-9709-1': '11',
+        'sp-9709-5': '51',
+        'sp-9709-3': '31',
+        'sp-9709-6': '61',
+      },
+      222,
+    )
 
     // 9231 Further Mathematics Full A-Level Linear (AY: 12, 22, 32, 42 -> 250 max, A* = 216)
     mockFrom.mockImplementation(

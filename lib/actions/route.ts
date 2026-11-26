@@ -66,6 +66,7 @@ export async function configureSubjectRoute(
 
   revalidatePath('/dashboard')
   revalidatePath('/subjects')
+  revalidatePath('/subjects/[subjectId]', 'page')
   revalidatePath('/past-papers')
   revalidatePath('/logs')
   revalidatePath('/stats')
@@ -123,6 +124,7 @@ export async function transitionToA2(
 
   revalidatePath('/dashboard')
   revalidatePath('/subjects')
+  revalidatePath('/subjects/[subjectId]', 'page')
   revalidatePath('/past-papers')
   revalidatePath('/logs')
   revalidatePath('/stats')

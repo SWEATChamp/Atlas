@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { CalendarDays, Check, X } from 'lucide-react'
 import { updateExamDate } from '@/lib/actions/subjects'
@@ -29,13 +30,24 @@ export default function ExamDatePicker({
   countdownLabel,
   countdownColor,
 }: Props) {
+  const router = useRouter()
   const [savedDate, setSavedDate] = useState(currentDate)
+  const [prevCurrentDate, setPrevCurrentDate] = useState(currentDate)
   const [date, setDate] = useState(currentDate ?? '')
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const ref = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const prefersReduced = useReducedMotion()
+
+  if (prevCurrentDate !== currentDate) {
+    setPrevCurrentDate(currentDate)
+    setSavedDate(currentDate)
+    if (!open) {
+      setDate(currentDate ?? '')
+    }
+  }
 
   useEffect(() => {
     function closeOnOutsideClick(event: MouseEvent) {
@@ -69,12 +81,24 @@ export default function ExamDatePicker({
 
       setSavedDate(date)
       setOpen(false)
+      router.refresh()
     })
   }
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
+    <div
+      ref={ref}
+      style={{ position: 'relative' }}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && open) {
+          event.stopPropagation()
+          close()
+          triggerRef.current?.focus()
+        }
+      }}
+    >
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(value => !value)}
         title="Change exam date"
@@ -156,7 +180,7 @@ export default function ExamDatePicker({
             />
 
             {error && (
-              <p style={{ margin: '7px 0 0', color: 'var(--danger)', fontSize: '0.75rem' }}>
+              <p role="alert" style={{ margin: '7px 0 0', color: 'var(--danger)', fontSize: '0.75rem' }}>
                 {error}
               </p>
             )}

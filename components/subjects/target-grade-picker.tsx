@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition, useRef, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
 import { updateTargetGrade } from '@/lib/actions/subjects'
@@ -19,11 +20,13 @@ interface Props {
 }
 
 export default function TargetGradePicker({ subjectId, currentGrade, color }: Props) {
+  const router = useRouter()
   const normalizedCurrentGrade =
     currentGrade && currentGrade.trim().length > 0 ? currentGrade : null
   const [grade, setGrade] = useState<string | null>(normalizedCurrentGrade)
   const [prevCurrentGrade, setPrevCurrentGrade] = useState<string | null>(normalizedCurrentGrade)
   const [open, setOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   if (prevCurrentGrade !== normalizedCurrentGrade) {
     setPrevCurrentGrade(normalizedCurrentGrade)
@@ -31,6 +34,7 @@ export default function TargetGradePicker({ subjectId, currentGrade, color }: Pr
   }
   const [isPending, startTransition] = useTransition()
   const ref = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const prefersReduced = useReducedMotion()
   const [placement, setPlacement] = useState<{
     left?: number | string
@@ -110,20 +114,41 @@ export default function TargetGradePicker({ subjectId, currentGrade, color }: Pr
   }, [])
 
   const handleSelect = (g: Grade) => {
-    setGrade(g)
-    setOpen(false)
+    setError(null)
     startTransition(async () => {
-      await updateTargetGrade(subjectId, g)
+      const result = await updateTargetGrade(subjectId, g)
+      if (result?.error) {
+        setError(result.error)
+        return
+      }
+      setGrade(g)
+      setOpen(false)
+      router.refresh()
     })
   }
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
+    <div
+      ref={ref}
+      style={{ position: 'relative' }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && open) {
+          e.stopPropagation()
+          setError(null)
+          setOpen(false)
+          triggerRef.current?.focus()
+        }
+      }}
+    >
       {/* Trigger badge */}
       <button
+        ref={triggerRef}
         type="button"
         className="target-grade-trigger touch-target-btn"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          setError(null)
+          setOpen((v) => !v)
+        }}
         title={grade ? 'Change target grade' : 'Set target grade'}
         aria-label={
           grade
@@ -240,6 +265,19 @@ export default function TargetGradePicker({ subjectId, currentGrade, color }: Pr
                 </motion.button>
               )
             })}
+            {error && (
+              <p
+                role="alert"
+                style={{
+                  width: '100%',
+                  margin: '4px 2px 2px',
+                  color: 'var(--danger)',
+                  fontSize: '0.75rem',
+                }}
+              >
+                {error}
+              </p>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

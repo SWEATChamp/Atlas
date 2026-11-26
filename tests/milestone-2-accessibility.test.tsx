@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
 import { render, screen, fireEvent, act, cleanup, within, waitFor } from '@testing-library/react'
 import PaperSelectionPanel from '@/components/subjects/paper-selection-panel'
 import { Dialog } from '@/components/ui/dialog'

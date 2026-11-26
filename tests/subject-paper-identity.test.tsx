@@ -1,5 +1,7 @@
 import React from 'react'
 import { describe, expect, it, vi, afterEach } from 'vitest'
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
 import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
 import {
   matchSavedCombination,
