@@ -13,7 +13,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:integration": "TEST_INTEGRATION=true vitest run tests/grade-threshold-pipeline.integration.test.ts",
-    "test:db": "supabase test db"
+    "test:db": "supabase test db",
+    "reconcile:m5": "tsx scripts/reconcile-june-2026-catalogue.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",
@@ -42,6 +43,7 @@
     "eslint-config-next": "16.2.12",
     "jsdom": "^29.1.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^4.1.11"
   }

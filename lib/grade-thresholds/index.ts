@@ -11,15 +11,33 @@ export {
 export type * from './types'
 export {
   CAMBRIDGE_WEIGHTING_SOURCE,
+  formatWeightingSeriesKey,
+  formatWeightingSeriesLabel,
+  getExpectedWeightingRowsForSession,
+  isWeightingManifestCoveringSession,
   parseCambridgeWeightingItems,
   parseCambridgeWeightingPdf,
   parseCambridgeWeightingRow,
+  validateWeightingManifest,
 } from './weighting-source'
 export type {
   CambridgeWeightingSourceManifest,
   ParsedWeightingPublication,
+  ParseWeightingOptions,
   WeightingFactorRow,
+  WeightingSessionTarget,
 } from './weighting-source'
+export { buildGradeThresholdCompletenessReport } from './completeness-report'
+export type {
+  CompletenessStatus,
+  CountComparison,
+  GradeThresholdCompletenessReport,
+  ObservedPublicationCounts,
+  SubjectCompletenessInput,
+  SubjectCompletenessReport,
+  SubjectPersistedTableCompleteness,
+  SubjectSectionCompleteness,
+} from './completeness-report'
 export {
   APPROVED_CAMBRIDGE_HOSTS,
   isApprovedCambridgeHost,

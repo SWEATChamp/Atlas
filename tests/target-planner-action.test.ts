@@ -6744,4 +6744,313 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
       expect(impossiblePlan.reason).toContain('exceeds the maximum possible score')
     }
   })
+
+  // ─── 11. Five-subject June 2026 completeness: 9231 Further Maths & 9618 CS ─
+  it('computes eligible AS and full-level paper-by-paper gap plans for Further Mathematics 9231 and Computer Science 9618', async () => {
+    const createSubjectMock = (cfg: {
+      subjectId: string
+      subjectName: string
+      subjectCode: string
+      routeId: string
+      studyRoute: 'as_only' | 'full_level'
+      targetGrade: 'A' | 'A*'
+      combId: string
+      canonicalKey: string
+      qualificationLevel: 'as' | 'a_level'
+      combMax: number
+      targetThreshold: number
+      papers: Array<{ id: string; num: number; name: string; stage: 'as' | 'a2'; code: string; rawMax: number; rawA: number; weight: number }>
+      attempts: Array<{ paperId: string; paperNum: number; scoreRaw: number; scoreMax: number }>
+    }) => {
+      return (table: string) => {
+        const builder: MockQueryBuilder = {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          order: vi.fn().mockReturnThis(),
+          in: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockImplementation(() => {
+            if (table === 'published_grade_threshold_combinations') {
+              return Promise.resolve({
+                data: {
+                  id: cfg.combId,
+                  publication_id: `pub-${cfg.subjectCode}`,
+                  canonical_key: cfg.canonicalKey,
+                  qualification_level: cfg.qualificationLevel,
+                  route_type: cfg.studyRoute,
+                  maximum_mark: cfg.combMax,
+                  weighting_basis: 'weighted_total',
+                  per_paper_allocation_eligible: true,
+                  atlas_route_id: cfg.routeId,
+                  planner_eligibility: 'eligible',
+                },
+                error: null,
+              })
+            }
+            return Promise.resolve({ data: null, error: null })
+          }),
+          single: vi.fn().mockImplementation(() => {
+            if (table === 'subjects') {
+              return Promise.resolve({
+                data: { id: cfg.subjectId, name: cfg.subjectName, code: cfg.subjectCode, color_hex: '#6366f1' },
+                error: null,
+              })
+            }
+            if (table === 'user_subjects') {
+              return Promise.resolve({
+                data: {
+                  id: `us-${cfg.subjectCode}`,
+                  user_id: currentUserId,
+                  subject_id: cfg.subjectId,
+                  study_route: cfg.studyRoute,
+                  target_grade: cfg.targetGrade,
+                  exam_date: '2026-06-01',
+                },
+                error: null,
+              })
+            }
+            return Promise.resolve({ data: null, error: null })
+          }),
+          range: vi.fn().mockImplementation((from: number) => {
+            if (table === 'past_papers') {
+              return Promise.resolve({
+                data:
+                  from === 0
+                    ? cfg.attempts.map((a, idx) => ({
+                        id: `att-${cfg.subjectCode}-${idx}`,
+                        subject_id: cfg.subjectId,
+                        subject_paper_id: a.paperId,
+                        paper_number: a.paperNum,
+                        year: 2025,
+                        session: 'may_jun',
+                        stage: cfg.papers.find((p) => p.id === a.paperId)?.stage ?? 'as',
+                        attempted_at: '2025-10-01',
+                        created_at: '2025-10-01T10:00:00Z',
+                        score_raw: a.scoreRaw,
+                        score_max: a.scoreMax,
+                      }))
+                    : [],
+                error: null,
+              })
+            }
+            return Promise.resolve({ data: [], error: null })
+          }),
+          then: undefined,
+        }
+
+        if (table === 'subject_valid_routes') {
+          builder.then = (r) =>
+            r({
+              data: [
+                {
+                  id: cfg.routeId,
+                  subject_id: cfg.subjectId,
+                  route: cfg.studyRoute,
+                  subject_route_papers: cfg.papers.map((p) => ({
+                    subject_paper_id: p.id,
+                    stage: p.stage,
+                  })),
+                },
+              ],
+              error: null,
+            })
+        } else if (table === 'subject_paper_selections') {
+          builder.then = (r) =>
+            r({
+              data: cfg.papers.map((p) => ({
+                user_subject_id: `us-${cfg.subjectCode}`,
+                subject_paper_id: p.id,
+                stage: p.stage,
+              })),
+              error: null,
+            })
+        } else if (table === 'subject_papers') {
+          builder.then = (r) =>
+            r({
+              data: cfg.papers.map((p) => ({
+                id: p.id,
+                subject_id: cfg.subjectId,
+                paper_number: p.num,
+                name: p.name,
+              })),
+              error: null,
+            })
+        } else if (table === 'grade_threshold_publications') {
+          builder.then = (r) =>
+            r({
+              data: [
+                {
+                  id: `pub-${cfg.subjectCode}`,
+                  subject_id: cfg.subjectId,
+                  exam_year: 2026,
+                  exam_series: 'june',
+                  publication_status: 'published',
+                  is_active: true,
+                },
+              ],
+              error: null,
+            })
+        } else if (table === 'published_grade_threshold_combinations') {
+          builder.then = (r) =>
+            r({
+              data: [
+                {
+                  id: cfg.combId,
+                  publication_id: `pub-${cfg.subjectCode}`,
+                  canonical_key: cfg.canonicalKey,
+                  qualification_level: cfg.qualificationLevel,
+                  route_type: cfg.studyRoute,
+                  maximum_mark: cfg.combMax,
+                  weighting_basis: 'weighted_total',
+                  per_paper_allocation_eligible: true,
+                  atlas_route_id: cfg.routeId,
+                  planner_eligibility: 'eligible',
+                },
+              ],
+              error: null,
+            })
+        } else if (table === 'grade_threshold_combination_marks') {
+          const markGrade = cfg.qualificationLevel === 'as' ? cfg.targetGrade.toLowerCase() : cfg.targetGrade
+          builder.then = (r) =>
+            r({
+              data: [{ combination_id: cfg.combId, grade: markGrade, threshold_mark: cfg.targetThreshold }],
+              error: null,
+            })
+        } else if (table === 'grade_threshold_combination_tokens') {
+          builder.then = (r) =>
+            r({
+              data: cfg.papers.map((p, idx) => ({
+                combination_id: cfg.combId,
+                token_position: idx + 1,
+                token_kind: 'component_variant',
+                stage: p.stage,
+                weighting_factor: p.weight,
+                resolved_component_variant_id: `var-${cfg.subjectCode}-${p.code}`,
+              })),
+              error: null,
+            })
+        } else if (table === 'grade_threshold_component_variants') {
+          builder.then = (r) =>
+            r({
+              data: cfg.papers.map((p) => ({
+                id: `var-${cfg.subjectCode}-${p.code}`,
+                publication_id: `pub-${cfg.subjectCode}`,
+                component_code: p.code,
+                raw_maximum_mark: p.rawMax,
+                subject_paper_id: p.id,
+                grade_threshold_component_marks: [{ grade: 'A', threshold_mark: p.rawA }],
+              })),
+              error: null,
+            })
+        } else if (table === 'published_grade_threshold_variant_benchmarks') {
+          builder.then = (r) => r({ data: [], error: null })
+        }
+        return builder
+      }
+    }
+
+    // 9231 Further Mathematics Full A-Level Linear (AY: 12, 22, 32, 42 -> 250 max, A* = 216)
+    mockFrom.mockImplementation(
+      createSubjectMock({
+        subjectId: 'subj-9231',
+        subjectName: 'Further Mathematics',
+        subjectCode: '9231',
+        routeId: 'route-9231-full',
+        studyRoute: 'full_level',
+        targetGrade: 'A*',
+        combId: 'comb-9231-ay',
+        canonicalKey: 'AY',
+        qualificationLevel: 'a_level',
+        combMax: 250,
+        targetThreshold: 216,
+        papers: [
+          { id: 'sp-9231-1', num: 1, name: 'Further Pure 1', stage: 'as', code: '12', rawMax: 75, rawA: 64, weight: 1 },
+          { id: 'sp-9231-2', num: 2, name: 'Further Pure 2', stage: 'a2', code: '22', rawMax: 75, rawA: 56, weight: 1 },
+          { id: 'sp-9231-3', num: 3, name: 'Further Mechanics', stage: 'as', code: '32', rawMax: 50, rawA: 37, weight: 1 },
+          { id: 'sp-9231-4', num: 4, name: 'Further Prob & Stats', stage: 'a2', code: '42', rawMax: 50, rawA: 39, weight: 1 },
+        ],
+        attempts: [{ paperId: 'sp-9231-1', paperNum: 12, scoreRaw: 60, scoreMax: 75 }],
+      }),
+    )
+    const fmPlan = await getTargetGradePlan('subj-9231', {
+      selectedVariants: {
+        'sp-9231-1': '12',
+        'sp-9231-2': '22',
+        'sp-9231-3': '32',
+        'sp-9231-4': '42',
+      },
+    })
+    expect(fmPlan.status).toBe('available')
+    if (fmPlan.status === 'available') {
+      expect(fmPlan.summary.targetGrade).toBe('A*')
+      expect(fmPlan.paperPlans).toHaveLength(4)
+      expect(fmPlan.paperPlans[0]?.evidence.latestRawScore).toBe(60)
+      expect(fmPlan.paperPlans[0]?.requiredMark).toBeGreaterThanOrEqual(64)
+      expect(fmPlan.paperPlans[0]?.latestGap).toBeGreaterThanOrEqual(4)
+    }
+
+    // 9618 Computer Science AS Only (SY: 12, 22 -> 150 max, A = 109)
+    mockFrom.mockImplementation(
+      createSubjectMock({
+        subjectId: 'subj-9618',
+        subjectName: 'Computer Science',
+        subjectCode: '9618',
+        routeId: 'route-9618-as',
+        studyRoute: 'as_only',
+        targetGrade: 'A',
+        combId: 'comb-9618-sy',
+        canonicalKey: 'SY',
+        qualificationLevel: 'as',
+        combMax: 150,
+        targetThreshold: 109,
+        papers: [
+          { id: 'sp-9618-1', num: 1, name: 'Theory Fundamentals', stage: 'as', code: '12', rawMax: 75, rawA: 56, weight: 1 },
+          { id: 'sp-9618-2', num: 2, name: 'Fundamental Problem-solving', stage: 'as', code: '22', rawMax: 75, rawA: 53, weight: 1 },
+        ],
+        attempts: [
+          { paperId: 'sp-9618-1', paperNum: 12, scoreRaw: 50, scoreMax: 75 },
+          { paperId: 'sp-9618-2', paperNum: 22, scoreRaw: 55, scoreMax: 75 },
+        ],
+      }),
+    )
+    const csPlan = await getTargetGradePlan('subj-9618', {
+      selectedVariants: {
+        'sp-9618-1': '12',
+        'sp-9618-2': '22',
+      },
+    })
+    expect(csPlan.status).toBe('available')
+    if (csPlan.status === 'available') {
+      expect(csPlan.summary.targetGrade).toBe('A')
+      expect(csPlan.paperPlans).toHaveLength(2)
+      expect(csPlan.paperPlans.reduce((s, p) => s + (p.requiredMark ?? 0), 0)).toBeGreaterThanOrEqual(109)
+    }
+
+    // Withheld staged / special option for 9618 (published view yields no eligible combination -> missing-official-thresholds)
+    mockFrom.mockImplementation((table: string) => {
+      const base = createSubjectMock({
+        subjectId: 'subj-9618',
+        subjectName: 'Computer Science',
+        subjectCode: '9618',
+        routeId: 'route-9618-as',
+        studyRoute: 'as_only',
+        targetGrade: 'A',
+        combId: 'comb-9618-sy',
+        canonicalKey: 'SY',
+        qualificationLevel: 'as',
+        combMax: 150,
+        targetThreshold: 109,
+        papers: [
+          { id: 'sp-9618-1', num: 1, name: 'Theory Fundamentals', stage: 'as', code: '12', rawMax: 75, rawA: 56, weight: 1 },
+          { id: 'sp-9618-2', num: 2, name: 'Fundamental Problem-solving', stage: 'as', code: '22', rawMax: 75, rawA: 53, weight: 1 },
+        ],
+        attempts: [],
+      })(table)
+      if (table === 'published_grade_threshold_combinations') {
+        base.then = (r) => r({ data: [], error: null })
+      }
+      return base
+    })
+    const withheldCs = await getTargetGradePlan('subj-9618')
+    expect(withheldCs.status).toBe('threshold-unavailable')
+  })
 })

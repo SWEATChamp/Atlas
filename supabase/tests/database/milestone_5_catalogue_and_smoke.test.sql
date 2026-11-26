@@ -5,7 +5,7 @@
 --
 -- Purpose:
 --   Comprehensive pgTAP verification proving:
---   1. Option A durable 131-row June 2026 catalogue seeding & exact validation.
+--   1. Complete 2,674-row June 2026 five-subject catalogue seeding & exact validation.
 --   2. Detection of 7 distinct negative catalogue mutations with zero-delta rollback.
 --   3. Fail-closed interrupted-run (55000) and collision guards (P0001, P0002).
 --   4. Pre-existing user state snapshotting & complete restoration:
@@ -30,7 +30,7 @@ CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions, pg_catalog;
 SET LOCAL TIME ZONE 'UTC';
 
-SELECT plan(78);
+SELECT plan(83);
 
 -- ─── 1. Migration Ledger & Baseline Pre-Seeding Assertions ───────────────────
 
@@ -97,32 +97,32 @@ SELECT is(
 
 SELECT is(
   (SELECT count(*)::INT FROM public.grade_threshold_publications),
-  3,
-  '8. Durable seed: exactly 3 publications (9701, 9702, 9709)'
+  5,
+  '8. Durable seed: exactly 5 publications (9701, 9702, 9709, 9231, 9618)'
 );
 
 SELECT is(
   (SELECT count(*)::INT FROM public.grade_threshold_weighting_sources),
-  3,
-  '9. Durable seed: exactly 3 weighting sources'
+  5,
+  '9. Durable seed: exactly 5 weighting sources'
 );
 
 SELECT is(
   (SELECT count(*)::INT FROM public.grade_threshold_weighting_entries),
-  11,
-  '10. Durable seed: exactly 11 weighting entries'
+  190,
+  '10. Durable seed: exactly 190 weighting entries'
 );
 
 SELECT is(
   (SELECT count(*)::INT FROM public.grade_threshold_component_variants),
-  13,
-  '11. Durable seed: exactly 13 component variants'
+  114,
+  '11. Durable seed: exactly 114 component variants'
 );
 
 SELECT is(
   (SELECT count(*)::INT FROM public.grade_threshold_component_marks),
-  65,
-  '12. Durable seed: exactly 65 component marks'
+  570,
+  '12. Durable seed: exactly 570 component marks'
 );
 
 SELECT is(
@@ -139,20 +139,20 @@ SELECT is(
 
 SELECT is(
   (SELECT count(*)::INT FROM public.grade_threshold_combinations),
-  3,
-  '15. Durable seed: exactly 3 combinations (Chem S3, Phys AY, Math DC)'
+  184,
+  '15. Durable seed: exactly 184 official combinations across all 5 subjects'
 );
 
 SELECT is(
   (SELECT count(*)::INT FROM public.grade_threshold_combination_tokens),
-  11,
-  '16. Durable seed: exactly 11 combination tokens'
+  542,
+  '16. Durable seed: exactly 542 combination tokens'
 );
 
 SELECT is(
   (SELECT count(*)::INT FROM public.grade_threshold_combination_marks),
-  17,
-  '17. Durable seed: exactly 17 combination marks'
+  1059,
+  '17. Durable seed: exactly 1059 combination marks'
 );
 
 SELECT is(
@@ -169,8 +169,8 @@ SELECT is(
     (SELECT count(*)::INT FROM public.grade_threshold_combination_tokens) +
     (SELECT count(*)::INT FROM public.grade_threshold_combination_marks)
   ),
-  131,
-  '18. Durable seed: total catalogue rows across all 11 tables is exactly 131'
+  2674,
+  '18. Durable seed: total catalogue rows across all 11 tables is exactly 2674'
 );
 
 -- ─── 3. Exact Catalogue Validation (Intact Catalogue) ─────────────────────────
@@ -185,8 +185,8 @@ SELECT is(
 
 SELECT is(
   (SELECT total_catalogue_rows FROM pg_temp.run_m5_catalogue_validator()),
-  131,
-  '20. Catalogue validator: rows = 131 on authentic intact catalogue'
+  2674,
+  '20. Catalogue validator: rows = 2674 on authentic intact catalogue'
 );
 
 -- Seed idempotency re-run check
@@ -196,6 +196,46 @@ SELECT is(
   (SELECT total_catalogue_delta FROM pg_temp.run_m5_catalogue_validator()),
   0,
   '21. Seed idempotency: delta = 0 after re-running seed'
+);
+
+-- Five-subject eligibility and withheld boundary checks
+SELECT is(
+  (SELECT count(*)::INT FROM public.published_grade_threshold_combinations WHERE per_paper_allocation_eligible = TRUE),
+  66,
+  '21b. Five-subject seed: exactly 66 AS/linear combinations exposed as eligible without CF bridge links'
+);
+
+SELECT is(
+  (SELECT count(*)::INT FROM public.published_grade_threshold_combinations c
+   JOIN public.grade_threshold_publications p ON p.id = c.publication_id
+   JOIN public.subjects s ON s.id = p.subject_id
+   WHERE s.code = '9231'),
+  12,
+  '21c. Further Mathematics 9231: 12 AS/full-level combinations exposed; all 26 staged and 3 special remain withheld'
+);
+
+SELECT is(
+  (SELECT count(*)::INT FROM public.published_grade_threshold_combinations c
+   JOIN public.grade_threshold_publications p ON p.id = c.publication_id
+   JOIN public.subjects s ON s.id = p.subject_id
+   WHERE s.code = '9618'),
+  6,
+  '21d. Computer Science 9618: 6 AS/full-level combinations exposed; all 11 staged and 2 special remain withheld'
+);
+
+SELECT is(
+  (SELECT count(*)::INT FROM public.published_grade_threshold_combinations WHERE planner_eligibility <> 'eligible' OR route_type = 'staged'),
+  0,
+  '21e. Fail-closed boundary: zero unreviewed/unsupported or unlinked staged combinations in published view'
+);
+
+SELECT is(
+  (SELECT count(*)::INT FROM public.grade_threshold_component_variants cv
+   JOIN public.grade_threshold_publications p ON p.id = cv.publication_id
+   JOIN public.subjects s ON s.id = p.subject_id
+   WHERE cv.subject_paper_id IS NULL AND s.code IN ('9701', '9702', '9709', '9231', '9618')),
+  16,
+  '21f. Special components (50/51/58/59/60/61/68/69) retained without false subject_paper_id linkage'
 );
 
 -- ─── 4. Negative Validator Mutation Detection Matrix ──────────────────────────
@@ -390,11 +430,12 @@ DECLARE
   v_us1_phys UUID := 'f1870000-0000-4000-8000-000000000012';
   v_us1_bio UUID := 'f1870000-0000-4000-8000-000000000013';
   v_us3_chem UUID := 'f1870000-0000-4000-8000-000000000019';
-  v_ch_a2 UUID := 'bfe552d8-99b0-416c-a6b9-c321d6644a34'; -- Chemical Energetics (A2)
+  v_ch_a2 UUID;
 BEGIN
   SELECT id INTO v_chem_id FROM public.subjects WHERE code = '9701';
   SELECT id INTO v_phys_id FROM public.subjects WHERE code = '9702';
   SELECT id INTO v_bio_id FROM public.subjects WHERE code = '9700';
+  SELECT id INTO v_ch_a2 FROM public.chapters WHERE subject_id = v_chem_id AND stage = 'a2' AND is_active = TRUE ORDER BY number LIMIT 1;
 
   -- 1. Pre-existing Chemistry enrollment for User 1: staged route, current_stage = a2, unlocked metadata
   INSERT INTO public.user_subjects (
@@ -729,8 +770,8 @@ SELECT is(
 
 SELECT is(
   (SELECT total_catalogue_rows FROM pg_temp.run_m5_catalogue_validator()),
-  131,
-  '68. Cycle 1 Teardown: catalogue validator reports exactly 131 rows'
+  2674,
+  '68. Cycle 1 Teardown: catalogue validator reports exactly 2674 rows'
 );
 
 -- ─── 11. Cycle 2 Bootstrap, Assertions & Teardown (Repeatability Proof) ───────
@@ -800,8 +841,8 @@ SELECT is(
 
 SELECT is(
   (SELECT total_catalogue_rows FROM pg_temp.run_m5_catalogue_validator()),
-  131,
-  '78. Cycle 2 Teardown: durable catalogue row count is 131 after second cycle'
+  2674,
+  '78. Cycle 2 Teardown: durable catalogue row count is 2674 after second cycle'
 );
 
 SELECT * FROM finish();

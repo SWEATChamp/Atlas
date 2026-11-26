@@ -7,7 +7,7 @@
 --   Independent read-only verification query confirming complete absence of
 --   transient smoke residue, restoration of canonical evidence lifecycle,
 --   restoration of user application state, and retention of the authentic
---   131-row durable catalogue under Option A.
+--   2,674-row five-subject durable catalogue under Option A.
 -- =============================================================================
 
 SELECT
@@ -41,7 +41,7 @@ SELECT
      'f1870000-0000-4000-8000-000000000005'
    )) AS smoke_attempts_remaining,
 
-  -- 7. Durable catalogue total rows under Option A (must be exactly 131)
+  -- 7. Durable catalogue total rows under Option A (must be exactly 2,674)
   (
     (SELECT count(*)::INT FROM public.grade_threshold_import_runs) +
     (SELECT count(*)::INT FROM public.grade_threshold_publications) +

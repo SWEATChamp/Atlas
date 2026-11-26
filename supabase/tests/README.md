@@ -102,10 +102,10 @@ Testing must proceed strictly in forward migration order using schema-specific f
    - Ends with a complete transactional rollback, followed by post-run zero-delta audit proving 0 residual rows across all 13 tables, 0 residual users, evidence records unreviewed and inactive, and published views empty. Repeatable across multiple runs.
 
 13. **Milestone 5 Durable Catalogue & Reversible Hosted-Smoke Verification (Gate 3)**:
-   - Run `database/milestone_5_catalogue_and_smoke.test.sql` using psql with `ON_ERROR_STOP=1` (78 planned assertions, ending with standard `finish()`).
+   - Run `database/milestone_5_catalogue_and_smoke.test.sql` using psql with `ON_ERROR_STOP=1` (83 planned assertions, ending with standard `finish()`).
    - Operates strictly on a uniquely isolated disposable local database migrated through Migration 036. Never run on hosted Preview, Production, or any valuable database without explicit gate authorization.
-   - Proves Option A durable catalogue architecture: seeds the authentic 131-row June 2026 Cambridge catalogue across 11 tables (`seeds/catalogue/june_2026_m5_catalogue.sql`) and confirms retention through smoke teardown.
-   - Validates exact catalogue integrity via `fixtures/catalogue/milestone_5_catalogue_validator.sql` implementing bidirectional typed `EXCEPT` comparisons returning `(total_catalogue_delta INT, total_catalogue_rows INT)`. Confirms `delta = 0` and `rows = 131`.
+   - Proves Option A durable catalogue architecture: seeds the complete 2,674-row June 2026 Cambridge catalogue across 11 tables (`seeds/catalogue/june_2026_m5_catalogue.sql`) covering all five MVP subjects (`9709`, `9231`, `9702`, `9701`, `9618`), and confirms retention through smoke teardown (including idempotent upgrade from the earlier 131-row subset while preserving all 131 deterministic row IDs).
+   - Validates exact catalogue integrity via `fixtures/catalogue/milestone_5_catalogue_validator.sql` implementing bidirectional typed `EXCEPT` comparisons and per-subject checks across all five syllabuses returning `(total_catalogue_delta INT, total_catalogue_rows INT)`. Confirms `delta = 0` and `rows = 2674` (`1` run, `5` publications, `5` weighting sources, `190` weighting entries, `114` component variants, `570` component marks, `1` benchmark group, `3` benchmark members, `184` combinations [`66` AS/linear `eligible` + `1` preserved gated Option `DC` = `67` `planner_eligibility='eligible'`, `95` `unreviewed` staged, `22` `unsupported`], `542` combination tokens, and `1,059` combination marks).
    - Proves detection of 7 negative catalogue mutations (missing row, extra row, component mark drift, weighting factor drift, invalid FK reference, token metadata corruption, unexpected scope) with complete rollback safety.
    - Validates fail-closed safety guardrails for `fixtures/milestone_5_hosted_smoke/bootstrap.sql`:
      - Interrupted-run detection: schema `_m5_smoke_snapshot` raises `55000` fail-closed.
@@ -128,7 +128,7 @@ Testing must proceed strictly in forward migration order using schema-specific f
      - Restores `daily_missions` changed by `cancel_inaccessible_missions` back to pending with NULL skip metadata.
      - Enforces scoped bidirectional before/after equality across all snapshotted tables before dropping `_m5_smoke_snapshot`.
      - Compares all 12 non-`updated_at` columns of `user_subjects` bidirectionally (`id, user_id, subject_id, exam_date, target_grade, priority, is_archived, created_at, study_route, current_stage, a2_unlocked_at, a2_unlock_method`). The single excluded column is `updated_at`, which fires the BEFORE UPDATE trigger `set_user_subjects_updated_at()` only on legitimately mutated rows.
-     - Retains the authentic 131-row durable catalogue under Option A.
+     - Retains the complete 2,674-row durable catalogue under Option A.
    - Proves full lifecycle repeatability across two complete consecutive bootstrap-assertions-teardown cycles.
    - Verified post-teardown using read-only query `fixtures/milestone_5_hosted_smoke/verify_post_teardown.sql`.
 

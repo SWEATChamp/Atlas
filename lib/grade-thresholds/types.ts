@@ -86,6 +86,7 @@ export type ParserIssueCode =
   | 'non-pdf-metadata'
   | 'not-pdf'
   | 'out-of-range-threshold'
+  | 'publication-activation-failed'
   | 'row-count-mismatch'
   | 'unresolved-combination-token'
   | 'unexpected-numerical-row'
@@ -118,6 +119,7 @@ export interface ParsedThresholdPublication {
 export interface StructuralExpectations {
   readonly pageCount: number
   readonly rowCounts: Readonly<Record<ThresholdSection, number>>
+  readonly expectedTokenCount?: number
 }
 
 export interface ComponentGoldenFixture {

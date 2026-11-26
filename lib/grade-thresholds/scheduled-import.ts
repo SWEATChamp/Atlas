@@ -13,11 +13,19 @@ import {
   type ImportPipelineResult,
   type RunImportPipelineOptions,
 } from './import-pipeline'
-import { CAMBRIDGE_JUNE_2026_SOURCES } from './source-manifest'
+import { CAMBRIDGE_THRESHOLD_SOURCES } from './source-manifest'
+import {
+  buildGradeThresholdCompletenessReport,
+  type GradeThresholdCompletenessReport,
+  type ObservedPublicationCounts,
+  type SubjectCompletenessInput,
+} from './completeness-report'
 import { sha256Hex } from './parser'
 import type { CambridgeThresholdSource } from './types'
 import {
   CAMBRIDGE_WEIGHTING_SOURCE,
+  getExpectedWeightingRowsForSession,
+  isWeightingManifestCoveringSession,
   type CambridgeWeightingSourceManifest,
 } from './weighting-source'
 import {
@@ -87,6 +95,7 @@ export interface ScheduledImportReport {
   weightingCheck?: ScheduledWeightingCheck
   discovery?: PublicationDiscoveryReport
   importAudit?: SanitizedImportAudit
+  completenessReport?: GradeThresholdCompletenessReport
 }
 
 export interface RunScheduledImportOptions {
@@ -94,6 +103,7 @@ export interface RunScheduledImportOptions {
   sources?: readonly CambridgeThresholdSource[]
   includeWeighting?: boolean
   weightingSource?: CambridgeWeightingSourceManifest
+  weightingSources?: readonly CambridgeWeightingSourceManifest[]
   downloadPdf?: (
     url: string,
     options?: DownloadCambridgePdfOptions,
@@ -157,9 +167,11 @@ export async function runScheduledGradeThresholdImport(
   options: RunScheduledImportOptions,
 ): Promise<ScheduledImportReport> {
   const persistence = options.persistence
-  const sources = options.sources ?? CAMBRIDGE_JUNE_2026_SOURCES
+  const sources = options.sources ?? CAMBRIDGE_THRESHOLD_SOURCES
   const includeWeighting = options.includeWeighting ?? true
-  const weightingSource = options.weightingSource ?? CAMBRIDGE_WEIGHTING_SOURCE
+  const weightingManifests: readonly CambridgeWeightingSourceManifest[] =
+    options.weightingSources ??
+    [options.weightingSource ?? CAMBRIDGE_WEIGHTING_SOURCE]
   const download = options.downloadPdf ?? downloadCambridgePdf
   const runPipeline = options.runPipeline ?? runGradeThresholdImportPipeline
   const checkedAt = (options.now ?? (() => new Date()))().toISOString()
@@ -333,15 +345,30 @@ export async function runScheduledGradeThresholdImport(
   let weightingCheck: ScheduledWeightingCheck | undefined
   if (includeWeighting) {
     try {
-      const { bytes } = await cachedDownload(weightingSource.pdfUrl)
-      const observedChecksumSha256 = sha256Hex(bytes)
-      const matchesConfiguredChecksum =
-        observedChecksumSha256 === weightingSource.expectedChecksumSha256
       let reviewedSubjects = 0
       let pendingSubjects = 0
       let missingSubjects = 0
+      let observedChecksumSha256: string | undefined
+      let allMatchConfiguredChecksums = true
+      let hasCoveredSession = false
 
       for (const source of sources) {
+        const matchingManifest = weightingManifests.find((m) =>
+          isWeightingManifestCoveringSession(m, source.year, source.series),
+        )
+        if (!matchingManifest) {
+          // Do not assume a weighting source (e.g. June 2026) covers future sessions
+          continue
+        }
+        hasCoveredSession = true
+
+        const { bytes } = await cachedDownload(matchingManifest.pdfUrl)
+        const checksum = sha256Hex(bytes)
+        observedChecksumSha256 = observedChecksumSha256 ?? checksum
+        if (checksum !== matchingManifest.expectedChecksumSha256) {
+          allMatchConfiguredChecksums = false
+        }
+
         const subject = await getSubject(source.syllabusCode)
         if (!subject) {
           missingSubjects += 1
@@ -352,7 +379,7 @@ export async function runScheduledGradeThresholdImport(
           subject.id,
           source.year,
           source.series,
-          observedChecksumSha256,
+          checksum,
         )
         if (!stored) {
           missingSubjects += 1
@@ -363,19 +390,21 @@ export async function runScheduledGradeThresholdImport(
         }
       }
 
-      weightingCheck = {
-        status:
-          !matchesConfiguredChecksum && missingSubjects === 0
-            ? 'pending_review'
-            : missingSubjects > 0
-            ? 'change_detected'
-            : pendingSubjects > 0
+      if (hasCoveredSession) {
+        weightingCheck = {
+          status:
+            !allMatchConfiguredChecksums && missingSubjects === 0
               ? 'pending_review'
-              : 'unchanged',
-        observedChecksumSha256,
-        reviewedSubjects,
-        pendingSubjects,
-        missingSubjects,
+              : missingSubjects > 0
+                ? 'change_detected'
+                : pendingSubjects > 0
+                  ? 'pending_review'
+                  : 'unchanged',
+          observedChecksumSha256,
+          reviewedSubjects,
+          pendingSubjects,
+          missingSubjects,
+        }
       }
     } catch {
       weightingCheck = {
@@ -439,14 +468,72 @@ export async function runScheduledGradeThresholdImport(
       ),
     )
 
+  const buildCheckCompletenessReport = async (): Promise<GradeThresholdCompletenessReport> => {
+    const inputs: SubjectCompletenessInput[] = await Promise.all(
+      sources.map(async (source) => {
+        const subject = await getSubject(source.syllabusCode)
+        const check = sourceChecks.find(
+          (c) =>
+            c.syllabusCode === source.syllabusCode &&
+            c.year === source.year &&
+            c.series === source.series,
+        )
+        const matchingManifest = includeWeighting
+          ? weightingManifests.find((m) =>
+              isWeightingManifestCoveringSession(m, source.year, source.series),
+            )
+          : undefined
+        const expectedWeightingEntries = matchingManifest
+          ? getExpectedWeightingRowsForSession(matchingManifest, source.year, source.series)[source.syllabusCode]
+          : undefined
+
+        let observed: ObservedPublicationCounts | null = null
+        if (subject && persistence.inspectPublicationCompleteness) {
+          observed = await persistence.inspectPublicationCompleteness(
+            subject.id,
+            source.year,
+            source.series,
+          )
+        }
+
+        return {
+          source,
+          observed,
+          reviewRequired:
+            check?.status === 'pending_review' ||
+            check?.status === 'manifest_required' ||
+            check?.status === 'ambiguous',
+          weightingCovered: !includeWeighting || Boolean(matchingManifest),
+          invalid:
+            check?.status === 'check_failed' || check?.status === 'invalid_link',
+          expectedWeightingEntries,
+        }
+      }),
+    )
+
+    return buildGradeThresholdCompletenessReport(inputs, options.now)
+  }
+
   if (!requiresManifestImport) {
+    const completenessReport = persistence.inspectPublicationCompleteness
+      ? await buildCheckCompletenessReport()
+      : undefined
+    const completenessRequiresReview = Boolean(
+      completenessReport &&
+        (completenessReport.totalsByState.staged > 0 ||
+          completenessReport.totalsByState.review_required > 0),
+    )
     return {
       ok: true,
-      outcome: hasPendingReview ? 'review_required' : 'no_change',
+      outcome:
+        hasPendingReview || completenessRequiresReview
+          ? 'review_required'
+          : 'no_change',
       checkedAt,
       sourceChecks,
       weightingCheck,
       discovery: discoveryReport,
+      ...(completenessReport ? { completenessReport } : {}),
     }
   }
 
@@ -455,7 +542,7 @@ export async function runScheduledGradeThresholdImport(
     persistence,
     sources,
     includeWeighting,
-    weightingSource,
+    weightingSources: weightingManifests,
     downloadPdf: cachedDownload,
     autoPublish: false,
   })
@@ -474,6 +561,9 @@ export async function runScheduledGradeThresholdImport(
     weightingCheck,
     discovery: discoveryReport,
     importAudit,
+    ...(pipelineResult.completenessReport
+      ? { completenessReport: pipelineResult.completenessReport }
+      : {}),
   }
 }
 

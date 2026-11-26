@@ -9,10 +9,19 @@ import type {
 } from './types'
 import { sha256Hex, parseCambridgeThresholdPdf } from './parser'
 import { extractPdfTextItems } from './pdf-extraction'
-import { CAMBRIDGE_JUNE_2026_SOURCES } from './source-manifest'
+import { CAMBRIDGE_THRESHOLD_SOURCES } from './source-manifest'
+import {
+  buildGradeThresholdCompletenessReport,
+  type GradeThresholdCompletenessReport,
+  type ObservedPublicationCounts,
+  type SubjectCompletenessInput,
+} from './completeness-report'
 import {
   CAMBRIDGE_WEIGHTING_SOURCE,
+  getExpectedWeightingRowsForSession,
+  isWeightingManifestCoveringSession,
   parseCambridgeWeightingPdf,
+  validateWeightingManifest,
   type CambridgeWeightingSourceManifest,
   type ParsedWeightingPublication,
 } from './weighting-source'
@@ -282,6 +291,11 @@ export interface GradeThresholdPersistence {
 
   recordImportIssue(params: RecordImportIssueParams): Promise<void>
   publishPublication(publicationId: string): Promise<string>
+  inspectPublicationCompleteness?(
+    subjectId: string,
+    year: number,
+    series: CambridgeSeries,
+  ): Promise<ObservedPublicationCounts | null>
 }
 
 export interface PublicationAuditResult {
@@ -313,6 +327,9 @@ export interface ImportPipelineResult {
     issues: readonly { code: string; message: string }[]
   }
   publications: PublicationAuditResult[]
+  awaitingReview?: boolean
+  publicationDisposition?: 'published' | 'review_required' | 'failed' | 'unchanged'
+  completenessReport?: GradeThresholdCompletenessReport
 }
 
 export interface RunImportPipelineOptions {
@@ -321,10 +338,27 @@ export interface RunImportPipelineOptions {
   sources?: readonly CambridgeThresholdSource[]
   includeWeighting?: boolean
   weightingSource?: CambridgeWeightingSourceManifest
+  weightingSources?: readonly CambridgeWeightingSourceManifest[]
   downloadPdf?: (url: string) => Promise<{ bytes: Uint8Array; contentType: string }>
   extractPdfText?: (bytes: Uint8Array) => Promise<PdfExtraction>
   autoPublish?: boolean
   parserVersion?: string
+}
+
+const NON_STANDARD_SUBJECT_COMPONENTS: Readonly<Record<string, ReadonlySet<string>>> = {
+  '9709': new Set(['50', '58', '59', '60', '68', '69']),
+  '9231': new Set(['50', '51', '60', '61']),
+  '9702': new Set(['50', '60']),
+  '9701': new Set(['50', '60']),
+  '9618': new Set(['50', '60']),
+}
+
+function resolveStandardPaperNumber(syllabusCode: string, componentCode: string): number | null {
+  if (NON_STANDARD_SUBJECT_COMPONENTS[syllabusCode]?.has(componentCode)) {
+    return null
+  }
+  const paperNum = parseInt(componentCode[0], 10)
+  return Number.isNaN(paperNum) ? null : paperNum
 }
 
 /**
@@ -352,7 +386,7 @@ export async function inspectConfiguredThresholdSources(params: {
     expectedChecksumSha256: string
   }
 }> {
-  const sources = params.sources ?? CAMBRIDGE_JUNE_2026_SOURCES
+  const sources = params.sources ?? CAMBRIDGE_THRESHOLD_SOURCES
   const thresholdSources: Array<{
     syllabusCode: string
     year: number
@@ -404,13 +438,15 @@ export async function runGradeThresholdImportPipeline(
 ): Promise<ImportPipelineResult> {
   const triggerKind = options.triggerKind ?? 'manual'
   const persistence = options.persistence
-  const sources = options.sources ?? CAMBRIDGE_JUNE_2026_SOURCES
+  const sources = options.sources ?? CAMBRIDGE_THRESHOLD_SOURCES
   const download = options.downloadPdf ?? downloadCambridgePdf
   const extract = options.extractPdfText ?? extractPdfTextItems
   // Safe default: do not auto-publish staged documents without explicit administrative instruction
   const autoPublish = options.autoPublish ?? false
   const includeWeighting = options.includeWeighting ?? true
-  const weightingSourceManifest = options.weightingSource ?? CAMBRIDGE_WEIGHTING_SOURCE
+  const weightingManifests: readonly CambridgeWeightingSourceManifest[] =
+    options.weightingSources ??
+    [options.weightingSource ?? CAMBRIDGE_WEIGHTING_SOURCE]
   const parserVersion = options.parserVersion ?? 'v1'
 
   const startedAt = new Date().toISOString()
@@ -425,119 +461,178 @@ export async function runGradeThresholdImportPipeline(
   const publications: PublicationAuditResult[] = []
   let weightingAudit: ImportPipelineResult['weighting']
 
-  // Step 1: Ingest Weighting Source if enabled
-  const weightingSourcesBySubject = new Map<string, WeightingSourceInfo>()
+  // Track session-scoped weighting sources: `${subjectId}:${year}:${series}` -> WeightingSourceInfo
+  const weightingSourcesBySessionSubject = new Map<string, WeightingSourceInfo>()
+  const weightingManifestBySession = new Map<string, CambridgeWeightingSourceManifest>()
 
-  if (includeWeighting && weightingSourceManifest) {
-    totalDiscovered += 1
-    try {
-      const { bytes, contentType } = await download(weightingSourceManifest.pdfUrl)
-      const checksum = sha256Hex(bytes)
+  const distinctSessions = new Map<string, { year: number; series: CambridgeSeries }>()
+  for (const s of sources) {
+    distinctSessions.set(`${s.year}:${s.series}`, { year: s.year, series: s.series })
+  }
 
-      const parsedWeighting: ParsedWeightingPublication = await parseCambridgeWeightingPdf(
-        bytes,
-        contentType,
-        extract,
-        weightingSourceManifest.expectedChecksumSha256,
+  if (includeWeighting) {
+    for (const session of distinctSessions.values()) {
+      const candidateManifest = weightingManifests.find((m) =>
+        m.coveredSeries.includes(`${session.series}-${session.year}`),
       )
+      if (!candidateManifest) {
+        // Session has no reviewed weighting manifest; never backfill from another session (e.g. June 2026)
+        continue
+      }
 
-      if (parsedWeighting.validation.status !== 'valid') {
+      const manifestIssues = validateWeightingManifest(candidateManifest, session)
+      if (manifestIssues.length > 0 || !isWeightingManifestCoveringSession(candidateManifest, session.year, session.series)) {
         weightingAudit = {
-          checksumSha256: checksum,
+          checksumSha256: candidateManifest.expectedChecksumSha256,
           status: 'invalid',
-          issues: parsedWeighting.validation.issues,
+          issues: manifestIssues,
         }
         await persistence.recordImportIssue({
           runId,
           issueCode: 'weighting-source-invalid',
           severity: 'error',
-          message: 'Official weighting source document failed structural validation.',
-          recordReference: { issues: parsedWeighting.validation.issues },
+          message: `Weighting manifest metadata is invalid for ${session.series} ${session.year}.`,
+          recordReference: { session, issues: manifestIssues },
         })
         totalFailed += 1
-      } else {
-        // Stage/load weighting entries across subjects
-        const relevantSyllabusCodes = new Set([
-          ...Object.keys(weightingSourceManifest.june2026ExpectedRows),
-          ...sources.map((s) => s.syllabusCode),
-        ])
+        continue
+      }
 
-        for (const syllabusCode of relevantSyllabusCodes) {
-          const subject = await persistence.getSubjectBySyllabus(syllabusCode)
-          if (!subject) continue
+      const matchingManifest = candidateManifest
+      weightingManifestBySession.set(`${session.year}:${session.series}`, matchingManifest)
+      totalDiscovered += 1
 
-          const existing = await persistence.getWeightingSource(
-            subject.id,
-            2026,
-            'june',
-            checksum,
+      try {
+        const { bytes, contentType } = await download(matchingManifest.pdfUrl)
+        const checksum = sha256Hex(bytes)
+
+        const parsedWeighting: ParsedWeightingPublication = await parseCambridgeWeightingPdf(
+          bytes,
+          contentType,
+          extract,
+          matchingManifest.expectedChecksumSha256,
+          { manifest: matchingManifest, targetSession: session },
+        )
+
+        if (parsedWeighting.validation.status !== 'valid') {
+          weightingAudit = {
+            checksumSha256: checksum,
+            status: 'invalid',
+            issues: parsedWeighting.validation.issues,
+          }
+          await persistence.recordImportIssue({
+            runId,
+            issueCode: 'weighting-source-invalid',
+            severity: 'error',
+            message: `Official weighting source document failed structural validation for ${session.series} ${session.year}.`,
+            recordReference: { session, issues: parsedWeighting.validation.issues },
+          })
+          totalFailed += 1
+        } else {
+          const expectedMap = getExpectedWeightingRowsForSession(
+            matchingManifest,
+            session.year,
+            session.series,
           )
+          const relevantSyllabusCodes = new Set([
+            ...Object.keys(expectedMap),
+            ...sources
+              .filter((s) => s.year === session.year && s.series === session.series)
+              .map((s) => s.syllabusCode),
+          ])
 
-          if (existing) {
-            weightingSourcesBySubject.set(subject.id, existing)
-          } else {
-            const subjectRows = parsedWeighting.rows.filter((r) => r.syllabusCode === syllabusCode)
-            if (subjectRows.length === 0) continue
+          for (const syllabusCode of relevantSyllabusCodes) {
+            const subject = await persistence.getSubjectBySyllabus(syllabusCode)
+            if (!subject) continue
 
-            const matchingSource = sources.find((s) => s.syllabusCode === syllabusCode)
-            const carryTokens = new Set(matchingSource?.carryForwardTokens ?? [])
+            const existing = await persistence.getWeightingSource(
+              subject.id,
+              session.year,
+              session.series,
+              checksum,
+            )
 
-            const entriesPayload = subjectRows.map((r) => {
-              const tokenKind: 'component_variant' | 'carry_forward' = carryTokens.has(r.component)
-                ? 'carry_forward'
-                : 'component_variant'
+            const sessionKey = `${subject.id}:${session.year}:${session.series}`
+            if (existing) {
+              weightingSourcesBySessionSubject.set(sessionKey, existing)
+            } else {
+              const subjectRows = parsedWeighting.rows.filter(
+                (r) =>
+                  r.syllabusCode === syllabusCode &&
+                  r.year === session.year &&
+                  r.series === session.series,
+              )
+              if (subjectRows.length === 0) continue
 
-              return {
-                rawToken: r.component,
-                tokenKind,
-                rawMaximum: r.maximumRawMark,
-                weightedMaximum: r.maximumWeightedMark,
-                officialWeightingFactor: r.factor,
-                sourcePage: r.source.page,
-                sourceRowLabel: r.source.reconstructedRow,
-              }
-            })
+              const matchingSource = sources.find(
+                (s) =>
+                  s.syllabusCode === syllabusCode &&
+                  s.year === session.year &&
+                  s.series === session.series,
+              )
+              const carryTokens = new Set(matchingSource?.carryForwardTokens ?? [])
 
-            const staged = await persistence.stageWeightingSource({
-              subjectId: subject.id,
-              documentYear: 2026,
-              examSeries: 'june',
-              officialDocumentUrl: weightingSourceManifest.pdfUrl,
-              sourceChecksumSha256: checksum,
-              sourceLabel: `${weightingSourceManifest.title} (June 2026)`,
-              entries: entriesPayload,
-            })
+              const entriesPayload = subjectRows.map((r) => {
+                const tokenKind: 'component_variant' | 'carry_forward' = carryTokens.has(r.component)
+                  ? 'carry_forward'
+                  : 'component_variant'
 
-            weightingSourcesBySubject.set(subject.id, staged)
+                return {
+                  rawToken: r.component,
+                  tokenKind,
+                  rawMaximum: r.maximumRawMark,
+                  weightedMaximum: r.maximumWeightedMark,
+                  officialWeightingFactor: r.factor,
+                  sourcePage: r.source.page,
+                  sourceRowLabel: r.source.reconstructedRow,
+                }
+              })
+
+              const staged = await persistence.stageWeightingSource({
+                subjectId: subject.id,
+                documentYear: session.year,
+                examSeries: session.series,
+                officialDocumentUrl: matchingManifest.pdfUrl,
+                sourceChecksumSha256: checksum,
+                sourceLabel: `${matchingManifest.title} (${session.series} ${session.year})`,
+                entries: entriesPayload,
+              })
+
+              weightingSourcesBySessionSubject.set(sessionKey, staged)
+            }
+          }
+
+          weightingAudit = {
+            checksumSha256: checksum,
+            status: 'imported',
+            issues: [],
           }
         }
-
+      } catch (err) {
+        totalFailed += 1
+        const message = err instanceof Error ? err.message : String(err)
         weightingAudit = {
-          checksumSha256: checksum,
-          status: 'imported',
-          issues: [],
+          checksumSha256: 'unknown',
+          status: 'invalid',
+          issues: [{ code: 'download-or-parse-failed', message }],
         }
+        await persistence.recordImportIssue({
+          runId,
+          issueCode: 'weighting-source-failed',
+          severity: 'error',
+          message: `Failed to download or parse weighting source: ${message}`,
+          recordReference: { session, error: message },
+        })
       }
-    } catch (err) {
-      totalFailed += 1
-      const message = err instanceof Error ? err.message : String(err)
-      weightingAudit = {
-        checksumSha256: 'unknown',
-        status: 'invalid',
-        issues: [{ code: 'download-or-parse-failed', message }],
-      }
-      await persistence.recordImportIssue({
-        runId,
-        issueCode: 'weighting-source-failed',
-        severity: 'error',
-        message: `Failed to download or parse weighting source: ${message}`,
-        recordReference: { error: message },
-      })
     }
   }
 
+  const completenessObservations = new Map<string, ObservedPublicationCounts>()
+  const pendingAutoPublishCandidates: Array<{ publicationId: string; pubIndex: number }> = []
+
   // Step 2: Process Threshold Publications
   for (const source of sources) {
+    const sourceKey = `${source.syllabusCode}:${source.year}:${source.series}`
     try {
       const subject = await persistence.getSubjectBySyllabus(source.syllabusCode)
       if (!subject) {
@@ -577,6 +672,14 @@ export async function runGradeThresholdImportPipeline(
           publicationId: existingSameChecksum.id,
           issues: [],
         })
+        if (persistence.inspectPublicationCompleteness) {
+          const observed = await persistence.inspectPublicationCompleteness(
+            subject.id,
+            source.year,
+            source.series,
+          )
+          if (observed) completenessObservations.set(sourceKey, observed)
+        }
         continue
       }
 
@@ -611,9 +714,10 @@ export async function runGradeThresholdImportPipeline(
       const parsedPub = parseResult.publication
       const hasErrors = parsedPub.validation.status !== 'valid'
 
-      // Guard auto-publishing: only clean, error-free revision 1 publications can be auto-published.
+      // Defer auto-publishing until the entire batch completes without partial failures.
       // Any changed-checksum revision (revisionNumber > 1) MUST remain staged for separate administrative review.
-      const canAutoPublish = autoPublish && revisionNumber === 1 && !revisesPublicationId && !hasErrors
+      const eligibleForAutoPublish =
+        autoPublish && revisionNumber === 1 && !revisesPublicationId && !hasErrors
 
       // Stage component variants
       const componentRows = parsedPub.rows.filter((r): r is ComponentThreshold => r.kind === 'component')
@@ -623,8 +727,8 @@ export async function runGradeThresholdImportPipeline(
 
       for (const row of componentRows) {
         componentMaxMap.set(row.component, row.maximumRawMark)
-        const paperNum = parseInt(row.component[0], 10)
-        const paper = !isNaN(paperNum) ? await persistence.getSubjectPaper(subject.id, paperNum) : null
+        const paperNum = resolveStandardPaperNumber(source.syllabusCode, row.component)
+        const paper = paperNum !== null ? await persistence.getSubjectPaper(subject.id, paperNum) : null
 
         if (!paper) {
           stageIssues.push({
@@ -648,11 +752,22 @@ export async function runGradeThresholdImportPipeline(
         })
       }
 
-      // Stage combinations
+      // Stage combinations with session-scoped weighting only
       const combinationRows = parsedPub.rows.filter((r): r is CombinationThreshold => r.kind === 'combination')
       const stagedCombinations: StagedCombinationParams[] = []
-      const subjectWeighting = weightingSourcesBySubject.get(subject.id)
+      const sessionKey = `${subject.id}:${source.year}:${source.series}`
+      const subjectWeighting = weightingSourcesBySessionSubject.get(sessionKey)
       const isSubjectWeightingApproved = subjectWeighting?.reviewStatus === 'approved'
+
+      if (includeWeighting && !weightingManifestBySession.has(`${source.year}:${source.series}`)) {
+        stageIssues.push({
+          runId,
+          severity: 'info',
+          issueCode: 'weighting-session-uncovered',
+          message: `No reviewed official weighting manifest covers ${source.series} ${source.year}; tokens remain unweighted.`,
+          recordReference: { syllabus: source.syllabusCode, year: source.year, series: source.series },
+        })
+      }
 
       for (const row of combinationRows) {
         const routeType = row.section === 'as-level'
@@ -683,8 +798,8 @@ export async function runGradeThresholdImportPipeline(
             row.section === 'a-level-linear' &&
             tokenKind === 'component_variant'
           ) {
-            const paperNum = parseInt(c.raw[0], 10)
-            const paper = !isNaN(paperNum) ? await persistence.getSubjectPaper(subject.id, paperNum) : null
+            const paperNum = resolveStandardPaperNumber(source.syllabusCode, c.raw)
+            const paper = paperNum !== null ? await persistence.getSubjectPaper(subject.id, paperNum) : null
             stage = paper?.defaultStage ?? null
           }
 
@@ -694,7 +809,7 @@ export async function runGradeThresholdImportPipeline(
             maximumMark = componentMaxMap.get(c.raw) ?? null
           }
 
-          // Weighting link: evaluate STORED review_status per subject
+          // Weighting link: evaluate STORED review_status strictly for matching session
           const weightingEntry = isSubjectWeightingApproved ? subjectWeighting?.entries.get(c.raw) : undefined
           let weightingFactor: number | null = null
           let weightingEntryId: string | null = null
@@ -754,7 +869,7 @@ export async function runGradeThresholdImportPipeline(
         })
       }
 
-      // Atomic publication bundle staging inside single database transaction
+      // Atomic publication bundle staging inside single database transaction (autoPublish withheld until batch completes cleanly)
       const bundle: StagedPublicationBundleParams = {
         publication: {
           runId,
@@ -771,10 +886,39 @@ export async function runGradeThresholdImportPipeline(
         variants: stagedVariants,
         combinations: stagedCombinations,
         issues: stageIssues,
-        autoPublish: canAutoPublish,
+        autoPublish: false,
       }
 
       const stagedPubId = await persistence.stagePublicationBundle(bundle)
+
+      const componentMarksCount = stagedVariants.reduce((sum, v) => sum + v.marks.length, 0)
+      const combTokensCount = stagedCombinations.reduce((sum, c) => sum + c.tokens.length, 0)
+      const combMarksCount = stagedCombinations.reduce((sum, c) => sum + c.marks.length, 0)
+      completenessObservations.set(sourceKey, {
+        subjectId: subject.id,
+        publicationId: stagedPubId,
+        revisionNumber,
+        publicationStatus: 'staged',
+        isActive: false,
+        checksumSha256,
+        sectionCounts: {
+          component: componentRows.length,
+          'a-level-linear': combinationRows.filter((c) => c.section === 'a-level-linear').length,
+          'a-level-staged': combinationRows.filter((c) => c.section === 'a-level-staged').length,
+          'as-level': combinationRows.filter((c) => c.section === 'as-level').length,
+        },
+        tableCounts: {
+          componentVariants: stagedVariants.length,
+          componentMarks: componentMarksCount,
+          combinations: stagedCombinations.length,
+          combinationTokens: combTokensCount,
+          combinationMarks: combMarksCount,
+          weightingEntries: subjectWeighting?.entries.size,
+        },
+        weightingReviewStatus: subjectWeighting?.reviewStatus,
+        openErrorCount: hasErrors ? parsedPub.validation.issues.length : 0,
+        issueCodes: parsedPub.validation.issues.map((i) => i.code),
+      })
 
       if (hasErrors) {
         totalFailed += 1
@@ -790,17 +934,20 @@ export async function runGradeThresholdImportPipeline(
         })
       } else {
         totalStaged += 1
-        if (canAutoPublish) totalPublished += 1
+        const pubIndex = publications.length
         publications.push({
           syllabusCode: source.syllabusCode,
           year: source.year,
           series: source.series,
-          status: canAutoPublish ? 'published' : 'staged',
+          status: 'staged',
           checksumSha256,
           revisionNumber,
           publicationId: stagedPubId,
           issues: [],
         })
+        if (eligibleForAutoPublish) {
+          pendingAutoPublishCandidates.push({ publicationId: stagedPubId, pubIndex })
+        }
       }
     } catch (err) {
       totalFailed += 1
@@ -823,6 +970,127 @@ export async function runGradeThresholdImportPipeline(
     }
   }
 
+  // Fail closed on multi-source batches: never sequentially auto-publish across subjects.
+  // Preserve single-source auto-publication when clean, and report activation errors accurately.
+  const withheldMultiSourceIndices = new Set<number>()
+  if (autoPublish && pendingAutoPublishCandidates.length > 0) {
+    if (sources.length > 1) {
+      for (const candidate of pendingAutoPublishCandidates) {
+        withheldMultiSourceIndices.add(candidate.pubIndex)
+      }
+      await persistence.recordImportIssue({
+        runId,
+        issueCode:
+          totalFailed === 0
+            ? 'multi-source-review-required'
+            : 'partial-failure-publication-withheld',
+        severity: 'warning',
+        message:
+          totalFailed === 0
+            ? 'Multi-source import batch staged validated subjects without sequential auto-publication; administrative review and activation are required.'
+            : 'Withheld publication of staged datasets because one or more batch items failed validation or staging.',
+        recordReference: {
+          withheldPublicationIds: pendingAutoPublishCandidates.map((c) => c.publicationId),
+        },
+      })
+    } else if (totalFailed > 0) {
+      withheldMultiSourceIndices.add(pendingAutoPublishCandidates[0].pubIndex)
+      await persistence.recordImportIssue({
+        runId,
+        issueCode: 'partial-failure-publication-withheld',
+        severity: 'warning',
+        message:
+          'Withheld publication of staged dataset because one or more batch items failed validation or staging.',
+        recordReference: {
+          withheldPublicationIds: pendingAutoPublishCandidates.map((c) => c.publicationId),
+        },
+      })
+    } else {
+      const candidate = pendingAutoPublishCandidates[0]
+      try {
+        await persistence.publishPublication(candidate.publicationId)
+        totalPublished += 1
+        publications[candidate.pubIndex] = {
+          ...publications[candidate.pubIndex],
+          status: 'published',
+        }
+        const pub = publications[candidate.pubIndex]
+        const sourceKey = `${pub.syllabusCode}:${pub.year}:${pub.series}`
+        const obs = completenessObservations.get(sourceKey)
+        if (obs) {
+          completenessObservations.set(sourceKey, {
+            ...obs,
+            publicationStatus: 'published',
+            isActive: true,
+          })
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        totalFailed += 1
+        const existingPub = publications[candidate.pubIndex]
+        publications[candidate.pubIndex] = {
+          ...existingPub,
+          status: 'failed',
+          issues: [
+            ...existingPub.issues,
+            { code: 'publication-activation-failed', message },
+          ],
+        }
+        const sourceKey = `${existingPub.syllabusCode}:${existingPub.year}:${existingPub.series}`
+        const obs = completenessObservations.get(sourceKey)
+        if (obs) {
+          completenessObservations.set(sourceKey, {
+            ...obs,
+            publicationStatus: 'staged',
+            isActive: false,
+            openErrorCount: (obs.openErrorCount ?? 0) + 1,
+            issueCodes: [...(obs.issueCodes ?? []), 'publication-activation-failed'],
+          })
+        }
+        await persistence.recordImportIssue({
+          runId,
+          publicationId: candidate.publicationId,
+          issueCode: 'publication-activation-failed',
+          severity: 'error',
+          message: `Failed to activate staged publication: ${message}`,
+          recordReference: { publicationId: candidate.publicationId, error: message },
+        })
+      }
+    }
+  }
+
+  const completenessInputs: SubjectCompletenessInput[] = sources.map((source, idx) => {
+    const sourceKey = `${source.syllabusCode}:${source.year}:${source.series}`
+    const pubAudit = publications.find(
+      (p) => p.syllabusCode === source.syllabusCode && p.year === source.year && p.series === source.series,
+    )
+    const sessionManifest = weightingManifestBySession.get(`${source.year}:${source.series}`)
+    const expectedWeightingRows = sessionManifest
+      ? getExpectedWeightingRowsForSession(sessionManifest, source.year, source.series)[source.syllabusCode]
+      : undefined
+    const pubIndex = pubAudit ? publications.indexOf(pubAudit) : idx
+    return {
+      source,
+      observed: completenessObservations.get(sourceKey) ?? null,
+      invalid: pubAudit?.status === 'failed',
+      awaitingMultiSourceReview: withheldMultiSourceIndices.has(pubIndex),
+      weightingCovered: !includeWeighting || Boolean(sessionManifest),
+      reviewRequired:
+        (pubAudit?.status === 'staged' &&
+          ((pubAudit.revisionNumber ?? 1) > 1 || withheldMultiSourceIndices.has(pubIndex))) ||
+        (pubAudit?.status === 'staged' && !autoPublish && sources.length > 1),
+      issueCodes: pubAudit?.issues.map((i) => i.code),
+      expectedWeightingEntries: expectedWeightingRows,
+    }
+  })
+  const completenessReport = buildGradeThresholdCompletenessReport(completenessInputs)
+
+  const awaitingReview =
+    publications.some((p) => p.status === 'staged') ||
+    withheldMultiSourceIndices.size > 0 ||
+    completenessReport.totalsByState.staged > 0 ||
+    completenessReport.totalsByState.review_required > 0
+
   const completedAt = new Date().toISOString()
   const overallStatus =
     totalFailed === 0
@@ -830,6 +1098,17 @@ export async function runGradeThresholdImportPipeline(
       : totalPublished > 0 || totalStaged > 0
         ? 'partial'
         : 'failed'
+
+  const publicationDisposition: ImportPipelineResult['publicationDisposition'] =
+    totalFailed > 0 && totalStaged === 0 && totalPublished === 0
+      ? 'failed'
+      : awaitingReview
+        ? 'review_required'
+        : totalPublished > 0 && totalFailed === 0
+          ? 'published'
+          : totalFailed > 0
+            ? 'failed'
+            : 'unchanged'
 
   const stats = {
     totalDiscovered,
@@ -841,7 +1120,14 @@ export async function runGradeThresholdImportPipeline(
 
   await persistence.updateImportRun(runId, {
     status: overallStatus,
-    aggregateSummary: { stats, publications, weighting: weightingAudit },
+    aggregateSummary: {
+      stats,
+      publications,
+      weighting: weightingAudit,
+      awaitingReview,
+      publicationDisposition,
+      completenessReport,
+    },
     finishedAt: completedAt,
   })
 
@@ -853,5 +1139,8 @@ export async function runGradeThresholdImportPipeline(
     stats,
     weighting: weightingAudit,
     publications,
+    awaitingReview,
+    publicationDisposition,
+    completenessReport,
   }
 }

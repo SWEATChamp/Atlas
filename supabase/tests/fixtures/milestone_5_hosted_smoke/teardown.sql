@@ -13,7 +13,7 @@
 --   - Restricts user_subjects updates to rows with actual differences, preventing
 --     unnecessary updated_at timestamp drift on untouched enrollments.
 --   - Restores daily_missions changed by cancel_inaccessible_missions.
---   - Retains the 131-row durable catalogue under Option A.
+--   - Retains the 2,674-row five-subject durable catalogue under Option A.
 --   - Validates post-teardown scoped bidirectional equality for all snapshotted
 --     tables across all 12 non-updated_at user_subjects columns before dropping
 --     the snapshot schema.
@@ -325,7 +325,7 @@ BEGIN
       USING ERRCODE = 'P0004';
   END IF;
 
-  -- 3k. Assert durable catalogue row count is preserved at 131 rows under Option A
+  -- 3k. Assert durable catalogue row count is preserved at 2,674 rows under Option A
   SELECT (
     (SELECT count(*) FROM public.grade_threshold_import_runs) +
     (SELECT count(*) FROM public.grade_threshold_publications) +
@@ -340,8 +340,8 @@ BEGIN
     (SELECT count(*) FROM public.grade_threshold_combination_marks)
   ) INTO v_catalogue_rows;
 
-  IF v_catalogue_rows <> 131 THEN
-    RAISE EXCEPTION 'Teardown verification failed: expected 131 durable catalogue rows under Option A, found %', v_catalogue_rows
+  IF v_catalogue_rows <> 2674 THEN
+    RAISE EXCEPTION 'Teardown verification failed: expected 2674 durable catalogue rows under Option A, found %', v_catalogue_rows
       USING ERRCODE = 'P0004';
   END IF;
 
