@@ -241,8 +241,12 @@ The Milestone 4 feature implementation and database Migrations 031, 032, and 033
 > - Local-only pgTAP test suites (`supabase/tests/database/milestone_5_planner_preflight.test.sql`, `supabase/tests/database/milestone_5_catalogue_and_smoke.test.sql`), five-subject catalogue validator (`supabase/tests/fixtures/catalogue/milestone_5_catalogue_validator.sql`), and hosted-safe reversible operator fixtures (`supabase/tests/fixtures/milestone_5_hosted_smoke/`).
 > - Local verification complete: `65/65` preflight + `83/83` catalogue/smoke pgTAP assertions on disposable PG container `m5_remediation_verify_pg`, offline `npm run reconcile:m5 -- --check` reconciliation (`2,674` rows, `0` issues), Vitest application suite, clean typecheck, lint, webpack production build, and whitespace checks.
 > - Gate 1 local candidate preparation is complete: the 31-file candidate is committed locally in `c02dec99ddc67c2baa4bda973eb6234a541ecec4` (22 database/catalogue/monitoring files) and `0ee5c3d180086f7dde8214b5bbb60694ba3ca6a1` (9 planner/UI/release-documentation files), not pushed.
-> - Remote feature branch and Draft PR #41 remain at `baa1d668c969490603dd419978759fc765987071`; the isolated Test/Preview database has not yet been freshly verified and updated against the expanded 2,674-row five-subject catalogue (Gate 2 pending); and Production remains untouched (not shown to contain Migrations 034–036 or the durable catalogue).
-> - Gate 2 (Test/Preview database preparation), Gate 3 (branch push & PR #41 update), Gate 4 (Preview verification), and all Production gates (Migrations 034–036, catalogue seeding, PR merge, Production smoke testing, `v1.5.0` tagging, release publication, and cleanup) remain pending separate gate authorizations.
+> - Gate 2 Test/Preview database preparation completed; Gate 3 pending:
+>   - Gate 2A: read-only target verification confirmed 36 migrations ending at Migration 036, a current non-applying migration dry-run, and the original 131-row baseline and safety state.
+>   - Gate 2B: fresh protected logical backup completed with verified manifest, readable archive, and identical pre/post inventories.
+>   - Gate 2C: durable 2,674-row five-subject catalogue applied atomically to the isolated Test/Preview database; in-transaction and independent post-commit validators returned `total_catalogue_delta = 0`, `total_catalogue_rows = 2674` (`5` active published publications and `5` approved weighting sources across `9701`, `9702`, `9709`, `9231`, `9618`; eligibility `67` eligible / `95` unreviewed / `22` unsupported; `16` unlinked non-standard variants; carry-forward `1` inactive/unreviewed document, `10` unreviewed mappings, `0` bridge links, `0` published mappings; auth/study aggregates unchanged).
+> - Remote feature branch and Draft PR #41 remain at `baa1d668c969490603dd419978759fc765987071`, and Production remains untouched (not shown to contain Migrations 034–036 or the durable catalogue).
+> - Gate 3 (branch push & Draft PR #41 update), Gate 4 (Preview deployment & smoke verification), and all Production gates (Migrations 034–036, catalogue seeding, PR merge, Production smoke testing, `v1.5.0` tagging, release publication, and cleanup) remain pending separate gate authorizations.
 
 - [x] Select the latest applicable official threshold using subject, route, stage, paper combination, year, and March/June/November series mapping.
 - [x] Use an exact official component threshold when the student's variant is known.
@@ -259,7 +263,7 @@ The Milestone 4 feature implementation and database Migrations 031, 032, and 033
 - [x] When allocation is eligible, round only at final display and recheck the rounded allocation against the combined target.
 - [x] Display required marks, student latest and average paper comparisons, safety-margin targets, subject-level predictions, source provenance, included variants, latest-publication fallback, and official-versus-estimated disclosures.
 - [x] Add calculation, staged-route, variant-grouping, recency-weighting, threshold-boundary, prediction-isolation, and missing-data failure tests.
-- [ ] Separately authorized target database preparation, backup, and ledger inspection.
+- [x] Separately authorized target database preparation, backup, and ledger inspection.
 - [ ] Separately authorized branch push and PR #41 update.
 - [ ] Vercel Preview verification and authenticated Preview smoke testing.
 - [ ] Production database readiness, backup, dry-run, migration application (034–036), and catalogue seeding.

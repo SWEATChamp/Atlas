@@ -36,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Verification Evidence
 - **Database Test Suites**: `milestone_5_planner_preflight.test.sql` (65/65) and `milestone_5_catalogue_and_smoke.test.sql` (83/83, covering fresh seeding, idempotency, 2,674-row validator, 7 negative mutations, and two hosted-smoke cycles) plus `131 -> 2,674` upgrade snapshot verification executed cleanly against fresh disposable PostgreSQL container `m5_remediation_verify_pg` (`0` `not ok` lines).
 - **Offline Source-to-Seed Reconciliation**: `npm run reconcile:m5 -- --check --pdf-dir <local-pdf-dir>` verified all 2,674 rows across all 11 tables and 5 subjects (`manifestSha256 = e4b867f08544eb44f098ca123d08fd673963362d1e262760c3eea0005b1b1ecc`, `0` issues).
-- **Application Test Suite**: 738 tests passing, 6 intentional live-network skips across 59 test files (`npm test`).
+- **Application Test Suite**: 739 tests passing, 6 intentional live-network skips across 59 test files (`npm test`).
 - **Code Hygiene**:
   - TypeScript type check passed cleanly with zero errors (`npx tsc --noEmit`).
   - ESLint passed cleanly with zero errors or warnings (`npm run lint`).
@@ -51,9 +51,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A verified off-site logical backup is strictly required prior to any hosted database mutation.
 
 ### Operational Limitations and Boundaries
-- Local release candidate in preparation; Migrations 034–036 were previously applied and verified in an isolated hosted test project, but no hosted operations occurred during this release-documentation gate.
-- Production has not been shown to contain Migrations 034–036 or the durable catalogue.
-- Hosted Supabase migrations, Vercel preview/production deployments, git commit, push, PR merge, and tag creation are strictly withheld pending explicit separate gate authorizations.
+- **Gate 2 Test/Preview database preparation completed; Gate 3 pending.**
+  - Gate 2A confirmed read-only target identity, 36 migrations ending at Migration 036, a current non-applying migration dry-run, and the original 131-row baseline and safety state.
+  - Gate 2B completed a fresh protected logical backup with verified manifest, readable archive, and identical pre/post inventories.
+  - Gate 2C applied the durable 2,674-row June 2026 five-subject catalogue atomically to the isolated Test/Preview database; both in-transaction and independent post-commit validators returned `total_catalogue_delta = 0`, `total_catalogue_rows = 2674` across `9701`, `9702`, `9709`, `9231`, and `9618` (`5` active published publications, `5` approved weighting sources, eligibility `67` eligible / `95` unreviewed / `22` unsupported, `16` unlinked non-standard variants, carry-forward `1` inactive/unreviewed document / `10` unreviewed mappings / `0` bridge links / `0` published mappings, and unchanged auth/study aggregates).
+- Production remains untouched and has not been shown to contain Migrations 034–036 or the durable catalogue.
+- Branch push, Draft PR #41 update (Gate 3), Vercel Preview deployment/smoke testing (Gate 4), Production database/application gates, merge, tag creation, release publication, and cleanup remain pending explicit separate gate authorizations.
 
 ## [1.3.4] - 2026-11-11
 
