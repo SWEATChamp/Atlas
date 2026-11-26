@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import {
   allocateComponentMarks,
   applySafetyMarginToCombinedTarget,
@@ -34,7 +34,9 @@ import {
   type VerifiedOfficialWeightedAsContribution,
 } from '@/lib/planner'
 import TargetGradePlannerSummary from '@/components/subjects/target-grade-planner-summary'
-import TargetGradePlannerPaperCard from '@/components/subjects/target-grade-planner-paper-card'
+import TargetGradePlannerPaperCard, {
+  formatMarkGapMagnitude,
+} from '@/components/subjects/target-grade-planner-paper-card'
 import TargetGradePlannerEmptyState from '@/components/subjects/target-grade-planner-empty-states'
 import TargetGradePlanner from '@/components/subjects/target-grade-planner'
 import { getTargetGradePlan } from '@/lib/actions/target-planner'
@@ -2810,5 +2812,349 @@ describe('Milestone 5: Target-Grade Marks Planner', () => {
     expect(within(container).getByText('114 marks')).toBeTruthy()
     expect(within(container).getByText('113 / 100 marks')).toBeTruthy()
     expect(within(container).getByText('Exceeds A2 maximum')).toBeTruthy()
+  })
+
+  // ─── 45. Incompatible temporary variant recovery & fail-closed checks ─────
+  it('provides accessible variant reset recovery on incompatible variant combination without page reload and guards race conditions', async () => {
+    vi.mocked(getTargetGradePlan).mockReset()
+
+    const baselinePlan: PlannerResult = {
+      status: 'available',
+      summary: {
+        subjectId: 'sub-chem',
+        subjectName: 'Chemistry',
+        subjectCode: '9701',
+        colorHex: '#10b981',
+        studyRoute: 'as_only',
+        targetGrade: 'A',
+        officialCombinedTarget: weightedMark(95),
+        combinedMaximumMark: weightedMark(130),
+        estimatedCombinedMark: null,
+        marksStillNeeded: null,
+        latestComparableGrade: null,
+        rollingPredictedGrade: null,
+        stagedBreakdown: null,
+        provenance: {
+          publicationId: 'pub-2026',
+          examYear: 2026,
+          examSeries: 'june',
+          officialIndexUrl: 'https://example.com',
+          officialPdfUrl: 'https://example.com/pdf',
+          officialPublishedOn: '2026-06-20',
+          publishedAt: '2026-06-20T00:00:00Z',
+          isFallback: false,
+          intendedYear: 2026,
+          intendedSeries: 'june',
+        },
+        perPaperAllocationEligible: true,
+        safetyMargin: { type: 'none' },
+        adjustedCombinedTarget: weightedMark(95),
+        resolvedOptionCode: null,
+        isOptionResolved: false,
+      },
+      paperPlans: [
+        {
+          subjectPaperId: 'chem-p1',
+          componentPaperNumber: 1,
+          componentName: 'Multiple Choice',
+          stage: 'as',
+          targetVariantChoice: 'unknown',
+          sourceKind: 'atlas_estimate_ceiling_average',
+          rawMaximumMark: rawMark(40),
+          benchmarkFloorMark: rawMark(28),
+          requiredMark: rawMark(28),
+          requiredMarkWithSafetyMargin: rawMark(28),
+          isAllocationAvailable: true,
+          officialWeightingFactor: weightingFactor(1.0),
+          evidence: {
+            attemptCount: 0,
+            latestRawScore: null,
+            latestRawMax: null,
+            officialMax: rawMark(40),
+            latestNormalizedScore: null,
+            latestAttemptDate: null,
+            latestHistoricalGrade: null,
+            unweightedLifetimeAverage: null,
+            recencyWeightedBaseline: null,
+            variability: null,
+            trend: 'stable',
+            trendDelta: 0,
+            hasSufficientSample: false,
+            rollingPredictedScore: null,
+          },
+          latestGap: null,
+          lifetimeAverageGap: null,
+          baselineGap: null,
+          includedVariants: ['11', '13'],
+          availableVariants: [
+            { variantCode: '11', label: 'Variant 11' },
+            { variantCode: '13', label: 'Variant 13' },
+          ],
+          hasApprovedAverage: true,
+          isAStarEstimate: false,
+        },
+        {
+          subjectPaperId: 'chem-p2',
+          componentPaperNumber: 2,
+          componentName: 'AS Structured Questions',
+          stage: 'as',
+          targetVariantChoice: 'unknown',
+          sourceKind: 'atlas_estimate_ceiling_average',
+          rawMaximumMark: rawMark(60),
+          benchmarkFloorMark: rawMark(42),
+          requiredMark: rawMark(42),
+          requiredMarkWithSafetyMargin: rawMark(42),
+          isAllocationAvailable: true,
+          officialWeightingFactor: weightingFactor(1.0),
+          evidence: {
+            attemptCount: 0,
+            latestRawScore: null,
+            latestRawMax: null,
+            officialMax: rawMark(60),
+            latestNormalizedScore: null,
+            latestAttemptDate: null,
+            latestHistoricalGrade: null,
+            unweightedLifetimeAverage: null,
+            recencyWeightedBaseline: null,
+            variability: null,
+            trend: 'stable',
+            trendDelta: 0,
+            hasSufficientSample: false,
+            rollingPredictedScore: null,
+          },
+          latestGap: null,
+          lifetimeAverageGap: null,
+          baselineGap: null,
+          includedVariants: ['21', '23'],
+          availableVariants: [
+            { variantCode: '21', label: 'Variant 21' },
+            { variantCode: '23', label: 'Variant 23' },
+          ],
+          hasApprovedAverage: true,
+          isAStarEstimate: false,
+        },
+      ],
+    }
+
+    const withSafetyMarginPlan: PlannerResult = {
+      ...baselinePlan,
+      summary: {
+        ...baselinePlan.summary,
+        safetyMargin: { type: 'plus_3', marks: 3 },
+        adjustedCombinedTarget: weightedMark(98),
+      },
+    }
+
+    const incompatibleResult: PlannerResult = {
+      status: 'threshold-unavailable',
+      message: 'No compatible published Cambridge threshold series available on or before june 2026.',
+      reason: 'No published series contains an eligible combination with required components and weighting',
+    }
+
+    let resolveStalePreReset: (res: PlannerResult) => void = () => {}
+    const stalePreResetPromise = new Promise<PlannerResult>((resolve) => {
+      resolveStalePreReset = resolve
+    })
+
+    vi.mocked(getTargetGradePlan).mockImplementation(async (_subjectId, opts) => {
+      const variants = opts?.selectedVariants ?? {}
+      if (variants['chem-p1'] === '13' && variants['chem-p2'] === '23') {
+        return incompatibleResult
+      }
+      if (variants['chem-p1'] === '13') {
+        return stalePreResetPromise
+      }
+      if (opts?.safetyMargin?.type === 'plus_3') {
+        return withSafetyMarginPlan
+      }
+      return baselinePlan
+    })
+
+    const { container } = render(
+      <TargetGradePlanner
+        subjectId="sub-chem"
+        subjectColor="#10b981"
+        initialResult={baselinePlan}
+      />
+    )
+
+    // 1. Select a safety margin first to verify recovery also resets margin state
+    const marginPlus3 = within(container).getByRole('button', { name: /\+3 marks/i })
+    await act(async () => {
+      fireEvent.click(marginPlus3)
+    })
+    expect(within(container).getByText(/with safety margin:\s*98\s*marks/i)).toBeTruthy()
+
+    // 2. Trigger a slow intermediate variant selection (will stay in-flight), then incompatible combo
+    const variant13Btn = within(container).getByRole('button', { name: /variant 13/i })
+    await act(async () => {
+      fireEvent.click(variant13Btn)
+    })
+
+    const variant23Btn = within(container).getByRole('button', { name: /variant 23/i })
+    await act(async () => {
+      fireEvent.click(variant23Btn)
+    })
+
+    // 3. Planner transitions to recoverable Threshold Unavailable state
+    expect(within(container).getByText('Threshold Unavailable')).toBeTruthy()
+    expect(
+      within(container).getByText(/selected paper variant combination is incompatible/i)
+    ).toBeTruthy()
+    expect(within(container).queryByText('Multiple Choice')).toBeNull()
+
+    const resetButton = within(container).getByRole('button', {
+      name: /reset variant selections/i,
+    })
+    expect(resetButton.getAttribute('type')).toBe('button')
+    expect(resetButton.classList.contains('touch-target-btn')).toBe(true)
+
+    // 4. Activate reset button to recover without reload
+    await act(async () => {
+      fireEvent.click(resetButton)
+    })
+
+    expect(vi.mocked(getTargetGradePlan)).toHaveBeenLastCalledWith('sub-chem', {
+      selectedVariants: {},
+      safetyMargin: { type: 'none' },
+    })
+
+    // Paper cards, variant controls, and baseline margin are restored
+    expect(within(container).queryByText('Threshold Unavailable')).toBeNull()
+    expect(within(container).getByText('Multiple Choice')).toBeTruthy()
+    expect(within(container).getByText('AS Structured Questions')).toBeTruthy()
+    expect(within(container).queryByText(/with safety margin:\s*98\s*marks/i)).toBeNull()
+
+    const restoredVariant13 = within(container).getByRole('button', { name: /variant 13/i })
+    expect(restoredVariant13.getAttribute('aria-pressed')).toBe('false')
+
+    // 5. Late pre-reset response resolves now and MUST NOT overwrite recovered baseline plan
+    await act(async () => {
+      resolveStalePreReset(incompatibleResult)
+    })
+
+    expect(within(container).queryByText('Threshold Unavailable')).toBeNull()
+    expect(within(container).getByText('Multiple Choice')).toBeTruthy()
+  })
+
+  it('does not show variant reset recovery when threshold-unavailable or unapproved occurs without variant overrides', () => {
+    const { rerender, container } = render(
+      <TargetGradePlanner
+        subjectId="sub-unseeded"
+        subjectColor="#6366f1"
+        initialResult={{
+          status: 'threshold-unavailable',
+          message: 'No published grade threshold data available for this subject.',
+          reason: 'No published publications exist',
+        }}
+      />
+    )
+
+    expect(within(container).getByText('Threshold Unavailable')).toBeTruthy()
+    expect(within(container).queryByRole('button', { name: /reset variant selections/i })).toBeNull()
+    expect(
+      within(container).queryByText(/selected paper variant combination is incompatible/i)
+    ).toBeNull()
+
+    rerender(
+      <TargetGradePlanner
+        subjectId="sub-unapproved"
+        subjectColor="#6366f1"
+        initialResult={{
+          status: 'no-approved-combination',
+          message: 'No Cambridge option combination is approved for this route.',
+          route: 'full_level',
+          subjectCode: '9999',
+        }}
+      />
+    )
+
+    expect(within(container).getByText('Combination Unapproved')).toBeTruthy()
+    expect(within(container).queryByRole('button', { name: /reset variant selections/i })).toBeNull()
+  })
+
+  // ─── 46. Display-safe mark-gap formatting at presentation boundary ────────
+  it('formats whole, fractional, float-noisy, and signed-zero mark gaps cleanly without mutating math values', () => {
+    expect(formatMarkGapMagnitude(1.6666666666666679)).toBe('1.7')
+    expect(formatMarkGapMagnitude(1.3333333333333321)).toBe('1.3')
+    expect(formatMarkGapMagnitude(0.5)).toBe('0.5')
+    expect(formatMarkGapMagnitude(3)).toBe('3')
+    expect(formatMarkGapMagnitude(0)).toBe('0')
+    expect(formatMarkGapMagnitude(-0)).toBe('0')
+    expect(formatMarkGapMagnitude(-1.6666666666666679)).toBe('1.7')
+    expect(formatMarkGapMagnitude(0.0000000001)).toBe('0')
+    expect(formatMarkGapMagnitude(-0.0000000001)).toBe('0')
+
+    const noisyPaperPlan: PaperPlanResult = {
+      subjectPaperId: 'paper-gaps',
+      componentPaperNumber: 1,
+      componentName: 'Pure Mathematics 1',
+      stage: 'as',
+      targetVariantChoice: '12',
+      sourceKind: 'official_exact',
+      rawMaximumMark: rawMark(75),
+      benchmarkFloorMark: rawMark(60),
+      requiredMark: rawMark(60),
+      requiredMarkWithSafetyMargin: rawMark(60),
+      isAllocationAvailable: true,
+      officialWeightingFactor: weightingFactor(1.0),
+      evidence: {
+        attemptCount: 3,
+        latestRawScore: rawMark(58.33333333333333),
+        latestRawMax: rawMark(75),
+        officialMax: rawMark(75),
+        latestNormalizedScore: rawMark(58.33333333333333),
+        latestAttemptDate: '2026-05-10',
+        latestHistoricalGrade: 'B',
+        unweightedLifetimeAverage: rawMark(58.66666666666667),
+        recencyWeightedBaseline: rawMark(60),
+        variability: rawMark(1.2),
+        trend: 'improving',
+        trendDelta: 1.5,
+        hasSufficientSample: true,
+        rollingPredictedScore: rawMark(59),
+      },
+      latestGap: rawMark(1.6666666666666679),
+      lifetimeAverageGap: rawMark(1.3333333333333321),
+      baselineGap: rawMark(-0),
+      includedVariants: ['12'],
+      availableVariants: [{ variantCode: '12', label: 'Variant 12' }],
+      hasApprovedAverage: true,
+      isAStarEstimate: false,
+    }
+
+    const { rerender, container } = render(
+      <TargetGradePlannerPaperCard
+        paperPlan={noisyPaperPlan}
+        subjectColor="#3b82f6"
+        selectedVariant="12"
+        onSelectVariant={vi.fn()}
+      />
+    )
+
+    expect(within(container).getByText('1.7 marks below latest')).toBeTruthy()
+    expect(within(container).getByText('1.3 marks below average')).toBeTruthy()
+    expect(within(container).getByText('0 marks above baseline')).toBeTruthy()
+    expect(container.textContent).not.toContain('1.6666666666666679')
+    expect(container.textContent).not.toContain('1.3333333333333321')
+    expect(container.textContent).not.toContain('-0 marks')
+
+    rerender(
+      <TargetGradePlannerPaperCard
+        paperPlan={{
+          ...noisyPaperPlan,
+          latestGap: rawMark(3),
+          lifetimeAverageGap: rawMark(0.5),
+          baselineGap: rawMark(0.0000000001),
+        }}
+        subjectColor="#3b82f6"
+        selectedVariant="12"
+        onSelectVariant={vi.fn()}
+      />
+    )
+
+    expect(within(container).getByText('3 marks below latest')).toBeTruthy()
+    expect(within(container).getByText('0.5 marks below average')).toBeTruthy()
+    expect(within(container).getByText('0 marks above baseline')).toBeTruthy()
   })
 })

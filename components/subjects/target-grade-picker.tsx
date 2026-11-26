@@ -19,8 +19,16 @@ interface Props {
 }
 
 export default function TargetGradePicker({ subjectId, currentGrade, color }: Props) {
-  const [grade, setGrade] = useState<string>(currentGrade ?? 'A')
+  const normalizedCurrentGrade =
+    currentGrade && currentGrade.trim().length > 0 ? currentGrade : null
+  const [grade, setGrade] = useState<string | null>(normalizedCurrentGrade)
+  const [prevCurrentGrade, setPrevCurrentGrade] = useState<string | null>(normalizedCurrentGrade)
   const [open, setOpen] = useState(false)
+
+  if (prevCurrentGrade !== normalizedCurrentGrade) {
+    setPrevCurrentGrade(normalizedCurrentGrade)
+    setGrade(normalizedCurrentGrade)
+  }
   const [isPending, startTransition] = useTransition()
   const ref = useRef<HTMLDivElement>(null)
   const prefersReduced = useReducedMotion()
@@ -116,8 +124,12 @@ export default function TargetGradePicker({ subjectId, currentGrade, color }: Pr
         type="button"
         className="target-grade-trigger touch-target-btn"
         onClick={() => setOpen((v) => !v)}
-        title="Change target grade"
-        aria-label={`Target grade: ${grade}. Click to change.`}
+        title={grade ? 'Change target grade' : 'Set target grade'}
+        aria-label={
+          grade
+            ? `Target grade: ${grade}. Click to change.`
+            : 'No target grade set. Click to set target grade.'
+        }
         aria-expanded={open}
         style={{
           display: 'inline-flex',
@@ -145,7 +157,7 @@ export default function TargetGradePicker({ subjectId, currentGrade, color }: Pr
           e.currentTarget.style.background = `${color}18`
         }}
       >
-        Target {grade}
+        {grade ? `Target ${grade}` : 'Set target'}
         <ChevronDown
           size={13}
           style={{

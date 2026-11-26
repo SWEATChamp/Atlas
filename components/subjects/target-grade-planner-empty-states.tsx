@@ -16,9 +16,16 @@ import type { PlannerResult } from '@/lib/planner'
 interface Props {
   readonly result: PlannerResult
   readonly onRetry?: () => void
+  readonly hasActiveVariantOverrides?: boolean
+  readonly onResetVariants?: () => void
 }
 
-export default function TargetGradePlannerEmptyState({ result, onRetry }: Props) {
+export default function TargetGradePlannerEmptyState({
+  result,
+  onRetry,
+  hasActiveVariantOverrides = false,
+  onResetVariants,
+}: Props) {
   if (result.status === 'available') {
     return null
   }
@@ -196,6 +203,7 @@ export default function TargetGradePlannerEmptyState({ result, onRetry }: Props)
 
   // 6. Threshold Unavailable
   if (result.status === 'threshold-unavailable') {
+    const isVariantRecoveryAvailable = hasActiveVariantOverrides && Boolean(onResetVariants)
     return (
       <section aria-labelledby="planner-threshold-unavail-heading" style={containerStyle}>
         <div style={headerRowStyle}>
@@ -215,6 +223,45 @@ export default function TargetGradePlannerEmptyState({ result, onRetry }: Props)
             <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: 4 }}>
               Reason: {result.reason}
             </p>
+            {isVariantRecoveryAvailable && onResetVariants && (
+              <>
+                <p
+                  style={{
+                    fontSize: '0.875rem',
+                    color: 'var(--text-primary)',
+                    marginTop: 8,
+                    lineHeight: 1.5,
+                    fontWeight: 500,
+                  }}
+                >
+                  The selected paper variant combination is incompatible across published Cambridge option combinations. Reset temporary variant selections to return to the baseline plan and paper controls.
+                </p>
+                <button
+                  type="button"
+                  onClick={onResetVariants}
+                  className="touch-target-btn"
+                  style={{
+                    marginTop: 12,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '8px 16px',
+                    minHeight: 44,
+                    minWidth: 44,
+                    background: 'var(--bg-base)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <RefreshCw size={14} aria-hidden="true" />
+                  Reset variant selections
+                </button>
+              </>
+            )}
           </div>
         </div>
       </section>

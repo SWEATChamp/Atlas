@@ -87,6 +87,29 @@ export default function TargetGradePlanner({
     })
   }
 
+  const hasActiveVariantOverrides = Object.values(selectedVariants).some(
+    (variant) => Boolean(variant) && variant !== 'unknown'
+  )
+
+  // Clear incompatible temporary variant selections and safety margin, then recompute
+  const handleResetVariants = () => {
+    const resetVariants: Record<string, string> = {}
+    const resetMargin: SafetyMarginOption = { type: 'none' }
+    setSelectedVariants(resetVariants)
+    setSafetyMargin(resetMargin)
+    const reqId = ++requestIdRef.current
+
+    startTransition(async () => {
+      const updated = await getTargetGradePlan(subjectId, {
+        selectedVariants: resetVariants,
+        safetyMargin: resetMargin,
+      })
+      if (reqId === requestIdRef.current) {
+        setResult(updated)
+      }
+    })
+  }
+
   return (
     <section
       aria-labelledby="target-grade-planner-heading"
@@ -160,7 +183,16 @@ export default function TargetGradePlanner({
           </div>
         </>
       ) : (
-        <TargetGradePlannerEmptyState result={result} onRetry={handleRetry} />
+        <TargetGradePlannerEmptyState
+          result={result}
+          onRetry={handleRetry}
+          hasActiveVariantOverrides={hasActiveVariantOverrides}
+          onResetVariants={
+            result.status === 'threshold-unavailable' && hasActiveVariantOverrides
+              ? handleResetVariants
+              : undefined
+          }
+        />
       )}
     </section>
   )

@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, act, cleanup, within } from '@testing-library/react'
+import { render, screen, fireEvent, act, cleanup, within, waitFor } from '@testing-library/react'
 import PaperSelectionPanel from '@/components/subjects/paper-selection-panel'
 import { Dialog } from '@/components/ui/dialog'
 import TargetGradePicker from '@/components/subjects/target-grade-picker'
@@ -179,7 +179,13 @@ describe('Milestone 2 Accessibility Defect Regressions', () => {
       render(<MultiStepDialogTestComponent />)
 
       const bgNavDashboard = document.getElementById('bg-nav-dashboard') as HTMLButtonElement
+      const step1CancelBtn = document.getElementById('dialog-step1-cancel') as HTMLButtonElement
       const step1NextBtn = document.getElementById('dialog-step1-next') as HTMLButtonElement
+
+      // Allow the dialog's 50ms initial-focus timer to settle before transitioning steps
+      await waitFor(() => {
+        expect(document.activeElement).toBe(step1CancelBtn)
+      })
 
       // 1. Focus the Next Step button in Dialog
       step1NextBtn.focus()
@@ -354,6 +360,72 @@ describe('Milestone 2 Accessibility Defect Regressions', () => {
       expect(menu.style.maxWidth).toBe('160px')
 
       Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: originalInnerWidth })
+    })
+
+    it('renders unset state when currentGrade is null without defaulting to A and persists selection', async () => {
+      vi.mocked(updateTargetGrade).mockClear()
+
+      const { rerender } = render(
+        <TargetGradePicker
+          subjectId="subj-null"
+          currentGrade={null}
+          color="#3b82f6"
+        />
+      )
+
+      const trigger = screen.getByRole('button', {
+        name: /no target grade set\. click to set target grade\./i,
+      })
+      expect(trigger.textContent?.trim()).toBe('Set target')
+      expect(trigger.textContent).not.toContain('Target A')
+
+      await act(async () => {
+        fireEvent.click(trigger)
+      })
+
+      const gradeButtons = screen.getAllByRole('button', { name: /select grade/i })
+      expect(gradeButtons).toHaveLength(6)
+      for (const btn of gradeButtons) {
+        expect(btn.getAttribute('aria-pressed')).toBe('false')
+      }
+
+      const gradeA = screen.getByRole('button', { name: 'Select grade A' })
+      await act(async () => {
+        fireEvent.click(gradeA)
+      })
+
+      expect(updateTargetGrade).toHaveBeenCalledWith('subj-null', 'A')
+      expect(trigger.textContent?.trim()).toBe('Target A')
+      expect(trigger.getAttribute('aria-label')).toBe('Target grade: A. Click to change.')
+
+      // Re-rendering with unchanged parent prop must not clobber active local selection
+      rerender(
+        <TargetGradePicker
+          subjectId="subj-null"
+          currentGrade={null}
+          color="#10b981"
+        />
+      )
+      expect(trigger.textContent?.trim()).toBe('Target A')
+
+      // External prop change synchronizes picker cleanly
+      rerender(
+        <TargetGradePicker
+          subjectId="subj-null"
+          currentGrade="C"
+          color="#10b981"
+        />
+      )
+      expect(trigger.textContent?.trim()).toBe('Target C')
+
+      rerender(
+        <TargetGradePicker
+          subjectId="subj-null"
+          currentGrade={null}
+          color="#10b981"
+        />
+      )
+      expect(trigger.textContent?.trim()).toBe('Set target')
     })
   })
 

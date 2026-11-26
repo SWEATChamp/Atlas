@@ -17,6 +17,17 @@ interface Props {
   readonly onSelectVariant: (paperId: string, variant: string) => void
 }
 
+/**
+ * Format a mark-gap magnitude at the presentation boundary:
+ * whole numbers omit trailing decimals (`3`, `0`) and fractional values
+ * render concisely to 1 decimal place without binary float noise or `-0`.
+ */
+export function formatMarkGapMagnitude(gap: number): string {
+  const rounded = Math.round((Math.abs(gap) + Number.EPSILON) * 10) / 10
+  const normalized = rounded === 0 ? 0 : rounded
+  return Number.isInteger(normalized) ? String(normalized) : normalized.toFixed(1)
+}
+
 export default function TargetGradePlannerPaperCard({
   paperPlan,
   subjectColor,
@@ -89,19 +100,22 @@ export default function TargetGradePlannerPaperCard({
     )
   }
 
-  // Format mark gap (e.g. "+3 marks needed" or "5 marks above target")
+  // Format mark gap (e.g. "3 marks below latest" or "5 marks above average")
   const renderGap = (gap: number | null, label: string) => {
     if (gap === null) return <span style={{ color: 'var(--text-muted)' }}>None logged</span>
-    if (gap <= 0) {
+    const roundedMagnitude = Math.round((Math.abs(gap) + Number.EPSILON) * 10) / 10
+    const isAtOrAboveTarget = roundedMagnitude === 0 || gap <= 0
+    const formatted = formatMarkGapMagnitude(gap)
+    if (isAtOrAboveTarget) {
       return (
         <span style={{ color: 'var(--success)', fontWeight: 600 }}>
-          {Math.abs(gap)} marks above {label}
+          {formatted} marks above {label}
         </span>
       )
     }
     return (
       <span style={{ color: 'var(--warning)', fontWeight: 600 }}>
-        {gap} marks below {label}
+        {formatted} marks below {label}
       </span>
     )
   }
