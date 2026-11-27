@@ -36,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Verification Evidence
 - **Database Test Suites**: `milestone_5_planner_preflight.test.sql` (65/65) and `milestone_5_catalogue_and_smoke.test.sql` (83/83, covering fresh seeding, idempotency, 2,674-row validator, 7 negative mutations, and two hosted-smoke cycles) plus `131 -> 2,674` upgrade snapshot verification executed cleanly against fresh disposable PostgreSQL container `m5_remediation_verify_pg` (`0` `not ok` lines).
 - **Offline Source-to-Seed Reconciliation**: `npm run reconcile:m5 -- --check --pdf-dir <local-pdf-dir>` verified all 2,674 rows across all 11 tables and 5 subjects (`manifestSha256 = e4b867f08544eb44f098ca123d08fd673963362d1e262760c3eea0005b1b1ecc`, `0` issues).
-- **Application Test Suite**: 744 tests passing, 6 intentional live-network skips across 60 test files (`npm test`).
+- **Application Test Suite**: 762 tests passing, 6 intentional live-network skips across 63 test files (`npm test`).
 - **Code Hygiene**:
   - TypeScript type check passed cleanly with zero errors (`npx tsc --noEmit`).
   - ESLint passed cleanly with zero errors or warnings (`npm run lint`).

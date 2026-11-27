@@ -772,13 +772,13 @@ export default function PaperSelectionPanel({
                   {/* Paper breakdown */}
                   <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                     {route === 'full_level' ? (
-                      combo.asPapers.length > 0 && (
+                      (combo.asPapers.length > 0 || combo.a2Papers.length > 0) && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.72rem' }}>
                           <span style={{ fontWeight: 700, color: 'var(--accent-primary, #5B7FFF)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                             Papers:
                           </span>
                           <span style={{ color: 'var(--text-secondary)' }}>
-                            {combo.asPapers.join(' + ')}
+                            {[...combo.asPapers, ...combo.a2Papers].join(' + ')}
                           </span>
                         </div>
                       )

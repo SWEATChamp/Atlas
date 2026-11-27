@@ -348,6 +348,8 @@ export default function TargetGradePlannerSummary({
           <div style={{ marginTop: 8, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
             {latestComparableGrade ? (
               <span>Latest complete sitting: <strong>Grade {latestComparableGrade}</strong></span>
+            ) : rollingPredictedGrade ? (
+              <span>Based on weighted paper baselines across logged sittings</span>
             ) : summary.studyRoute === 'staged' ? (
               <span>Predictions for staged routes require verified AS performance evidence</span>
             ) : !summary.isOptionResolved ? (
