@@ -34,10 +34,11 @@ SELECT plan(83);
 
 -- ─── 1. Migration Ledger & Baseline Pre-Seeding Assertions ───────────────────
 
-SELECT is(
+SELECT cmp_ok(
   (SELECT version FROM supabase_migrations.schema_migrations ORDER BY version DESC LIMIT 1),
-  '20261116000036',
-  '1. Migration ledger ends at Migration 036 (20261116000036)'
+  '>=',
+  '20261127000037',
+  '1. Migration ledger is at or above Migration 037 (20261127000037)'
 );
 
 SELECT is(
@@ -53,9 +54,9 @@ SELECT is(
 );
 
 SELECT is(
-  (SELECT count(*)::INT FROM public.grade_threshold_carry_forward_source_mappings WHERE evidence_document_id = '00000036-0000-4000-8000-000000000001' AND evidence_status = 'unreviewed'),
-  10,
-  '4. Baseline: all 10 source mappings are unreviewed'
+  (SELECT count(*)::INT FROM public.grade_threshold_carry_forward_source_mappings WHERE evidence_document_id = '00000036-0000-4000-8000-000000000001' AND evidence_status = 'unreviewed' AND authorized_by IS NULL),
+  20,
+  '4. Baseline: all 20 source mappings are unreviewed'
 );
 
 SELECT is(

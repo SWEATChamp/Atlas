@@ -692,4 +692,24 @@ describe('Seed SQL Canonical Planner Compatibility (Mocked Supabase)', () => {
       expect(resolved.summary.combinedMaximumMark).toBe(250)
     }
   })
+
+  it('keeps Migration 038 synchronized verbatim with the canonical catalogue seed and 11-table validator', () => {
+    const repoRoot = path.resolve(__dirname, '..')
+    const migration038 = fs.readFileSync(
+      path.join(repoRoot, 'supabase/migrations/20261127000038_seed_june_2026_m5_catalogue.sql'),
+      'utf8',
+    )
+    const canonicalSeed = fs.readFileSync(
+      path.join(repoRoot, 'supabase/seeds/catalogue/june_2026_m5_catalogue.sql'),
+      'utf8',
+    )
+    const canonicalValidator = fs.readFileSync(
+      path.join(repoRoot, 'supabase/tests/fixtures/catalogue/milestone_5_catalogue_validator.sql'),
+      'utf8',
+    )
+
+    expect(migration038).toContain(canonicalSeed)
+    expect(migration038).toContain(canonicalValidator)
+    expect(migration038).toContain('pg_temp.run_m5_catalogue_validator()')
+  })
 })
