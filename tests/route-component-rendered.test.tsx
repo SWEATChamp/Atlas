@@ -1,5 +1,7 @@
 import React from 'react'
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import RouteSetupSheet from '../components/subjects/route-setup-sheet'
 import A2TransitionModal from '../components/subjects/a2-transition-modal'

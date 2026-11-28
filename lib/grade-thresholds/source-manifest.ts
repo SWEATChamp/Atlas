@@ -24,6 +24,7 @@ export const CAMBRIDGE_JUNE_2026_SOURCES = [
     expectedStructure: {
       pageCount: 4,
       rowCounts: { component: 30, 'a-level-linear': 10, 'a-level-staged': 27, 'as-level': 15 },
+      expectedTokenCount: 141,
     },
     goldenFixtures: [
       { kind: 'component', component: '12', maximumMark: 75, thresholds: { A: 61, B: 51, C: 37, D: 23, E: 10 } },
@@ -51,6 +52,7 @@ export const CAMBRIDGE_JUNE_2026_SOURCES = [
     expectedStructure: {
       pageCount: 4,
       rowCounts: { component: 20, 'a-level-linear': 5, 'a-level-staged': 26, 'as-level': 10 },
+      expectedTokenCount: 112,
     },
     goldenFixtures: [
       { kind: 'component', component: '43', maximumMark: 50, thresholds: { A: 41, B: 34, C: 30, D: 25, E: 19 } },
@@ -77,6 +79,7 @@ export const CAMBRIDGE_JUNE_2026_SOURCES = [
     expectedStructure: {
       pageCount: 3,
       rowCounts: { component: 25, 'a-level-linear': 8, 'a-level-staged': 20, 'as-level': 8 },
+      expectedTokenCount: 118,
     },
     goldenFixtures: [
       { kind: 'component', component: '42', maximumMark: 100, thresholds: { A: 62, B: 51, C: 41, D: 31, E: 21 } },
@@ -103,6 +106,7 @@ export const CAMBRIDGE_JUNE_2026_SOURCES = [
     expectedStructure: {
       pageCount: 3,
       rowCounts: { component: 25, 'a-level-linear': 8, 'a-level-staged': 20, 'as-level': 8 },
+      expectedTokenCount: 118,
     },
     goldenFixtures: [
       { kind: 'component', component: '12', maximumMark: 40, thresholds: { A: 25, B: 22, C: 18, D: 14, E: 11 } },
@@ -129,6 +133,7 @@ export const CAMBRIDGE_JUNE_2026_SOURCES = [
     expectedStructure: {
       pageCount: 2,
       rowCounts: { component: 14, 'a-level-linear': 4, 'a-level-staged': 11, 'as-level': 4 },
+      expectedTokenCount: 53,
     },
     goldenFixtures: [
       { kind: 'component', component: '13', maximumMark: 75, thresholds: { A: 53, B: 47, C: 40, D: 33, E: 26 } },

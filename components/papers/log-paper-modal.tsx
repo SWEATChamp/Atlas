@@ -355,10 +355,12 @@ export function LogPaperModal({
           supabase
             .from('chapter_papers')
             .select('chapter_id, subject_paper_id'),
-          supabase
-            .from('subject_paper_selections')
-            .select('subject_paper_id, paper_number, stage, component_name')
-            .eq('user_subject_id', activeEnrollment?.id ?? ''),
+          activeEnrollment?.id
+            ? supabase
+                .from('subject_paper_selections')
+                .select('subject_paper_id, paper_number, stage, component_name')
+                .eq('user_subject_id', activeEnrollment.id)
+            : Promise.resolve({ data: [] as RawPaperSelection[], error: null }),
         ])
 
         if (!isCurrent || seq !== optionsSeqRef.current) return

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { BookOpen, Layers, Award } from 'lucide-react'
 import { Dialog } from '@/components/ui/dialog'
 import { configureSubjectRoute } from '@/lib/actions/route'
@@ -59,6 +60,7 @@ export default function RouteSetupSheet({
   subject,
   initialPaperSelections = [],
 }: Props) {
+  const router = useRouter()
   const [selectedRoute, setSelectedRoute] = useState<StudyRoute>(
     enrollment.study_route === 'unconfirmed' ? 'staged' : enrollment.study_route
   )
@@ -113,6 +115,7 @@ export default function RouteSetupSheet({
       } else {
         invalidateSessionCache(enrollment.subject_id)
         onClose()
+        router.refresh()
       }
     })
   }

@@ -1,6 +1,7 @@
 import 'server-only'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { CambridgeSeries } from './types'
+import type { ObservedPublicationCounts } from './completeness-report'
 import type {
   CreateImportRunParams,
   ExistingPublicationInfo,
@@ -505,5 +506,127 @@ export class SupabaseGradeThresholdPersistence implements GradeThresholdPersiste
       throw new Error(`Failed to publish publication ${publicationId}: ${error.message}`)
     }
     return (data as string) ?? publicationId
+  }
+
+  async inspectPublicationCompleteness(
+    subjectId: string,
+    year: number,
+    series: CambridgeSeries,
+  ): Promise<ObservedPublicationCounts | null> {
+    const active = await this.getActivePublication(subjectId, year, series)
+    const latest = await this.getLatestPublication(subjectId, year, series)
+    const pub = latest && latest.revisionNumber > (active?.revisionNumber ?? 0)
+      ? latest
+      : (active ?? latest)
+
+    if (!pub) return null
+
+    const [{ data: variants, error: varErr }, { data: combos, error: comboErr }, { data: issues, error: issErr }, { data: weightingSrc, error: wsErr }] =
+      await Promise.all([
+        this.client
+          .from('grade_threshold_component_variants')
+          .select('id')
+          .eq('publication_id', pub.id),
+        this.client
+          .from('grade_threshold_combinations')
+          .select('id, route_type')
+          .eq('publication_id', pub.id),
+        this.client
+          .from('grade_threshold_import_issues')
+          .select('severity, issue_code, resolution_status')
+          .eq('publication_id', pub.id),
+        this.client
+          .from('grade_threshold_weighting_sources')
+          .select('id, review_status')
+          .eq('subject_id', subjectId)
+          .eq('document_year', year)
+          .eq('exam_series', series)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ])
+
+    if (varErr) throw new Error(`Failed to inspect variants: ${varErr.message}`)
+    if (comboErr) throw new Error(`Failed to inspect combinations: ${comboErr.message}`)
+    if (issErr) throw new Error(`Failed to inspect import issues: ${issErr.message}`)
+    if (wsErr) throw new Error(`Failed to inspect weighting source: ${wsErr.message}`)
+
+    const variantIds = (variants ?? []).map((v) => v.id as string)
+    const comboIds = (combos ?? []).map((c) => c.id as string)
+
+    const [compMarksCount, tokensCount, combMarksCount, weightingEntriesCount] =
+      await Promise.all([
+        variantIds.length > 0
+          ? this.client
+              .from('grade_threshold_component_marks')
+              .select('id', { count: 'exact', head: true })
+              .in('component_variant_id', variantIds)
+              .then(({ count, error }) => {
+                if (error) throw new Error(`Failed to count component marks: ${error.message}`)
+                return count ?? 0
+              })
+          : Promise.resolve(0),
+        comboIds.length > 0
+          ? this.client
+              .from('grade_threshold_combination_tokens')
+              .select('id', { count: 'exact', head: true })
+              .in('combination_id', comboIds)
+              .then(({ count, error }) => {
+                if (error) throw new Error(`Failed to count combination tokens: ${error.message}`)
+                return count ?? 0
+              })
+          : Promise.resolve(0),
+        comboIds.length > 0
+          ? this.client
+              .from('grade_threshold_combination_marks')
+              .select('id', { count: 'exact', head: true })
+              .in('combination_id', comboIds)
+              .then(({ count, error }) => {
+                if (error) throw new Error(`Failed to count combination marks: ${error.message}`)
+                return count ?? 0
+              })
+          : Promise.resolve(0),
+        weightingSrc?.id
+          ? this.client
+              .from('grade_threshold_weighting_entries')
+              .select('id', { count: 'exact', head: true })
+              .eq('weighting_source_id', weightingSrc.id)
+              .then(({ count, error }) => {
+                if (error) throw new Error(`Failed to count weighting entries: ${error.message}`)
+                return count ?? 0
+              })
+          : Promise.resolve(undefined),
+      ])
+
+    const linearCount = (combos ?? []).filter((c) => c.route_type === 'full_level' || c.route_type === 'other').length
+    const stagedCount = (combos ?? []).filter((c) => c.route_type === 'staged').length
+    const asCount = (combos ?? []).filter((c) => c.route_type === 'as_only').length
+    const openErrors = (issues ?? []).filter((i) => i.severity === 'error' && i.resolution_status === 'open')
+
+    return {
+      subjectId,
+      publicationId: pub.id,
+      revisionNumber: pub.revisionNumber,
+      publicationStatus: pub.publicationStatus,
+      isActive: pub.isActive,
+      checksumSha256: pub.checksumSha256,
+      sectionCounts: {
+        component: variantIds.length,
+        'a-level-linear': linearCount,
+        'a-level-staged': stagedCount,
+        'as-level': asCount,
+      },
+      tableCounts: {
+        componentVariants: variantIds.length,
+        componentMarks: compMarksCount,
+        combinations: comboIds.length,
+        combinationTokens: tokensCount,
+        combinationMarks: combMarksCount,
+        ...(weightingEntriesCount !== undefined ? { weightingEntries: weightingEntriesCount } : {}),
+      },
+      weightingReviewStatus: weightingSrc?.review_status,
+      openErrorCount: openErrors.length,
+      issueCodes: (issues ?? []).map((i) => i.issue_code as string),
+    }
   }
 }

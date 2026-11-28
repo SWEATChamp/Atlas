@@ -1,5 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import React from 'react'
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
 import { render, screen, fireEvent, act, cleanup, within } from '@testing-library/react'
 import { renderToString } from 'react-dom/server'
 import ExamDatePicker from '@/components/subjects/exam-date-picker'

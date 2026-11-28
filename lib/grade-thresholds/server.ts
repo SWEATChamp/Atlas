@@ -28,6 +28,17 @@ export {
   runScheduledGradeThresholdImport,
   sanitizeImportAudit,
 } from './scheduled-import'
+export { buildGradeThresholdCompletenessReport } from './completeness-report'
+export type {
+  CompletenessStatus,
+  CountComparison,
+  GradeThresholdCompletenessReport,
+  ObservedPublicationCounts,
+  SubjectCompletenessInput,
+  SubjectCompletenessReport,
+  SubjectPersistedTableCompleteness,
+  SubjectSectionCompleteness,
+} from './completeness-report'
 
 export {
   CambridgeFetchError,

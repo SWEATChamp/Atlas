@@ -88,7 +88,7 @@ export default async function AppLayout({
             >
               {displayName}
             </span>
-            <form action={signOut}>
+            <form action={signOut} style={{ flexShrink: 0 }}>
               <button
                 type="submit"
                 className="btn btn-ghost"

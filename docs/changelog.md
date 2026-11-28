@@ -5,6 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-11-23
+
+### Added
+- **Target-Grade Marks Planner**:
+  - Interactive target-grade planner summary component (`components/subjects/target-grade-planner-summary.tsx`) on subject detail views with paper-by-paper target breakdowns, student performance comparisons, and clear disclosures.
+  - Robust server action (`lib/actions/target-planner.ts`) reading student route, stage, target grade, full-paper attempt history, and official Cambridge threshold/weighting data.
+  - Staged A* search solver (`lib/planner/staged-a-star.ts`) allocating component target marks that strictly satisfy combined threshold targets while honoring component maxima and boundary constraints.
+  - Type definitions and domain contracts (`lib/planner/types.ts`) guaranteeing type-safe interaction across planner actions and UI components.
+- **Official Cambridge Threshold and Weighting Evidence**:
+  - Paper-by-paper target marks derived from verified official Cambridge threshold and component weighting evidence.
+  - Support for exact-variant targets when the student's paper variant is known, alongside clearly disclosed Atlas variant estimates (`(estimated)` badge and footnote disclosure) when the variant is unknown.
+  - Staged A* contribution handling for A-Level qualifications, computing required A2 marks from official combined target and weighted AS contribution, with early warning for impossible targets exceeding available A2 maxima.
+  - Safety-margin target recommendations providing a structured buffer against exam-day variance.
+  - Performance comparisons contrasting required targets against recent and lifetime full-paper practice averages.
+- **Full-Paper Isolation & Fail-Closed Guarantees**:
+  - Predicted grades and paper performance baselines strictly isolate verified full-paper attempts and exclude standalone question practice at the data-query boundary.
+  - Fail-closed operational reliability: unconfigured routes, unweighted combinations, or missing threshold data return clear, non-guessing statuses without fabricating targets.
+- **Database Migrations and Catalogue Foundation**:
+  - Migration 034 (`supabase/migrations/20261114000034_staged_component_stage_correction.sql`): controlled forward-only stage correction for staged 9709/9231 component tokens; safe no-op on an empty target catalogue, and fail-closed on inconsistent populated catalogues.
+  - Migration 035 (`supabase/migrations/20261115000035_carry_forward_evidence_contracts.sql`): adds carry-forward evidence documents, normalized mappings, bridge links, lifecycle rules, immutability protections, least-privilege access, and published views.
+  - Migration 036 (`supabase/migrations/20261116000036_seed_china_zone5_carry_forward_evidence.sql`): idempotently seeds one inactive, unreviewed China Zone 5 evidence document and ten unreviewed 9709/9231 mappings; creates no bridge links and grants no planner eligibility.
+  - Migration 037 (`supabase/migrations/20261127000037_seed_zone5_remaining_carry_forward_evidence.sql`): idempotently seeds the remaining ten unreviewed, unauthorized China Zone 5 mappings for Chemistry `9701` (`BC`: `44,54,62`/`63`; `CC`: `44,54,72`/`73`), Physics `9702` (`BC`: `44,54,62`/`63`; `CC`: `44,54,72`/`73`), and Computer Science `9618` (`BZ`: `33,43,89`; `CU`: `33,43,98`), covering all eight Atlas staged routes across 20 authoritative Zone 5 combinations while leaving non-Zone-5 variants fail-closed.
+  - Migration 038 (`supabase/migrations/20261127000038_seed_june_2026_m5_catalogue.sql`): ledger-managed idempotent installation of the 2,674-row June 2026 five-subject catalogue with exact bidirectional material-column and relationship validation across all 2,674 rows and 11 catalogue tables (no-op on Test/Preview where already seeded and validated; installs and validates all 2,674 rows on Production before Migration 039).
+  - Migration 039 (`supabase/migrations/20261127000039_activate_zone5_june2026_carry_forward_evidence.sql`): atomic, fail-closed activation of the Zone 5 June 2026 evidence document, 20 mappings, 20 bridge links, and 20 staged combinations across all 8 Atlas staged routes (verifies the 5-subject June 2026 catalogue and all 20 targets before any lifecycle mutation). Prepared and verified locally via `supabase migration up` on both Production (`033 -> 039`) and Test/Preview (`036 + seeded catalogue -> 039`) paths; hosted human approval and execution remain pending.
+  - Staged `A*`–`E` planner estimates, carry-forward sitting selection, server-side AS lookup & subject navigation split: generalized `lib/planner/staged-a-star.ts`, `lib/actions/target-planner.ts`, `components/subjects/carry-forward-sitting-selector.tsx`, `components/subjects/target-grade-planner.tsx`, `components/subjects/target-grade-planner-empty-states.tsx`, and `components/subjects/target-grade-planner-summary.tsx` to expose accessible June/November carry-forward sitting selection (`carry-forward-selection-required`), enforce server-side owned `subject_stage_results` lookup (rejecting client-forged verified marks), derive provisional `Atlas Estimate (Provisional AS Benchmark)` AS shares strictly from official combination weighting without any assumed `0.5` fallback across `A*`–`E`, and split `/subjects/[subjectId]` into accessible `?view=chapters` (default) and `?view=planner` (`Threshold Planner`) views via `components/subjects/subject-view-tabs.tsx`. Browser-level `320px` layout verification and automatic future-threshold updates / detection email alerts (`v1.5.1`) remain pending/deferred.
+  - Durable June 2026 catalogue seed (`supabase/seeds/catalogue/june_2026_m5_catalogue.sql`): **2,674 rows across 11 catalogue tables** covering all **five MVP subjects** (Mathematics `9709`, Further Mathematics `9231`, Physics `9702`, Chemistry `9701`, and Computer Science `9618`), preserving all 131 existing deterministic row IDs (`1` import run, `5` published active publications, `5` approved weighting sources, `190` weighting entries, `114` component variants, `570` component marks, `1` benchmark group, `3` benchmark members, `184` combinations [`66` AS/linear `eligible` + `1` preserved gated Option `DC` = `67` `planner_eligibility='eligible'`, `95` `unreviewed` staged, `22` `unsupported`], `542` combination tokens, and `1,059` combination marks). Non-standard components (`50/51/58/59/60/61/68/69`, `16` variants) remain `subject_paper_id = NULL`, and Migration 036 carry-forward evidence remains inactive and unreviewed (`1` document, `0` bridge links).
+  - Hardened reviewed-update monitoring, fail-closed batch publication, and source-to-seed reconciliation (`lib/grade-thresholds/completeness-report.ts`, `weighting-source.ts`, `import-pipeline.ts`, `scheduled-import.ts`, `supabase-persistence.ts`, `reconciliation.ts`, `scripts/reconcile-june-2026-catalogue.ts` via `tsx` for Node `>=20.9.0`): defaults to all five `CAMBRIDGE_THRESHOLD_SOURCES`, enforces strict non-empty session-aware weighting (`june-2026` 190-row expectations only; rejects missing/empty/unidentified session metadata), leaves multi-source batches staged (`0` sequentially auto-published, `multi-source-review-required`), reports single-source activation failures without false `published` counts, guards non-standard components against false `subject_paper_id` links, reports expected vs observed section/table completeness (surfacing `review_required` when future-session weighting is unavailable), and reconciles local official PDFs directly against both seed SQL and validator SQL in non-mutating `--check` mode.
+  - Gate 4 Preview smoke remediation: updated `components/subjects/target-grade-picker.tsx`, `components/subjects/exam-date-picker.tsx`, `components/subjects/route-setup-sheet.tsx`, `components/subjects/target-grade-planner*.tsx`, and `lib/actions/route.ts` so null target grades present cleanly as unset until chosen, successful route/exam-date/target-grade mutations immediately refresh server-rendered subject details and the planner via `router.refresh()` and `/subjects/[subjectId]` revalidation, and failed mutations preserve prior state without closing or retaining unsuccessful optimistic selections.
+  - Local-only pgTAP test suites: `supabase/tests/database/milestone_5_planner_preflight.test.sql` and `supabase/tests/database/milestone_5_catalogue_and_smoke.test.sql`.
+  - Catalogue validator fixture: `supabase/tests/fixtures/catalogue/milestone_5_catalogue_validator.sql`.
+  - Hosted-safe reversible operator fixtures: `supabase/tests/fixtures/milestone_5_hosted_smoke/bootstrap.sql`, `supabase/tests/fixtures/milestone_5_hosted_smoke/assertions.sql`, `supabase/tests/fixtures/milestone_5_hosted_smoke/teardown.sql`, and `supabase/tests/fixtures/milestone_5_hosted_smoke/verify_post_teardown.sql`.
+
+### Verification Evidence
+- **Database Test Suites**: `milestone_5_planner_preflight.test.sql` (65/65), `milestone_5_catalogue_and_smoke.test.sql` (83/83), and `milestone_5_zone5_staged_evidence.test.sql` (15/15, verifying Migration 039 activation, 20 bridge links, June/November 2025 carried sittings, conflict rejection, and all 8 staged routes) executed cleanly against disposable fresh PostgreSQL (`163/163` `ok`, `0` `not ok` lines).
+- **Offline Source-to-Seed Reconciliation**: `npm run reconcile:m5 -- --check --pdf-dir <local-pdf-dir>` verified all 2,674 rows across all 11 tables and 5 subjects (`manifestSha256 = e4b867f08544eb44f098ca123d08fd673963362d1e262760c3eea0005b1b1ecc`, `0` issues).
+- **Application Test Suite**: 829 tests passing, 6 intentional live-network skips across 65 test files (`npm test`).
+- **Code Hygiene**:
+  - TypeScript type check passed cleanly with zero errors (`npx tsc --noEmit`).
+  - ESLint passed cleanly with zero errors or warnings (`npm run lint`).
+  - Next.js Webpack production build succeeded with all routes compiled (`npm run build -- --webpack`).
+  - Whitespace check passed cleanly (`git diff --check`).
+
+### Recovery and Rollback Considerations
+- Migration 034 is a controlled forward-only data correction modifying existing staged component tokens.
+- Migration 035 adds schema contracts.
+- Migration 036 persists inactive evidence records but is idempotent and fail-closed.
+- Reversibility of the hosted smoke workflow (`supabase/tests/fixtures/milestone_5_hosted_smoke/teardown.sql`) confirms zero persistent student test artifacts, but does not make schema migrations automatically reversible.
+- A verified off-site logical backup is strictly required prior to any hosted database mutation.
+
+### Operational Limitations and Boundaries
+- **Gate 2 Test/Preview database preparation and Gate 3 branch/PR update completed; Gate 4 remediation pending deployed Preview verification.**
+  - Gate 2A confirmed read-only target identity, 36 migrations ending at Migration 036, a current non-applying migration dry-run, and the original 131-row baseline and safety state.
+  - Gate 2B completed a fresh protected logical backup with verified manifest, readable archive, and identical pre/post inventories.
+  - Gate 2C applied the durable 2,674-row June 2026 five-subject catalogue atomically to the isolated Test/Preview database; both in-transaction and independent post-commit validators returned `total_catalogue_delta = 0`, `total_catalogue_rows = 2674` across `9701`, `9702`, `9709`, `9231`, and `9618` (`5` active published publications, `5` approved weighting sources, eligibility `67` eligible / `95` unreviewed / `22` unsupported, `16` unlinked non-standard variants, carry-forward `1` inactive/unreviewed document / `10` unreviewed mappings / `0` bridge links / `0` published mappings, and unchanged auth/study aggregates).
+- Gate 3 fast-forwarded the remote feature branch and Draft PR #41 to `d88dbf61085cb4bb0a6317af56ea32943fd20bb4`. Authenticated smoke testing on that deployed head exposed stale planner refresh behavior and unresolved `9709` `full_mech_stats` / `9231` `full_all` availability; the Gate 4 remediation and action-level route regression hardening require a new deployed Preview verification.
+- Production remains untouched. Gate 4 remediation push, Preview deployment and authenticated re-verification, Production database/application gates, merge, tag creation, release publication, and cleanup remain pending explicit separate authorizations.
+
 ## [1.3.4] - 2026-11-11
 
 ### Added
