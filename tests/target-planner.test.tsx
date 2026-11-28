@@ -3332,6 +3332,7 @@ describe('Milestone 5: Target-Grade Marks Planner', () => {
 
     // Variant change preserves selectedCarryForwardToken: '82'
     const variantBtn = within(container).getByRole('button', { name: 'Variant 35' })
+    expect(variantBtn.getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(variantBtn)
     await waitFor(() => {
       expect(getTargetGradePlan).toHaveBeenLastCalledWith(

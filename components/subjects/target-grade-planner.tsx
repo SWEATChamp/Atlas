@@ -247,7 +247,11 @@ export default function TargetGradePlanner({
                 key={paperPlan.subjectPaperId}
                 paperPlan={paperPlan}
                 subjectColor={subjectColor}
-                selectedVariant={selectedVariants[paperPlan.subjectPaperId] ?? 'unknown'}
+                selectedVariant={
+                  selectedVariants[paperPlan.subjectPaperId] ??
+                  paperPlan.targetVariantChoice ??
+                  'unknown'
+                }
                 onSelectVariant={handleSelectVariant}
               />
             ))}

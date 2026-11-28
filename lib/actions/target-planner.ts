@@ -729,8 +729,13 @@ export const getTargetGradePlan = cache(
         const hasApprovedAverage = Boolean(benchmarkRow && benchmarkRow.ceiling_average_mark != null)
         hasApprovedAverageMap.set(rp.subject_paper_id, hasApprovedAverage)
 
-        // Weighting factor: sourced strictly from uniquely resolved combination, never arbitrary candidate
+        // Weighting and exact variant: sourced strictly from the uniquely resolved
+        // combination, never from an arbitrary publication candidate. For staged
+        // routes the selected carry-forward sitting identifies one exact Cambridge
+        // option code, so its A2 component variants are already authoritative and
+        // must not require a second manual variant selection.
         let factor: WeightingFactor | null = null
+        let resolvedVariantCode: string | null = null
         if (resolvedCombination) {
           const combTokensForComp = allCombTokens.filter((t) => t.combination_id === resolvedCombination!.id)
           const tokenForPaper = combTokensForComp.find((t) => {
@@ -738,12 +743,19 @@ export const getTargetGradePlan = cache(
             const cv = allComponentVariants.find((v) => v.id === t.resolved_component_variant_id)
             return cv && cv.subject_paper_id === rp.subject_paper_id
           })
+          const resolvedVariant = allComponentVariants.find(
+            (v) => v.id === tokenForPaper?.resolved_component_variant_id
+          )
+          resolvedVariantCode = resolvedVariant?.component_code ?? null
           if (tokenForPaper?.weighting_factor && Number(tokenForPaper.weighting_factor) > 0) {
             factor = weightingFactor(Number(tokenForPaper.weighting_factor))
           }
         }
 
-        const chosenVariant = userVariantSelections[rp.subject_paper_id]
+        const chosenVariant =
+          userVariantSelections[rp.subject_paper_id] ??
+          (isStagedRoute ? resolvedVariantCode : null) ??
+          undefined
 
         if (chosenVariant && chosenVariant !== 'unknown') {
           // Explicit variant chosen

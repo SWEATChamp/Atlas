@@ -569,6 +569,32 @@ describe('Staged Planner A* through E across all 8 routes and 5 subjects', () =>
     expect(res.paperPlans.every((p) => p.requiredMark !== null)).toBe(true)
   })
 
+  it.each(STAGED_ROUTES)(
+    'infers exact A2 variants from the resolved $subjectCode $routeKey Cambridge option',
+    async (spec) => {
+      const { subjectId } = setupMockForStagedRoute(spec, 'A')
+      const juneCfToken = spec.juneKey.split(',').at(-1)!
+
+      const res = await getTargetGradePlan(subjectId, {
+        selectedCarryForwardToken: juneCfToken,
+      })
+
+      expect(res.status).toBe('available')
+      if (res.status !== 'available') return
+
+      expect(res.summary.stagedBreakdown?.kind).toBe('estimated_halfway')
+      expect(res.paperPlans).toHaveLength(spec.a2PaperNums.length)
+      for (const paper of res.paperPlans) {
+        expect(paper.targetVariantChoice).toBe(
+          spec.exactVariants[paper.componentPaperNumber]
+        )
+        expect(paper.sourceKind).toBe('official_exact')
+        expect(paper.officialWeightingFactor).not.toBeNull()
+        expect(paper.requiredMark).not.toBeNull()
+      }
+    }
+  )
+
   it('auto-resolves when only one approved carry-forward sitting matches', async () => {
     const spec = STAGED_ROUTES[5] // 9701 standard
     const { subjectId } = setupMockForStagedRoute(spec, 'A', { onlyJuneMapping: true })
