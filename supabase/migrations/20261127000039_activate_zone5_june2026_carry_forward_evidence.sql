@@ -1,9 +1,11 @@
 -- Migration: 20261127000039_activate_zone5_june2026_carry_forward_evidence.sql
--- Description: Milestone 5 v1.5.0: Forward-only activation of the reviewed China administrative
+-- Description: Milestone 5 v1.5.0: Forward-only activation of the China administrative
 --              Zone 5 June 2026 carry-forward evidence set (20 combinations across 8 Atlas staged
 --              routes for 9701, 9702, 9709, 9231, and 9618).
--- Reviewed by: SWEATChamp
--- Authorized by: SWEATChamp
+-- Configured attribution (written only if applied under separate explicit hosted authorization;
+-- hosted review and authorization have NOT yet occurred):
+--   Reviewed by: SWEATChamp
+--   Authorized by: SWEATChamp
 -- Strict Boundaries:
 --   - Activates ONLY the exact Migration 036 evidence document and the exact 20 Migration 036+037
 --     China Zone 5 mappings.
@@ -16,9 +18,9 @@
 --     approved/confirmed state.
 --
 -- Supported Rollout Sequence:
---   - Test/Preview (at M036 with June 2026 catalogue already seeded): apply M037 -> M038.
---   - Production (at M033 with no catalogue): apply M034–M037 -> seed june_2026_m5_catalogue.sql
---     -> validate with milestone_5_catalogue_validator.sql -> apply M038.
+--   - Test/Preview (at M036 with June 2026 catalogue already seeded): apply 037 -> 038 -> 039.
+--   - Production (at M033 with no catalogue): apply ledger-managed 034 -> 039, where Migration 038
+--     installs and validates the 2,674-row catalogue before Migration 039 activates the evidence.
 
 BEGIN;
 
