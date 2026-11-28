@@ -17,6 +17,7 @@ import {
   weightingFactor,
   type AllocationComponentInput,
   type CambridgeExamSeries,
+  type CarryForwardSittingOption,
   type ComponentVariantBenchmark,
   type ExamSessionSpec,
   type FallbackReason,
@@ -30,12 +31,14 @@ import {
   type SubjectLevelPlanSummary,
   type ThresholdProvenance,
   type VariantOption,
+  type VerifiedOfficialWeightedAsContribution,
   type WeightedMark,
   type WeightingFactor,
 } from '@/lib/planner'
 
 export interface GetTargetPlanOptions {
   readonly selectedVariants?: Readonly<Record<string, string>> // subjectPaperId -> variantCode (e.g. "12")
+  readonly selectedCarryForwardToken?: string
   readonly safetyMargin?: SafetyMarginOption
   readonly overrideSession?: ExamSessionSpec
 }
@@ -338,8 +341,8 @@ export const getTargetGradePlan = cache(
 
       const combIds = allEligibleCombinations.map((c) => c.id)
 
-      // Query tokens and marks for these combinations
-      const [combMarksRes, combTokensRes] = await Promise.all([
+      // Query tokens, marks, and (for staged routes) published carry-forward mappings
+      const [combMarksRes, combTokensRes, cfMappingsRes] = await Promise.all([
         combIds.length > 0
           ? supabase
               .from('grade_threshold_combination_marks')
@@ -352,6 +355,14 @@ export const getTargetGradePlan = cache(
               .select('*')
               .in('combination_id', combIds)
               .order('token_position')
+          : Promise.resolve({ data: [], error: null }),
+        combIds.length > 0
+          ? supabase
+              .from('published_grade_threshold_carry_forward_mappings')
+              .select(
+                'combination_id, token_id, entry_option_code, raw_carry_forward_token, carried_exam_year, carried_exam_series, carried_as_components'
+              )
+              .in('combination_id', combIds)
           : Promise.resolve({ data: [], error: null }),
       ])
 
@@ -369,9 +380,29 @@ export const getTargetGradePlan = cache(
           error: combTokensRes.error.message,
         }
       }
+      if (cfMappingsRes.error) {
+        return {
+          status: 'query-failure',
+          message: 'Failed to query published carry-forward mappings',
+          error: cfMappingsRes.error.message,
+        }
+      }
 
       const allCombMarks = combMarksRes.data ?? []
       const allCombTokens = combTokensRes.data ?? []
+      type PublishedCfMappingRow = {
+        combination_id: string
+        token_id: string
+        entry_option_code: string
+        raw_carry_forward_token: string
+        carried_exam_year: number
+        carried_exam_series: CambridgeExamSeries
+        carried_as_components: string[] | null
+      }
+      const cfMappingByCombinationId = new Map<string, PublishedCfMappingRow>()
+      for (const row of (cfMappingsRes.data ?? []) as unknown as PublishedCfMappingRow[]) {
+        cfMappingByCombinationId.set(row.combination_id, row)
+      }
 
       // Identify required route papers
       const routePapers = (
@@ -515,7 +546,7 @@ export const getTargetGradePlan = cache(
 
       // ─── 5. Variant-Aware Combination Resolution ─────────────────────────
       type CombinationRecord = (typeof publicationEligibleCombinations)[number]
-      const matchingCombinations: CombinationRecord[] = []
+      const matchingBeforeCf: CombinationRecord[] = []
 
       for (const comb of publicationEligibleCombinations) {
         const tokens = allCombTokens.filter((t) => t.combination_id === comb.id)
@@ -549,7 +580,73 @@ export const getTargetGradePlan = cache(
         }
 
         if (matchesVariants) {
-          matchingCombinations.push(comb)
+          matchingBeforeCf.push(comb)
+        }
+      }
+
+      const formatSeriesLabel = (series: CambridgeExamSeries): string =>
+        series.charAt(0).toUpperCase() + series.slice(1)
+
+      let availableCarryForwardOptions: CarryForwardSittingOption[] = []
+      let selectedCarryForwardOption: CarryForwardSittingOption | null = null
+      let matchingCombinations: CombinationRecord[] = matchingBeforeCf
+
+      if (isStagedRoute) {
+        const optionByToken = new Map<string, CarryForwardSittingOption>()
+        for (const comb of matchingBeforeCf) {
+          const mapping = cfMappingByCombinationId.get(comb.id)
+          if (!mapping) continue
+          if (!optionByToken.has(mapping.raw_carry_forward_token)) {
+            optionByToken.set(mapping.raw_carry_forward_token, {
+              rawCarryForwardToken: mapping.raw_carry_forward_token,
+              entryOptionCode: mapping.entry_option_code,
+              carriedExamYear: mapping.carried_exam_year,
+              carriedExamSeries: mapping.carried_exam_series,
+              label: `${formatSeriesLabel(mapping.carried_exam_series)} ${mapping.carried_exam_year} AS result`,
+              carriedAsComponents: mapping.carried_as_components ?? [],
+            })
+          }
+        }
+
+        availableCarryForwardOptions = [...optionByToken.values()].sort((a, b) => {
+          if (a.carriedExamYear !== b.carriedExamYear) {
+            return a.carriedExamYear - b.carriedExamYear
+          }
+          const seriesDiff = seriesOrder[a.carriedExamSeries] - seriesOrder[b.carriedExamSeries]
+          if (seriesDiff !== 0) return seriesDiff
+          return a.rawCarryForwardToken.localeCompare(b.rawCarryForwardToken)
+        })
+
+        const requestedCfToken = options.selectedCarryForwardToken
+        const matchedRequestedOption = requestedCfToken
+          ? availableCarryForwardOptions.find(
+              (opt) => opt.rawCarryForwardToken === requestedCfToken
+            ) ?? null
+          : null
+
+        if (availableCarryForwardOptions.length > 1 && !matchedRequestedOption) {
+          return {
+            status: 'carry-forward-selection-required',
+            message:
+              'Multiple approved AS carry-forward sittings match this route. Select the AS sitting you are carrying forward.',
+            options: availableCarryForwardOptions,
+            selectedCarryForwardToken: null,
+            provenance,
+          }
+        }
+
+        selectedCarryForwardOption =
+          matchedRequestedOption ??
+          (availableCarryForwardOptions.length === 1 ? availableCarryForwardOptions[0] : null)
+
+        if (selectedCarryForwardOption) {
+          matchingCombinations = matchingBeforeCf.filter((comb) => {
+            const mapping = cfMappingByCombinationId.get(comb.id)
+            return mapping?.raw_carry_forward_token === selectedCarryForwardOption!.rawCarryForwardToken
+          })
+        } else if (matchingBeforeCf.length > 0 && availableCarryForwardOptions.length === 0) {
+          // Fail closed if staged combinations lack published carry-forward mapping metadata
+          matchingCombinations = []
         }
       }
 
@@ -1102,26 +1199,28 @@ export const getTargetGradePlan = cache(
         }
       }
 
-      // ─── 10. Staged Route & A* Modeling ───────────────────────────────────
+      // ─── 10. Staged Route & A*–E Modeling ───────────────────────────────────
       const isAStar = enrollment.target_grade === 'A*'
-      const isStagedAStar = isStagedRoute && isAStar
-      const isStagedNonAStar = isStagedRoute && !isAStar
       let stagedBreakdown = null
 
       // Weighting is only applicable to a uniquely resolved Cambridge combination
-      const hasMissingWeighting =
-        resolvedCombination !== null &&
-        planningComponents.some((c) => c.officialWeightingFactor === null)
+      let stagedWeightingInvalid = false
       const hasMissingFloorOrMax = planningComponents.some(
         (c) => c.targetGradeFloorMark === null || c.rawMaximumMark === null
       )
 
       // Calculate A2 maximum weighted capacity
-      // Only compute capacity when ALL required components have both official weighting and raw maximum marks
+      // Only compute capacity when ALL required components have valid positive official weighting and raw maximum marks
       const allComponentsHaveWeightingAndMax =
         planningComponents.length > 0 &&
         planningComponents.every(
-          (c) => c.officialWeightingFactor !== null && c.rawMaximumMark !== null
+          (c) =>
+            c.officialWeightingFactor !== null &&
+            Number.isFinite(c.officialWeightingFactor) &&
+            c.officialWeightingFactor > 0 &&
+            c.rawMaximumMark !== null &&
+            Number.isFinite(c.rawMaximumMark) &&
+            c.rawMaximumMark > 0
         )
 
       let a2MaxWeightedCapacity: number | null = null
@@ -1136,25 +1235,131 @@ export const getTargetGradePlan = cache(
       let asEstimatedContribution = 0
       let remainingA2Required = officialCombinedTarget ? (officialCombinedTarget as number) : 0
 
-      if (isStagedAStar && officialCombinedTarget !== null) {
-        // Model AS carry-forward as one planning contribution: ceil(combined target / 2) ONLY for Staged A*
-        const breakdown = evaluateStagedAStar({
-          officialCombinedTarget,
-          a2MaximumWeightedMark:
-            a2MaxWeightedCapacity !== null ? weightedMark(a2MaxWeightedCapacity) : null,
-        })
-        stagedBreakdown = breakdown
-        asEstimatedContribution =
-          breakdown.kind === 'estimated_halfway'
-            ? breakdown.estimatedAsContribution
-            : breakdown.officialWeightedAsContribution
-        remainingA2Required = breakdown.remainingA2Required
+      if (isStagedRoute && resolvedCombination !== null && officialCombinedTarget !== null) {
+        const cfToken = allCombTokens.find(
+          (t) =>
+            t.combination_id === resolvedCombination.id &&
+            t.token_kind === 'carry_forward' &&
+            t.stage === 'as'
+        )
+        const cfMapping = cfMappingByCombinationId.get(resolvedCombination.id)
+        const cfRawMax = cfToken?.maximum_mark != null ? Number(cfToken.maximum_mark) : NaN
+        const cfWeightingFactor =
+          cfToken?.weighting_factor != null ? Number(cfToken.weighting_factor) : NaN
+        const combMax = combinedMaximumMark !== null ? Number(combinedMaximumMark) : NaN
+        const cfWeightedMax = cfRawMax * cfWeightingFactor
+        const carryForwardWeightingShare = cfWeightedMax / combMax
+
+        const isShareConsistentWithA2 =
+          a2MaxWeightedCapacity !== null &&
+          Number.isFinite(a2MaxWeightedCapacity) &&
+          a2MaxWeightedCapacity > 0 &&
+          Math.abs(cfWeightedMax + a2MaxWeightedCapacity - combMax) <= 0.01
+
+        const isCfWeightingValid =
+          Boolean(cfToken) &&
+          Boolean(cfMapping) &&
+          Number.isFinite(cfRawMax) &&
+          cfRawMax > 0 &&
+          Number.isFinite(cfWeightingFactor) &&
+          cfWeightingFactor > 0 &&
+          Number.isFinite(combMax) &&
+          combMax > 0 &&
+          Number.isFinite(carryForwardWeightingShare) &&
+          carryForwardWeightingShare > 0 &&
+          carryForwardWeightingShare < 1 &&
+          isShareConsistentWithA2
+
+        if (!isCfWeightingValid || !cfMapping) {
+          stagedWeightingInvalid = true
+        } else {
+          // Server-side lookup of owned verified actual carry-forward AS result
+          const stageResultsRes = await supabase
+            .from('subject_stage_results')
+            .select(
+              'id, user_subject_id, stage, result_type, score_obtained, score_maximum, exam_series, exam_year, carry_forward'
+            )
+            .eq('user_subject_id', enrollment.id)
+            .eq('stage', 'as')
+            .eq('result_type', 'actual')
+            .eq('carry_forward', true)
+            .eq('exam_year', cfMapping.carried_exam_year)
+            .eq('exam_series', cfMapping.carried_exam_series)
+
+          if (stageResultsRes.error) {
+            return {
+              status: 'query-failure',
+              message: 'Failed to load verified AS carry-forward result',
+              error: stageResultsRes.error.message,
+            }
+          }
+
+          type StageResultRow = {
+            user_subject_id: string
+            stage: string
+            result_type: string
+            score_obtained: number
+            score_maximum: number
+            exam_series: string
+            exam_year: number
+            carry_forward: boolean
+          }
+
+          const matchingStageResults = (
+            (stageResultsRes.data ?? []) as unknown as StageResultRow[]
+          ).filter(
+            (row) =>
+              row.user_subject_id === enrollment.id &&
+              row.stage === 'as' &&
+              row.result_type === 'actual' &&
+              row.carry_forward === true &&
+              Number(row.exam_year) === cfMapping.carried_exam_year &&
+              row.exam_series === cfMapping.carried_exam_series
+          )
+
+          let verifiedAsContribution: VerifiedOfficialWeightedAsContribution | null = null
+          if (matchingStageResults.length === 1) {
+            const row = matchingStageResults[0]
+            const scoreObtained = Number(row.score_obtained)
+            const scoreMaximum = Number(row.score_maximum)
+            if (
+              Number.isFinite(scoreMaximum) &&
+              scoreMaximum === cfRawMax &&
+              Number.isFinite(scoreObtained) &&
+              scoreObtained >= 0 &&
+              scoreObtained <= scoreMaximum
+            ) {
+              verifiedAsContribution = {
+                kind: 'verified_official_weighted_as_mark',
+                weightedMark: weightedMark(scoreObtained * cfWeightingFactor),
+                maxWeightedMark: weightedMark(cfWeightedMax),
+              }
+            }
+          }
+
+          const breakdown = evaluateStagedAStar({
+            officialCombinedTarget,
+            a2MaximumWeightedMark:
+              a2MaxWeightedCapacity !== null ? weightedMark(a2MaxWeightedCapacity) : null,
+            carryForwardWeightingShare,
+            verifiedAsContribution,
+          })
+          stagedBreakdown = breakdown
+          asEstimatedContribution =
+            breakdown.kind === 'estimated_halfway'
+              ? breakdown.estimatedAsContribution
+              : breakdown.officialWeightedAsContribution
+          remainingA2Required = breakdown.remainingA2Required
+        }
       }
 
+      const hasMissingWeighting =
+        resolvedCombination !== null &&
+        (stagedWeightingInvalid ||
+          planningComponents.some((c) => c.officialWeightingFactor === null))
+
       // Allocation eligibility: strictly requires resolved combination, official target, weighting, and floors/maxes.
-      // For staged routes targeting A-E, per-paper allocation is withheld until verified weighted AS evidence exists.
       const isAllocationEligible =
-        !isStagedNonAStar &&
         resolvedCombination !== null &&
         officialCombinedTarget !== null &&
         perPaperAllocationEligible &&
@@ -1266,14 +1471,12 @@ export const getTargetGradePlan = cache(
           isPaperAllocationAvailable = false
           allocationUnavailableReason =
             paperVariantErrors.get(comp.subjectPaperId) ??
-            (isStagedNonAStar
-              ? 'A2 mark allocation for staged routes targeting grades A–E requires verified official AS results.'
-              : overallThresholdUnavailableReason ??
-                (hasMissingWeighting
-                  ? 'Missing official Cambridge weighting'
-                  : hasMissingFloorOrMax
-                  ? 'Missing official threshold or maximum mark'
-                  : 'Per-paper allocation unavailable'))
+            (overallThresholdUnavailableReason ??
+              (hasMissingWeighting
+                ? 'Missing official Cambridge weighting'
+                : hasMissingFloorOrMax
+                ? 'Missing official threshold or maximum mark'
+                : 'Per-paper allocation unavailable'))
         }
 
         if (evidence.recencyWeightedBaseline !== null && comp.officialWeightingFactor) {
@@ -1396,6 +1599,8 @@ export const getTargetGradePlan = cache(
         latestComparableGrade,
         rollingPredictedGrade,
         stagedBreakdown,
+        selectedCarryForwardOption,
+        availableCarryForwardOptions: isStagedRoute ? availableCarryForwardOptions : undefined,
         provenance,
         perPaperAllocationEligible: isAllocationEligible,
         safetyMargin,

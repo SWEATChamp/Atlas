@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import {
   allocateComponentMarks,
   applySafetyMarginToCombinedTarget,
@@ -705,6 +705,7 @@ describe('Milestone 5: Target-Grade Marks Planner', () => {
     const breakdown = evaluateStagedAStar({
       officialCombinedTarget: weightedMark(227),
       a2MaximumWeightedMark: weightedMark(125),
+      carryForwardWeightingShare: 0.5,
     })
 
     expect(breakdown.kind).toBe('estimated_halfway')
@@ -725,6 +726,7 @@ describe('Milestone 5: Target-Grade Marks Planner', () => {
     const breakdown = evaluateStagedAStar({
       officialCombinedTarget: weightedMark(230),
       a2MaximumWeightedMark: weightedMark(125),
+      carryForwardWeightingShare: 0.5,
       verifiedAsContribution: verifiedContribution,
     })
 
@@ -748,6 +750,7 @@ describe('Milestone 5: Target-Grade Marks Planner', () => {
     const breakdown = evaluateStagedAStar({
       officialCombinedTarget: weightedMark(230),
       a2MaximumWeightedMark: weightedMark(125),
+      carryForwardWeightingShare: 0.5,
       verifiedAsContribution: lowContribution,
     })
 
@@ -1017,6 +1020,7 @@ describe('Milestone 5: Target-Grade Marks Planner', () => {
     const breakdown = evaluateStagedAStar({
       officialCombinedTarget,
       a2MaximumWeightedMark: weightedMark(125),
+      carryForwardWeightingShare: 0.5,
     })
 
     expect(breakdown.kind).toBe('estimated_halfway')
@@ -1912,7 +1916,7 @@ describe('Milestone 5: Target-Grade Marks Planner', () => {
   })
 
   // ─── 41. Staged route A-E UI: combined threshold visible, projections and margins disabled ─
-  it('renders Staged Route Grade A notice, withholds combined projections, and disables safety margin controls', () => {
+  it('renders Staged Route Grade A pathway breakdown with provisional AS estimate when stagedBreakdown is present', () => {
     const stagedASummary: SubjectLevelPlanSummary = {
       subjectId: 'sub-1',
       subjectName: 'Mathematics',
@@ -1920,13 +1924,19 @@ describe('Milestone 5: Target-Grade Marks Planner', () => {
       colorHex: '#3b82f6',
       studyRoute: 'staged',
       targetGrade: 'A',
-      officialCombinedTarget: weightedMark(130), // Visible official combined target!
+      officialCombinedTarget: weightedMark(197),
       combinedMaximumMark: weightedMark(250),
       estimatedCombinedMark: null,
       marksStillNeeded: null,
       latestComparableGrade: null,
       rollingPredictedGrade: null,
-      stagedBreakdown: null,
+      stagedBreakdown: {
+        kind: 'estimated_halfway',
+        estimatedAsContribution: weightedMark(99),
+        remainingA2Required: weightedMark(98),
+        a2MaximumWeightedMark: weightedMark(125),
+        isMathematicallyPossible: true,
+      },
       provenance: {
         publicationId: 'pub-2026',
         examYear: 2026,
@@ -1939,10 +1949,10 @@ describe('Milestone 5: Target-Grade Marks Planner', () => {
         intendedYear: 2026,
         intendedSeries: 'june',
       },
-      perPaperAllocationEligible: false, // Ineligible for staged A-E!
+      perPaperAllocationEligible: false,
       safetyMargin: { type: 'none' },
       adjustedCombinedTarget: null,
-      resolvedOptionCode: 'BY',
+      resolvedOptionCode: 'EC',
       isOptionResolved: true,
       estimatedCombinedUnavailableReason:
         'For staged routes, official AS marks must be verified before calculating combined totals.',
@@ -1952,26 +1962,19 @@ describe('Milestone 5: Target-Grade Marks Planner', () => {
       <TargetGradePlannerSummary summary={stagedASummary} onSelectSafetyMargin={vi.fn()} />
     )
 
-    // Combined target is visible: 130 / 250
-    expect(within(container).getByText('130')).toBeTruthy()
+    expect(within(container).getByText('197')).toBeTruthy()
     expect(within(container).getByText('/ 250')).toBeTruthy()
-
-    // Staged Route Grade A notice is displayed
-    expect(within(container).getByText('Staged Route · Grade A')).toBeTruthy()
-    expect(
-      within(container).getByText(/Because Cambridge does not define a standard halfway AS threshold/i)
-    ).toBeTruthy()
-
-    // Estimated Combined Mark and Rolling Predicted Grade show "Awaiting verified AS mark"
+    expect(within(container).getByText('Staged Grade A Pathway Plan')).toBeTruthy()
+    expect(within(container).getByText('Atlas Estimate (Provisional AS Benchmark)')).toBeTruthy()
+    expect(within(container).getByText('99 marks')).toBeTruthy()
+    expect(within(container).getByText('98 / 125 marks')).toBeTruthy()
     expect(within(container).getAllByText('Awaiting verified AS mark').length).toBe(2)
 
-    // Safety margin buttons are disabled
     const marginButtons = container.querySelectorAll('button')
     for (const btn of marginButtons) {
       expect(btn.hasAttribute('disabled')).toBe(true)
     }
 
-    // Safety margin helper text explains why
     expect(
       within(container).getByText('Safety margin adjustments are unavailable when paper mark allocation is disabled.')
     ).toBeTruthy()
@@ -2628,6 +2631,7 @@ describe('Milestone 5: Target-Grade Marks Planner', () => {
     const breakdown = evaluateStagedAStar({
       officialCombinedTarget: weightedMark(227),
       a2MaximumWeightedMark: null,
+      carryForwardWeightingShare: 0.5,
     })
 
     expect(breakdown.kind).toBe('estimated_halfway')
@@ -2649,6 +2653,7 @@ describe('Milestone 5: Target-Grade Marks Planner', () => {
     const breakdown = evaluateStagedAStar({
       officialCombinedTarget: weightedMark(230),
       a2MaximumWeightedMark: null,
+      carryForwardWeightingShare: 0.5,
       verifiedAsContribution: verifiedContribution,
     })
 
@@ -3156,5 +3161,217 @@ describe('Milestone 5: Target-Grade Marks Planner', () => {
     expect(within(container).getByText('3 marks below latest')).toBeTruthy()
     expect(within(container).getByText('0.5 marks below average')).toBeTruthy()
     expect(within(container).getByText('0 marks above baseline')).toBeTruthy()
+  })
+
+  it('supports accessible carry-forward sitting selection, preserves it across variant/margin/retry, and clears on incompatible subject change', async () => {
+    const juneOpt = {
+      rawCarryForwardToken: '82',
+      entryOptionCode: '35,55,82',
+      carriedExamYear: 2025,
+      carriedExamSeries: 'june' as const,
+      label: 'June 2025 AS result',
+      carriedAsComponents: ['12', '42'],
+    }
+    const novOpt = {
+      rawCarryForwardToken: '92',
+      entryOptionCode: '35,55,92',
+      carriedExamYear: 2025,
+      carriedExamSeries: 'november' as const,
+      label: 'November 2025 AS result',
+      carriedAsComponents: ['12', '42'],
+    }
+    const baseProvenance = {
+      publicationId: 'pub-1',
+      examYear: 2026,
+      examSeries: 'june' as const,
+      officialIndexUrl: 'https://www.cambridgeinternational.org/',
+      officialPdfUrl: 'https://www.cambridgeinternational.org/Images/test.pdf',
+      officialPublishedOn: '2026-08-10',
+      publishedAt: '2026-08-11T00:00:00Z',
+      isFallback: false,
+      intendedYear: 2026,
+      intendedSeries: 'june' as const,
+    }
+
+    const initialSelectionRequired: PlannerResult = {
+      status: 'carry-forward-selection-required',
+      message: 'Multiple approved AS carry-forward sittings match this route.',
+      options: [juneOpt, novOpt],
+      selectedCarryForwardToken: null,
+      provenance: baseProvenance,
+    }
+
+    const resolvedJunePlan: PlannerResult = {
+      status: 'available',
+      summary: {
+        subjectId: 'sub-9709',
+        subjectName: 'Mathematics',
+        subjectCode: '9709',
+        colorHex: '#3b82f6',
+        studyRoute: 'staged',
+        targetGrade: 'A*',
+        officialCombinedTarget: weightedMark(197),
+        combinedMaximumMark: weightedMark(250),
+        estimatedCombinedMark: null,
+        marksStillNeeded: null,
+        latestComparableGrade: null,
+        rollingPredictedGrade: null,
+        stagedBreakdown: {
+          kind: 'estimated_halfway',
+          estimatedAsContribution: weightedMark(99),
+          remainingA2Required: weightedMark(98),
+          a2MaximumWeightedMark: weightedMark(125),
+          isMathematicallyPossible: true,
+        },
+        selectedCarryForwardOption: juneOpt,
+        availableCarryForwardOptions: [juneOpt, novOpt],
+        provenance: baseProvenance,
+        perPaperAllocationEligible: true,
+        safetyMargin: { type: 'none' },
+        adjustedCombinedTarget: weightedMark(197),
+        resolvedOptionCode: '35,55,82',
+        isOptionResolved: true,
+      },
+      paperPlans: [
+        {
+          subjectPaperId: 'sp-p3',
+          componentPaperNumber: 3,
+          componentName: 'Paper 3 Pure Mathematics 3',
+          stage: 'a2',
+          targetVariantChoice: '35',
+          sourceKind: 'official_exact',
+          rawMaximumMark: rawMark(75),
+          benchmarkFloorMark: rawMark(55),
+          requiredMark: rawMark(59),
+          requiredMarkWithSafetyMargin: rawMark(59),
+          isAllocationAvailable: true,
+          officialWeightingFactor: weightingFactor(1),
+          evidence: {
+            attemptCount: 0,
+            latestRawScore: null,
+            latestRawMax: null,
+            officialMax: rawMark(75),
+            latestNormalizedScore: null,
+            latestAttemptDate: null,
+            latestHistoricalGrade: null,
+            unweightedLifetimeAverage: null,
+            recencyWeightedBaseline: null,
+            variability: null,
+            trend: 'stable',
+            trendDelta: 0,
+            hasSufficientSample: false,
+            rollingPredictedScore: null,
+          },
+          latestGap: null,
+          lifetimeAverageGap: null,
+          baselineGap: null,
+          includedVariants: ['35'],
+          availableVariants: [{ variantCode: '35', label: 'Variant 35' }],
+          hasApprovedAverage: false,
+          isAStarEstimate: true,
+        },
+      ],
+    }
+
+    vi.mocked(getTargetGradePlan)
+      .mockResolvedValueOnce(resolvedJunePlan)
+      .mockResolvedValueOnce({
+        ...resolvedJunePlan,
+        summary: {
+          ...resolvedJunePlan.summary,
+          safetyMargin: { type: 'plus_3', marks: 3 },
+          adjustedCombinedTarget: weightedMark(200),
+        },
+      })
+      .mockResolvedValueOnce(resolvedJunePlan)
+
+    const { container, rerender } = render(
+      <TargetGradePlanner
+        subjectId="sub-9709"
+        subjectColor="#3b82f6"
+        initialResult={initialSelectionRequired}
+      />
+    )
+
+    // Radiogroup & accessible labels without raw token as primary label
+    const radioGroup = within(container).getByRole('radiogroup', {
+      name: /Carried AS examination sitting/i,
+    })
+    expect(radioGroup).toBeTruthy()
+    const juneRadio = within(container).getByRole('radio', { name: /June 2025 AS result/i }) as HTMLInputElement
+    const novRadio = within(container).getByRole('radio', { name: /November 2025 AS result/i }) as HTMLInputElement
+    expect(juneRadio.checked).toBe(false)
+    expect(novRadio.checked).toBe(false)
+
+    // 44px touch target & 320px safe flex-wrap constraints
+    const juneLabel = juneRadio.closest('label')!
+    expect(juneLabel.style.minHeight).toBe('44px')
+    expect(juneLabel.style.maxWidth).toBe('100%')
+
+    // Selecting June 2025 AS result calls getTargetGradePlan with token '82'
+    fireEvent.click(juneRadio)
+    await waitFor(() => {
+      expect(getTargetGradePlan).toHaveBeenCalledWith(
+        'sub-9709',
+        expect.objectContaining({ selectedCarryForwardToken: '82' })
+      )
+    })
+
+    // Safety margin change preserves selectedCarryForwardToken: '82'
+    const plus3Btn = await within(container).findByRole('button', { name: /\+3 marks/i })
+    fireEvent.click(plus3Btn)
+    await waitFor(() => {
+      expect(getTargetGradePlan).toHaveBeenLastCalledWith(
+        'sub-9709',
+        expect.objectContaining({
+          selectedCarryForwardToken: '82',
+          safetyMargin: { type: 'plus_3', marks: 3 },
+        })
+      )
+    })
+
+    // Variant change preserves selectedCarryForwardToken: '82'
+    const variantBtn = within(container).getByRole('button', { name: 'Variant 35' })
+    fireEvent.click(variantBtn)
+    await waitFor(() => {
+      expect(getTargetGradePlan).toHaveBeenLastCalledWith(
+        'sub-9709',
+        expect.objectContaining({
+          selectedCarryForwardToken: '82',
+          selectedVariants: { 'sp-p3': '35' },
+        })
+      )
+    })
+
+    // Switching to an incompatible subject clears the prior selection
+    rerender(
+      <TargetGradePlanner
+        subjectId="sub-9701"
+        subjectColor="#10b981"
+        initialResult={{
+          ...initialSelectionRequired,
+          options: [
+            {
+              rawCarryForwardToken: '62',
+              entryOptionCode: '44,54,62',
+              carriedExamYear: 2025,
+              carriedExamSeries: 'june',
+              label: 'June 2025 AS result',
+              carriedAsComponents: ['12', '22', '33'],
+            },
+            {
+              rawCarryForwardToken: '72',
+              entryOptionCode: '44,54,72',
+              carriedExamYear: 2025,
+              carriedExamSeries: 'november',
+              label: 'November 2025 AS result',
+              carriedAsComponents: ['12', '22', '33'],
+            },
+          ],
+        }}
+      />
+    )
+    const chemJuneRadio = within(container).getByRole('radio', { name: /June 2025 AS result/i }) as HTMLInputElement
+    expect(chemJuneRadio.checked).toBe(false)
   })
 })

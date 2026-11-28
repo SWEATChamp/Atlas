@@ -1725,6 +1725,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [], error: null })
       }
 
       return builder
@@ -1888,6 +1890,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [], error: null })
       }
 
       return builder
@@ -2114,6 +2118,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [], error: null })
       }
 
       return builder
@@ -2291,6 +2297,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
                 token_position: 1,
                 token_kind: 'carry_forward',
                 stage: 'as',
+                raw_token: '82',
+                maximum_mark: 125,
                 weighting_factor: 1.0,
                 carry_forward_mapping_status: 'approved',
               },
@@ -2313,7 +2321,7 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
                 id: 'var-32',
                 publication_id: pubId,
                 component_code: '32',
-                raw_maximum_mark: 75,
+                raw_maximum_mark: 125,
                 subject_paper_id: paper3Id,
                 grade_threshold_component_marks: [{ grade: 'A', threshold_mark: 60 }],
               },
@@ -2326,6 +2334,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [{ combination_id: combId, token_id: 'cf-tok-1', entry_option_code: 'BY', raw_carry_forward_token: '82', carried_exam_year: 2025, carried_exam_series: 'june', carried_as_components: ['12', '42'] }], error: null })
       }
 
       return builder
@@ -2667,6 +2677,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
                 token_position: 1,
                 token_kind: 'carry_forward',
                 stage: 'as',
+                raw_token: '82',
+                maximum_mark: 125,
                 weighting_factor: 1.0,
                 carry_forward_mapping_status: 'approved',
               },
@@ -2689,7 +2701,7 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
                 id: 'var-32',
                 publication_id: pubId,
                 component_code: '32',
-                raw_maximum_mark: 75,
+                raw_maximum_mark: 125,
                 subject_paper_id: paper3Id,
                 grade_threshold_component_marks: [{ grade: 'A', threshold_mark: 58 }],
               },
@@ -2702,6 +2714,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [{ combination_id: combId, token_id: 'cf-tok-1', entry_option_code: 'BY', raw_carry_forward_token: '82', carried_exam_year: 2025, carried_exam_series: 'june', carried_as_components: ['12', '42'] }], error: null })
       }
 
       return builder
@@ -2716,20 +2730,21 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
       // Official combined target mark is visible
       expect(plan.summary.officialCombinedTarget).toBe(130)
 
-      // Staged halfway estimate is NOT applied for non-A*
-      expect(plan.summary.stagedBreakdown).toBeNull()
+      // Staged provisional AS estimate is applied for A* through E
+      expect(plan.summary.stagedBreakdown).toEqual({
+        kind: 'estimated_halfway',
+        estimatedAsContribution: 65,
+        remainingA2Required: 65,
+        a2MaximumWeightedMark: 125,
+        isMathematicallyPossible: true,
+      })
 
-      // Allocation is not eligible
-      expect(plan.summary.perPaperAllocationEligible).toBe(false)
-      expect(plan.summary.estimatedCombinedMark).toBeNull()
-      expect(plan.summary.marksStillNeeded).toBeNull()
-      expect(plan.summary.rollingPredictedGrade).toBeNull()
-
-      // Paper plans have allocation marked unavailable with explicit explanation
+      // A2 allocation is eligible when combination and weighting are approved
+      expect(plan.summary.perPaperAllocationEligible).toBe(true)
       expect(plan.paperPlans.length).toBe(1)
       const a2Plan = plan.paperPlans[0]
-      expect(a2Plan.isAllocationAvailable).toBe(false)
-      expect(a2Plan.allocationUnavailableReason).toContain('requires verified official AS results')
+      expect(a2Plan.isAllocationAvailable).toBe(true)
+      expect(a2Plan.requiredMark).toBe(65)
       expect(a2Plan.benchmarkFloorMark).toBe(58)
     }
   })
@@ -2872,6 +2887,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [], error: null })
       }
 
       return builder
@@ -3060,6 +3077,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [], error: null })
       }
 
       return builder
@@ -3252,6 +3271,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [], error: null })
       }
 
       return builder
@@ -3527,6 +3548,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [], error: null })
       }
 
       return builder
@@ -3696,6 +3719,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [], error: null })
       }
 
       return builder
@@ -3889,6 +3914,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [], error: null })
       }
 
       return builder
@@ -4113,6 +4140,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [], error: null })
       }
 
       return builder
@@ -4338,6 +4367,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [], error: null })
       }
 
       return builder
@@ -4474,6 +4505,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [], error: null })
       }
 
       return builder
@@ -4603,6 +4636,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [], error: null })
       }
 
       return builder
@@ -4732,6 +4767,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [], error: null })
       }
 
       return builder
@@ -4956,6 +4993,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [], error: null })
       }
 
       return builder
@@ -5188,6 +5227,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [], error: null })
       }
 
       return builder
@@ -5420,6 +5461,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [], error: null })
       }
 
       return builder
@@ -5652,6 +5695,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [], error: null })
       }
 
       return builder
@@ -5790,6 +5835,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
                 token_position: 1,
                 token_kind: 'carry_forward',
                 stage: 'as',
+                raw_token: '62',
+                maximum_mark: 130,
                 weighting_factor: 1.0,
                 carry_forward_mapping_status: 'approved',
               },
@@ -5825,6 +5872,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [{ combination_id: combId, token_id: 'cf-tok-1', entry_option_code: 'S3', raw_carry_forward_token: '62', carried_exam_year: 2025, carried_exam_series: 'june', carried_as_components: ['12', '22', '33'] }], error: null })
       }
 
       return builder
@@ -5834,20 +5883,11 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
       selectedVariants: { [paper4Id]: '42' },
     })
 
-    // Returns missing-weighting status, NOT impossible-target
+    // Returns missing-weighting status, NOT impossible-target, and withholds numeric staged estimate when A2 weighting is missing
     expect(plan.status).toBe('missing-weighting')
     if (plan.status === 'missing-weighting') {
       expect(plan.summary.officialCombinedTarget).toBe(227)
-      expect(plan.summary.stagedBreakdown).not.toBeNull()
-      expect(plan.summary.stagedBreakdown?.kind).toBe('estimated_halfway')
-
-      if (plan.summary.stagedBreakdown?.kind === 'estimated_halfway') {
-        expect(plan.summary.stagedBreakdown.estimatedAsContribution).toBe(114) // ceil(227 / 2)
-        expect(plan.summary.stagedBreakdown.remainingA2Required).toBe(113)      // 227 - 114
-        // Capacity and viability explicitly unavailable: null, never 0 or false
-        expect(plan.summary.stagedBreakdown.a2MaximumWeightedMark).toBeNull()
-        expect(plan.summary.stagedBreakdown.isMathematicallyPossible).toBeNull()
-      }
+      expect(plan.summary.stagedBreakdown).toBeNull()
 
       // Per-paper allocation disabled and no paper targets invented
       expect(plan.summary.perPaperAllocationEligible).toBe(false)
@@ -5977,6 +6017,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
                 token_position: 1,
                 token_kind: 'carry_forward',
                 stage: 'as',
+                raw_token: '62',
+                maximum_mark: 130,
                 weighting_factor: 1.0,
                 carry_forward_mapping_status: 'approved',
               },
@@ -6012,6 +6054,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [{ combination_id: combId, token_id: 'cf-tok-1', entry_option_code: 'S3', raw_carry_forward_token: '62', carried_exam_year: 2025, carried_exam_series: 'june', carried_as_components: ['12', '22', '33'] }], error: null })
       }
 
       return builder
@@ -6152,6 +6196,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
                 token_position: 1,
                 token_kind: 'carry_forward',
                 stage: 'as',
+                raw_token: '62',
+                maximum_mark: 130,
                 weighting_factor: 1.0,
                 carry_forward_mapping_status: 'approved',
               },
@@ -6187,6 +6233,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [{ combination_id: combId, token_id: 'cf-tok-1', entry_option_code: 'S3', raw_carry_forward_token: '62', carried_exam_year: 2025, carried_exam_series: 'june', carried_as_components: ['12', '22', '33'] }], error: null })
       }
 
       return builder
@@ -6361,6 +6409,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [{ combination_id: combId, token_id: 'cf-tok-1', entry_option_code: 'S3', raw_carry_forward_token: '62', carried_exam_year: 2025, carried_exam_series: 'june', carried_as_components: ['12', '22', '33'] }], error: null })
       }
 
       return builder
@@ -6534,6 +6584,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
             data: [],
             error: null,
           })
+      } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+        builder.then = (r) => r({ data: [{ combination_id: combId, token_id: 'cf-tok-1', entry_option_code: 'S3', raw_carry_forward_token: '62', carried_exam_year: 2025, carried_exam_series: 'june', carried_as_components: ['12', '22', '33'] }], error: null })
       }
 
       return builder
@@ -6563,7 +6615,7 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
     const paper1Id = 'p1-chem-as'
     const paper4Id = 'p4-chem-a2'
 
-    const createMock = (rawMax: number) => {
+    const createMock = (rawMax: number, actualAsScore?: number) => {
       return (table: string) => {
         const builder: MockQueryBuilder = {
           select: vi.fn().mockReturnThis(),
@@ -6654,7 +6706,7 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
                   canonical_key: 'S3',
                   route_type: 'staged',
                   qualification_level: 'a_level',
-                  maximum_mark: 260,
+                  maximum_mark: 130 + rawMax,
                   per_paper_allocation_eligible: true,
                   atlas_route_id: routeId,
                   planner_eligibility: 'eligible',
@@ -6677,6 +6729,8 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
                   token_position: 1,
                   token_kind: 'carry_forward',
                   stage: 'as',
+                  raw_token: '62',
+                  maximum_mark: 130,
                   weighting_factor: 1.0,
                   carry_forward_mapping_status: 'approved',
                 },
@@ -6712,27 +6766,64 @@ describe('Target-Grade Marks Planner Server Action (getTargetGradePlan)', () => 
               data: [],
               error: null,
             })
+        } else if (table === 'published_grade_threshold_carry_forward_mappings') {
+          builder.then = (r) =>
+            r({
+              data: [
+                {
+                  combination_id: combId,
+                  token_id: 'cf-tok-1',
+                  entry_option_code: 'S3',
+                  raw_carry_forward_token: '62',
+                  carried_exam_year: 2025,
+                  carried_exam_series: 'june',
+                  carried_as_components: ['12', '22', '33'],
+                },
+              ],
+              error: null,
+            })
+        } else if (table === 'subject_stage_results') {
+          builder.then = (r) =>
+            r({
+              data:
+                actualAsScore !== undefined
+                  ? [
+                      {
+                        id: 'ssr-actual-june',
+                        user_subject_id: 'us-staged-chem',
+                        stage: 'as',
+                        result_type: 'actual',
+                        score_obtained: actualAsScore,
+                        score_maximum: 130,
+                        exam_series: 'june',
+                        exam_year: 2025,
+                        carry_forward: true,
+                      },
+                    ]
+                  : [],
+              error: null,
+            })
         }
 
         return builder
       }
     }
 
-    // 1. Viable route (capacity 125 >= remaining 113)
-    mockFrom.mockImplementation(createMock(125))
+    // 1. Viable route (exact capacity 130 + 130 = 260, capacity 130 >= remaining 113)
+    mockFrom.mockImplementation(createMock(130))
     const viablePlan = await getTargetGradePlan(subjectId, {
       selectedVariants: { [paper4Id]: '42' },
     })
 
     expect(viablePlan.status).toBe('available')
     if (viablePlan.status === 'available') {
-      expect(viablePlan.summary.stagedBreakdown?.a2MaximumWeightedMark).toBe(125)
+      expect(viablePlan.summary.stagedBreakdown?.a2MaximumWeightedMark).toBe(130)
       expect(viablePlan.summary.stagedBreakdown?.isMathematicallyPossible).toBe(true)
       expect(viablePlan.summary.perPaperAllocationEligible).toBe(true)
     }
 
-    // 2. Impossible route (capacity 100 < remaining 113)
-    mockFrom.mockImplementation(createMock(100))
+    // 2. Impossible route (exact capacity 130 + 100 = 230, verified AS 80 -> remaining 147 > 100)
+    mockFrom.mockImplementation(createMock(100, 80))
     const impossiblePlan = await getTargetGradePlan(subjectId, {
       selectedVariants: { [paper4Id]: '42' },
     })

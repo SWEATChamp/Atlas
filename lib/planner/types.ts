@@ -184,6 +184,15 @@ export type SafetyMarginOption =
 
 // ─── Subject-Level Plan Summary ──────────────────────────────────────────────
 
+export interface CarryForwardSittingOption {
+  readonly rawCarryForwardToken: string
+  readonly entryOptionCode: string
+  readonly carriedExamYear: number
+  readonly carriedExamSeries: CambridgeExamSeries
+  readonly label: string
+  readonly carriedAsComponents: readonly string[]
+}
+
 export interface SubjectLevelPlanSummary {
   readonly subjectId: string
   readonly subjectName: string
@@ -198,6 +207,8 @@ export interface SubjectLevelPlanSummary {
   readonly latestComparableGrade: string | null
   readonly rollingPredictedGrade: string | null
   readonly stagedBreakdown: StagedAStarBreakdown | null
+  readonly selectedCarryForwardOption?: CarryForwardSittingOption | null
+  readonly availableCarryForwardOptions?: readonly CarryForwardSittingOption[]
   readonly provenance: ThresholdProvenance
   readonly perPaperAllocationEligible: boolean
   readonly safetyMargin: SafetyMarginOption
@@ -257,6 +268,13 @@ export type PlannerResult =
       readonly status: 'partial-paper-coverage'
       readonly message: string
       readonly unconfiguredPaperNames: readonly string[]
+    }
+  | {
+      readonly status: 'carry-forward-selection-required'
+      readonly message: string
+      readonly options: readonly CarryForwardSittingOption[]
+      readonly selectedCarryForwardToken: string | null
+      readonly provenance: ThresholdProvenance
     }
   | {
       readonly status: 'query-failure'

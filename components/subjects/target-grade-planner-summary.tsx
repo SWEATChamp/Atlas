@@ -7,15 +7,18 @@ import {
   Info,
 } from 'lucide-react'
 import type { SafetyMarginOption, SubjectLevelPlanSummary } from '@/lib/planner'
+import CarryForwardSittingSelector from './carry-forward-sitting-selector'
 
 interface Props {
   readonly summary: SubjectLevelPlanSummary
   readonly onSelectSafetyMargin: (margin: SafetyMarginOption) => void
+  readonly onSelectCarryForwardToken?: (rawCarryForwardToken: string) => void
 }
 
 export default function TargetGradePlannerSummary({
   summary,
   onSelectSafetyMargin,
+  onSelectCarryForwardToken,
 }: Props) {
   const {
     targetGrade,
@@ -361,38 +364,31 @@ export default function TargetGradePlannerSummary({
         </div>
       </div>
 
-      {/* Staged Route A–E Notice */}
-      {summary.studyRoute === 'staged' && summary.targetGrade !== 'A*' && (
-        <div
-          role="note"
-          aria-label="Staged route A-E target notice"
-          style={{
-            padding: 16,
-            background: 'var(--bg-base)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-md)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 6,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Award size={18} color="var(--accent)" aria-hidden="true" />
-            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              Staged Route · Grade {summary.targetGrade}
-            </span>
+      {/* Staged Carry-Forward Sitting Selector */}
+      {summary.studyRoute === 'staged' &&
+        summary.availableCarryForwardOptions &&
+        summary.availableCarryForwardOptions.length > 1 &&
+        onSelectCarryForwardToken && (
+          <div
+            style={{
+              padding: 14,
+              background: 'var(--bg-base)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)',
+              minWidth: 0,
+              maxWidth: '100%',
+            }}
+          >
+            <CarryForwardSittingSelector
+              options={summary.availableCarryForwardOptions}
+              selectedToken={summary.selectedCarryForwardOption?.rawCarryForwardToken ?? null}
+              onSelect={onSelectCarryForwardToken}
+              compact
+            />
           </div>
-          <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-            The official Cambridge combined threshold for Grade {summary.targetGrade} is{' '}
-            <strong style={{ color: 'var(--text-primary)' }}>{summary.officialCombinedTarget ?? '—'} marks</strong>.
-            Because Cambridge does not define a standard halfway AS threshold for non-A* targets,
-            A2 component mark allocation, combined marks, and predictions remain unavailable until
-            verified official weighted AS results are available.
-          </p>
-        </div>
-      )}
+        )}
 
-      {/* Staged A* Breakdown Card (if applicable) */}
+      {/* Staged Pathway Breakdown Card (A* through E) */}
       {stagedBreakdown && (
         <div
           style={{
@@ -408,7 +404,7 @@ export default function TargetGradePlannerSummary({
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <Award size={18} color="var(--warning)" aria-hidden="true" />
             <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              Staged A* Pathway Plan
+              Staged Grade {summary.targetGrade} Pathway Plan
             </span>
             <span
               style={{
@@ -416,12 +412,23 @@ export default function TargetGradePlannerSummary({
                 fontWeight: 600,
                 padding: '2px 6px',
                 borderRadius: 4,
-                background: 'rgba(234, 179, 8, 0.12)',
-                color: 'var(--warning)',
-                border: '1px solid rgba(234, 179, 8, 0.3)',
+                background:
+                  stagedBreakdown.kind === 'verified_official'
+                    ? 'rgba(16, 185, 129, 0.12)'
+                    : 'rgba(234, 179, 8, 0.12)',
+                color:
+                  stagedBreakdown.kind === 'verified_official'
+                    ? 'var(--success)'
+                    : 'var(--warning)',
+                border:
+                  stagedBreakdown.kind === 'verified_official'
+                    ? '1px solid rgba(16, 185, 129, 0.3)'
+                    : '1px solid rgba(234, 179, 8, 0.3)',
               }}
             >
-              Atlas Estimate (Halfway Benchmark)
+              {stagedBreakdown.kind === 'verified_official'
+                ? 'Verified Weighted AS Mark'
+                : 'Atlas Estimate (Provisional AS Benchmark)'}
             </span>
           </div>
 
@@ -435,7 +442,9 @@ export default function TargetGradePlannerSummary({
           >
             <div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                Estimated AS Contribution:
+                {stagedBreakdown.kind === 'verified_official'
+                  ? 'Verified Weighted AS Contribution:'
+                  : 'Estimated AS Contribution:'}
               </div>
               <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                 {stagedBreakdown.kind === 'estimated_halfway'
@@ -463,14 +472,16 @@ export default function TargetGradePlannerSummary({
                   fontSize: '0.875rem',
                   fontWeight: 600,
                   color:
-                    stagedBreakdown.isMathematicallyPossible === true
+                    stagedBreakdown.remainingA2Required === 0 || stagedBreakdown.isMathematicallyPossible === true
                       ? 'var(--success)'
                       : stagedBreakdown.isMathematicallyPossible === false
                       ? 'var(--danger)'
                       : 'var(--text-muted)',
                 }}
               >
-                {stagedBreakdown.isMathematicallyPossible === true
+                {stagedBreakdown.remainingA2Required === 0
+                  ? 'Target met by AS contribution'
+                  : stagedBreakdown.isMathematicallyPossible === true
                   ? 'Mathematically viable'
                   : stagedBreakdown.isMathematicallyPossible === false
                   ? 'Exceeds A2 maximum'

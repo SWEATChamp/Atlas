@@ -16,6 +16,31 @@ interface Props {
   readonly initialResult: PlannerResult
 }
 
+function extractCfTokenFromResult(res: PlannerResult): string | null {
+  if (res.status === 'available' || res.status === 'missing-weighting') {
+    return res.summary.selectedCarryForwardOption?.rawCarryForwardToken ?? null
+  }
+  if (res.status === 'carry-forward-selection-required') {
+    return res.selectedCarryForwardToken
+  }
+  return null
+}
+
+function isCfTokenCompatibleWithResult(res: PlannerResult, token: string | null): boolean {
+  if (!token) return false
+  if (res.status === 'available' || res.status === 'missing-weighting') {
+    return (
+      res.summary.availableCarryForwardOptions?.some(
+        (opt) => opt.rawCarryForwardToken === token
+      ) ?? false
+    )
+  }
+  if (res.status === 'carry-forward-selection-required') {
+    return res.options.some((opt) => opt.rawCarryForwardToken === token)
+  }
+  return false
+}
+
 export default function TargetGradePlanner({
   subjectId,
   subjectColor,
@@ -23,22 +48,64 @@ export default function TargetGradePlanner({
 }: Props) {
   const [result, setResult] = useState<PlannerResult>(initialResult)
   const [prevInitialResult, setPrevInitialResult] = useState<PlannerResult>(initialResult)
+  const [prevSubjectId, setPrevSubjectId] = useState<string>(subjectId)
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({})
+  const [selectedCarryForwardToken, setSelectedCarryForwardToken] = useState<string | null>(() =>
+    extractCfTokenFromResult(initialResult)
+  )
   const [safetyMargin, setSafetyMargin] = useState<SafetyMarginOption>({ type: 'none' })
   const [isPending, startTransition] = useTransition()
   const requestIdRef = useRef(0)
 
-  // Synchronize planner state when parent passes a new initialResult
-  if (prevInitialResult !== initialResult) {
+  // Synchronize planner state when parent passes a new initialResult or subjectId
+  if (prevInitialResult !== initialResult || prevSubjectId !== subjectId) {
+    const subjectChanged = prevSubjectId !== subjectId
+    setPrevSubjectId(subjectId)
     setPrevInitialResult(initialResult)
     setResult(initialResult)
     setSelectedVariants({})
     setSafetyMargin({ type: 'none' })
+    if (subjectChanged) {
+      setSelectedCarryForwardToken(extractCfTokenFromResult(initialResult))
+    } else if (!isCfTokenCompatibleWithResult(initialResult, selectedCarryForwardToken)) {
+      setSelectedCarryForwardToken(extractCfTokenFromResult(initialResult))
+    }
   }
 
   React.useEffect(() => {
     requestIdRef.current++
   }, [initialResult])
+
+  const buildPlanOptions = (
+    overrides: {
+      variants?: Record<string, string>
+      margin?: SafetyMarginOption
+      cfToken?: string | null
+    } = {}
+  ) => {
+    const cf = overrides.cfToken !== undefined ? overrides.cfToken : selectedCarryForwardToken
+    return {
+      selectedVariants: overrides.variants ?? selectedVariants,
+      safetyMargin: overrides.margin ?? safetyMargin,
+      ...(cf ? { selectedCarryForwardToken: cf } : {}),
+    }
+  }
+
+  // Handler for carry-forward sitting selection (race-condition protected)
+  const handleSelectCarryForwardToken = (token: string) => {
+    setSelectedCarryForwardToken(token)
+    const reqId = ++requestIdRef.current
+
+    startTransition(async () => {
+      const updated = await getTargetGradePlan(
+        subjectId,
+        buildPlanOptions({ cfToken: token })
+      )
+      if (reqId === requestIdRef.current) {
+        setResult(updated)
+      }
+    })
+  }
 
   // Handler for variant selection per paper (race-condition protected)
   const handleSelectVariant = (paperId: string, variant: string) => {
@@ -47,11 +114,17 @@ export default function TargetGradePlanner({
     const reqId = ++requestIdRef.current
 
     startTransition(async () => {
-      const updated = await getTargetGradePlan(subjectId, {
-        selectedVariants: nextVariants,
-        safetyMargin,
-      })
+      const updated = await getTargetGradePlan(
+        subjectId,
+        buildPlanOptions({ variants: nextVariants })
+      )
       if (reqId === requestIdRef.current) {
+        if (
+          selectedCarryForwardToken &&
+          !isCfTokenCompatibleWithResult(updated, selectedCarryForwardToken)
+        ) {
+          setSelectedCarryForwardToken(extractCfTokenFromResult(updated))
+        }
         setResult(updated)
       }
     })
@@ -63,10 +136,10 @@ export default function TargetGradePlanner({
     const reqId = ++requestIdRef.current
 
     startTransition(async () => {
-      const updated = await getTargetGradePlan(subjectId, {
-        selectedVariants,
-        safetyMargin: margin,
-      })
+      const updated = await getTargetGradePlan(
+        subjectId,
+        buildPlanOptions({ margin })
+      )
       if (reqId === requestIdRef.current) {
         setResult(updated)
       }
@@ -77,10 +150,7 @@ export default function TargetGradePlanner({
   const handleRetry = () => {
     const reqId = ++requestIdRef.current
     startTransition(async () => {
-      const updated = await getTargetGradePlan(subjectId, {
-        selectedVariants,
-        safetyMargin,
-      })
+      const updated = await getTargetGradePlan(subjectId, buildPlanOptions())
       if (reqId === requestIdRef.current) {
         setResult(updated)
       }
@@ -100,10 +170,10 @@ export default function TargetGradePlanner({
     const reqId = ++requestIdRef.current
 
     startTransition(async () => {
-      const updated = await getTargetGradePlan(subjectId, {
-        selectedVariants: resetVariants,
-        safetyMargin: resetMargin,
-      })
+      const updated = await getTargetGradePlan(
+        subjectId,
+        buildPlanOptions({ variants: resetVariants, margin: resetMargin })
+      )
       if (reqId === requestIdRef.current) {
         setResult(updated)
       }
@@ -161,6 +231,7 @@ export default function TargetGradePlanner({
           <TargetGradePlannerSummary
             summary={result.summary}
             onSelectSafetyMargin={handleSelectSafetyMargin}
+            onSelectCarryForwardToken={handleSelectCarryForwardToken}
           />
 
           <div
@@ -187,6 +258,7 @@ export default function TargetGradePlanner({
           result={result}
           onRetry={handleRetry}
           hasActiveVariantOverrides={hasActiveVariantOverrides}
+          onSelectCarryForwardToken={handleSelectCarryForwardToken}
           onResetVariants={
             result.status === 'threshold-unavailable' && hasActiveVariantOverrides
               ? handleResetVariants

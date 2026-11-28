@@ -12,12 +12,14 @@ import {
   Scale,
 } from 'lucide-react'
 import type { PlannerResult } from '@/lib/planner'
+import CarryForwardSittingSelector from './carry-forward-sitting-selector'
 
 interface Props {
   readonly result: PlannerResult
   readonly onRetry?: () => void
   readonly hasActiveVariantOverrides?: boolean
   readonly onResetVariants?: () => void
+  readonly onSelectCarryForwardToken?: (rawCarryForwardToken: string) => void
 }
 
 export default function TargetGradePlannerEmptyState({
@@ -25,6 +27,7 @@ export default function TargetGradePlannerEmptyState({
   onRetry,
   hasActiveVariantOverrides = false,
   onResetVariants,
+  onSelectCarryForwardToken,
 }: Props) {
   if (result.status === 'available') {
     return null
@@ -324,7 +327,40 @@ export default function TargetGradePlannerEmptyState({
     )
   }
 
-  // 9. Query Failure (Explicit Error State)
+  // 9. Carry-Forward Sitting Selection Required
+  if (result.status === 'carry-forward-selection-required') {
+    return (
+      <section aria-labelledby="planner-cf-selection-heading" style={containerStyle}>
+        <div style={headerRowStyle}>
+          <div style={iconBoxStyle('rgba(59, 130, 246, 0.12)', 'rgba(59, 130, 246, 0.3)')}>
+            <Calendar size={22} color="var(--accent)" aria-hidden="true" />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h2
+              id="planner-cf-selection-heading"
+              style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}
+            >
+              Select Carried AS Sitting
+            </h2>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.5 }}>
+              {result.message}
+            </p>
+            {onSelectCarryForwardToken && (
+              <div style={{ marginTop: 12 }}>
+                <CarryForwardSittingSelector
+                  options={result.options}
+                  selectedToken={result.selectedCarryForwardToken}
+                  onSelect={onSelectCarryForwardToken}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  // 10. Query Failure (Explicit Error State)
   if (result.status === 'query-failure') {
     return (
       <section

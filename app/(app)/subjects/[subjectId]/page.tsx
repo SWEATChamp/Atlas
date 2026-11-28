@@ -16,6 +16,7 @@ import TargetGradePicker from '@/components/subjects/target-grade-picker'
 import ExamDatePicker from '@/components/subjects/exam-date-picker'
 import RouteSelectionBanner from '@/components/subjects/route-selection-banner'
 import TargetGradePlanner from '@/components/subjects/target-grade-planner'
+import SubjectViewTabs, { resolveSubjectDetailView } from '@/components/subjects/subject-view-tabs'
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Calculator, Sigma, Zap, FlaskConical, Leaf, Code2, TrendingUp,
@@ -35,13 +36,18 @@ export async function generateMetadata({
 
 export default async function SubjectDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ subjectId: string }>
+  searchParams?: Promise<{ view?: string | string[] }>
 }) {
   const { subjectId } = await params
+  const resolvedSearchParams = searchParams ? await searchParams : {}
+  const activeView = resolveSubjectDetailView(resolvedSearchParams.view)
+
   const [data, initialTargetPlan] = await Promise.all([
     getSubjectDetail(subjectId),
-    getTargetGradePlan(subjectId),
+    activeView === 'planner' ? getTargetGradePlan(subjectId) : Promise.resolve(null),
   ])
   if (!data) notFound()
 
@@ -184,25 +190,38 @@ export default async function SubjectDetailPage({
         </div>
       </div>
 
-      {/* Target-Grade Marks Planner */}
-      <TargetGradePlanner
-        key={`${subject.id}-${enrollment?.study_route ?? 'no-route'}-${enrollment?.target_grade ?? 'no-grade'}-${enrollment?.exam_date ?? 'no-date'}-${
-          initialTargetPlan.status === 'available' || initialTargetPlan.status === 'missing-weighting' || initialTargetPlan.status === 'impossible-target'
-            ? initialTargetPlan.summary.provenance.publicationId
-            : initialTargetPlan.status
-        }`}
+      {/* Subject section navigation */}
+      <SubjectViewTabs
         subjectId={subject.id}
-        subjectColor={subject.color_hex}
-        initialResult={initialTargetPlan}
+        activeView={activeView}
+        accentColor={subject.color_hex}
       />
 
-      {/* Chapter groups */}
-      <ChapterGroups
-        hasElectiveComponents={subject.code === '9709' || subject.code === '9231'}
-        groups={groups}
-        subjectColor={subject.color_hex}
-        paperSelections={paperSelections}
-      />
+      {activeView === 'planner' && initialTargetPlan ? (
+        <section aria-label="Threshold Planner">
+          <TargetGradePlanner
+            key={`${subject.id}-${enrollment?.study_route ?? 'no-route'}-${enrollment?.target_grade ?? 'no-grade'}-${enrollment?.exam_date ?? 'no-date'}-${
+              initialTargetPlan.status === 'available' ||
+              initialTargetPlan.status === 'missing-weighting' ||
+              initialTargetPlan.status === 'impossible-target'
+                ? initialTargetPlan.summary.provenance.publicationId
+                : initialTargetPlan.status
+            }`}
+            subjectId={subject.id}
+            subjectColor={subject.color_hex}
+            initialResult={initialTargetPlan}
+          />
+        </section>
+      ) : (
+        <section aria-label="Chapters">
+          <ChapterGroups
+            hasElectiveComponents={subject.code === '9709' || subject.code === '9231'}
+            groups={groups}
+            subjectColor={subject.color_hex}
+            paperSelections={paperSelections}
+          />
+        </section>
+      )}
     </div>
   )
 }
